@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 const Profile = () => {
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 lg:pb-8">
       {/* Header with gradient */}
       <div className="relative h-32 bg-gradient-card">
         <div
@@ -14,7 +14,7 @@ const Profile = () => {
       </div>
 
       {/* Profile Content */}
-      <div className="max-w-md mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4 lg:px-8">
         {/* Avatar & Info */}
         <div className="relative -mt-16 mb-6">
           <div className="w-32 h-32 rounded-full bg-secondary border-4 border-background flex items-center justify-center text-4xl font-bold text-primary mb-4">
@@ -59,7 +59,7 @@ const Profile = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="p-4 rounded-xl bg-card border border-border">
             <p className="text-2xl font-bold text-primary mb-1">12</p>
             <p className="text-sm text-muted-foreground">For Sale</p>
@@ -73,7 +73,7 @@ const Profile = () => {
         {/* Collection Preview */}
         <div>
           <h2 className="text-lg font-bold mb-3">Collection Preview</h2>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}

@@ -3,9 +3,9 @@ import { Search } from "lucide-react";
 
 const Marketplace = () => {
   return (
-    <div className="min-h-screen pb-20">
-      <header className="relative pt-8 pb-6 px-4 border-b border-border">
-        <div className="max-w-md mx-auto">
+    <div className="min-h-screen pb-20 lg:pb-8">
+      <header className="relative pt-8 pb-6 px-4 lg:px-8 border-b border-border">
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold mb-4">Marketplace</h1>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />

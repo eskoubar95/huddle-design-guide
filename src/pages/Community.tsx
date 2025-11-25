@@ -3,9 +3,9 @@ import { Users } from "lucide-react";
 
 const Community = () => {
   return (
-    <div className="min-h-screen pb-20">
-      <header className="pt-8 pb-6 px-4 border-b border-border">
-        <div className="max-w-md mx-auto">
+    <div className="min-h-screen pb-20 lg:pb-8">
+      <header className="pt-8 pb-6 px-4 lg:px-8 border-b border-border">
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold">Community</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Connect with jersey collectors
