@@ -19,6 +19,11 @@ interface SearchHistory {
   timestamp: number;
 }
 
+interface TrendingSearch {
+  query: string;
+  count: number;
+}
+
 interface SearchResult {
   type: "jersey" | "user" | "sale" | "auction";
   id: string;
@@ -34,8 +39,60 @@ export const CommandBar = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [trendingSearches, setTrendingSearches] = useState<TrendingSearch[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Load trending searches
+  useEffect(() => {
+    const fetchTrendingSearches = async () => {
+      try {
+        // Get searches from last 7 days, grouped by query
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const { data, error } = await supabase
+          .from("search_analytics")
+          .select("query")
+          .gte("created_at", sevenDaysAgo.toISOString());
+
+        if (error) throw error;
+
+        // Count occurrences and get top 5
+        const queryCounts: { [key: string]: number } = {};
+        data?.forEach((item) => {
+          queryCounts[item.query] = (queryCounts[item.query] || 0) + 1;
+        });
+
+        const trending = Object.entries(queryCounts)
+          .map(([query, count]) => ({ query, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        setTrendingSearches(trending);
+      } catch (error) {
+        console.error("Failed to fetch trending searches:", error);
+      }
+    };
+
+    if (open) {
+      fetchTrendingSearches();
+    }
+  }, [open]);
+
+  // Log search to analytics
+  const logSearch = async (query: string) => {
+    if (!query.trim()) return;
+    
+    try {
+      await supabase.from("search_analytics").insert({
+        query: query.trim(),
+        user_id: user?.id || null,
+      });
+    } catch (error) {
+      console.error("Failed to log search:", error);
+    }
+  };
 
   // Keyboard shortcut hints
   useEffect(() => {
@@ -309,6 +366,7 @@ export const CommandBar = () => {
   }, [open, search]);
 
   const handleSelect = (result: SearchResult) => {
+    logSearch(search); // Log search to analytics
     addToHistory(search); // Add current search to history
     setOpen(false);
     setSearch("");
@@ -320,7 +378,7 @@ export const CommandBar = () => {
     }
   };
 
-  // Handle selecting from history
+  // Handle selecting from history or trending
   const handleHistorySelect = (query: string) => {
     setSearch(query);
   };
@@ -345,7 +403,7 @@ export const CommandBar = () => {
             <CommandList>
           {!search ? (
             <>
-              {searchHistory.length > 0 ? (
+              {searchHistory.length > 0 && (
                 <>
                   <CommandGroup heading="Recent Searches">
                     {searchHistory.map((item) => (
@@ -371,22 +429,52 @@ export const CommandBar = () => {
                     ))}
                   </CommandGroup>
                   <CommandSeparator />
-                  <div className="px-4 py-2">
-                    <button
-                      onClick={clearAllHistory}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Clear all history
-                    </button>
-                  </div>
                 </>
-              ) : (
+              )}
+
+              {trendingSearches.length > 0 && (
+                <>
+                  <CommandGroup heading="Trending Searches">
+                    {trendingSearches.map((item) => (
+                      <CommandItem
+                        key={item.query}
+                        onSelect={() => handleHistorySelect(item.query)}
+                        className="flex items-center gap-3 px-4 py-3"
+                      >
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{item.query}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {item.count} {item.count === 1 ? "search" : "searches"}
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandSeparator />
+                </>
+              )}
+
+              {searchHistory.length === 0 && trendingSearches.length === 0 && (
                 <CommandEmpty>
                   <div className="py-6 text-center text-sm">
                     <Search className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">Start typing to search</p>
                   </div>
                 </CommandEmpty>
+              )}
+
+              {(searchHistory.length > 0 || trendingSearches.length > 0) && (
+                <div className="px-4 py-2">
+                  {searchHistory.length > 0 && (
+                    <button
+                      onClick={clearAllHistory}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Clear history
+                    </button>
+                  )}
+                </div>
               )}
             </>
           ) : results.length === 0 && !loading ? (
