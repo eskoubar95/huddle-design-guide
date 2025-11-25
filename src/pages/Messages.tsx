@@ -4,8 +4,10 @@ import { BottomNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { User, Loader2, MessageSquare } from "lucide-react";
+import { User, Loader2, MessageSquare, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface Conversation {
   id: string;
@@ -38,6 +40,8 @@ const Messages = () => {
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
 
   const fetchConversations = async () => {
     if (!user) return;
@@ -106,6 +110,7 @@ const Messages = () => {
       }) || [];
 
       setConversations(conversationsWithProfiles);
+      setFilteredConversations(conversationsWithProfiles);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       toast({
@@ -153,6 +158,36 @@ const Messages = () => {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredConversations(conversations);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = conversations.filter((conv) => {
+      // Search by username
+      const usernameMatch = conv.otherParticipant.username
+        .toLowerCase()
+        .includes(query);
+
+      // Search by message content
+      const messageMatch = conv.messages.some((msg) =>
+        msg.content.toLowerCase().includes(query)
+      );
+
+      // Search by jersey details
+      const jerseyMatch = conv.jerseys
+        ? conv.jerseys.club.toLowerCase().includes(query) ||
+          conv.jerseys.season.toLowerCase().includes(query)
+        : false;
+
+      return usernameMatch || messageMatch || jerseyMatch;
+    });
+
+    setFilteredConversations(filtered);
+  }, [searchQuery, conversations]);
+
   const getTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -188,20 +223,53 @@ const Messages = () => {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold">Messages</h1>
+          <h1 className="text-2xl font-bold mb-4">Messages</h1>
+          
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search conversations, messages, jerseys..."
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Conversations List */}
       <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
-        {conversations.length === 0 ? (
+        {filteredConversations.length === 0 ? (
           <div className="text-center py-12">
-            <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No messages yet</p>
+            {searchQuery ? (
+              <>
+                <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No conversations found</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try a different search term
+                </p>
+              </>
+            ) : (
+              <>
+                <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No messages yet</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
-            {conversations.map((conversation) => {
+            {filteredConversations.map((conversation) => {
               const lastMessage = conversation.messages[0];
               const unreadCount = getUnreadCount(conversation);
 
