@@ -78,7 +78,15 @@ export type Database = {
           updated_at?: string | null
           winner_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "auctions_jersey_id_fkey"
+            columns: ["jersey_id"]
+            isOneToOne: false
+            referencedRelation: "jerseys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bids: {
         Row: {
@@ -277,7 +285,15 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sale_listings_jersey_id_fkey"
+            columns: ["jersey_id"]
+            isOneToOne: false
+            referencedRelation: "jerseys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_jerseys: {
         Row: {

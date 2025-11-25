@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CreateSaleListing } from "@/components/CreateSaleListing";
 import { CreateAuction } from "@/components/CreateAuction";
 import { PlaceBid } from "@/components/PlaceBid";
+import { CountdownTimer } from "@/components/CountdownTimer";
 import {
   Heart,
   Bookmark,
@@ -100,6 +101,54 @@ const JerseyDetail = () => {
       fetchJerseyDetails();
     }
   }, [id]);
+
+  // Real-time subscription for auction updates
+  useEffect(() => {
+    if (!id || !auction) return;
+
+    const auctionChannel = supabase
+      .channel(`auction-${auction.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "auctions",
+          filter: `id=eq.${auction.id}`,
+        },
+        (payload) => {
+          console.log("Auction updated:", payload);
+          fetchJerseyDetails();
+        }
+      )
+      .subscribe();
+
+    const bidsChannel = supabase
+      .channel(`bids-${auction.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bids",
+          filter: `auction_id=eq.${auction.id}`,
+        },
+        (payload) => {
+          console.log("New bid placed:", payload);
+          fetchJerseyDetails();
+          toast({
+            title: "New Bid!",
+            description: `A new bid of €${payload.new.amount} was placed`,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(auctionChannel);
+      supabase.removeChannel(bidsChannel);
+    };
+  }, [id, auction?.id]);
 
   const fetchJerseyDetails = async () => {
     try {
@@ -487,7 +536,13 @@ const JerseyDetail = () => {
             {/* Listing/Auction Info */}
             {listing && (
               <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-sm text-muted-foreground mb-1">Price</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-muted-foreground">Price</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-muted-foreground">Live</span>
+                  </div>
+                </div>
                 <p className="text-2xl font-bold mb-2">
                   {listing.currency} {listing.price.toLocaleString()}
                   {listing.negotiable && (
@@ -507,11 +562,21 @@ const JerseyDetail = () => {
 
             {auction && (
               <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-sm text-muted-foreground mb-1">Current Bid</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-muted-foreground">Current Bid</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-muted-foreground">Live</span>
+                  </div>
+                </div>
                 <p className="text-2xl font-bold mb-2">
                   {auction.currency}{" "}
                   {(auction.current_bid || auction.starting_bid).toLocaleString()}
                 </p>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-muted-foreground">Ends in</span>
+                  <CountdownTimer endsAt={auction.ends_at} onExpire={() => fetchJerseyDetails()} />
+                </div>
                 {!isOwner && (
                   <Button className="w-full" onClick={() => setShowBidModal(true)}>
                     <Gavel className="w-4 h-4 mr-2" />

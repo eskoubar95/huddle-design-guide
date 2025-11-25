@@ -81,6 +81,50 @@ const Marketplace = () => {
     }
   }, [activeTab, searchQuery, filterType, filterSeason, minPrice, maxPrice, currentPage]);
 
+  // Real-time subscription for auctions
+  useEffect(() => {
+    if (activeTab !== "auctions") return;
+
+    const auctionsChannel = supabase
+      .channel("auctions-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "auctions",
+        },
+        (payload) => {
+          console.log("Auction updated:", payload);
+          // Refresh auctions when any auction changes
+          fetchAuctions();
+        }
+      )
+      .subscribe();
+
+    const bidsChannel = supabase
+      .channel("bids-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bids",
+        },
+        (payload) => {
+          console.log("New bid placed:", payload);
+          // Refresh auctions to show updated current_bid
+          fetchAuctions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(auctionsChannel);
+      supabase.removeChannel(bidsChannel);
+    };
+  }, [activeTab]);
+
   const fetchSales = async () => {
     setLoading(true);
     try {
@@ -495,7 +539,10 @@ const Marketplace = () => {
                       </div>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-muted-foreground">Ends in</span>
-                        <CountdownTimer endsAt={auction.ends_at} />
+                        <CountdownTimer 
+                          endsAt={auction.ends_at} 
+                          onExpire={() => fetchAuctions()} 
+                        />
                       </div>
                       <Button
                         className="w-full"
