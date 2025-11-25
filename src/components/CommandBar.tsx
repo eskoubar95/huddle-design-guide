@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
+  Command,
 } from "@/components/ui/command";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Search, Shirt, User, ShoppingBag, Users, TrendingUp } from "lucide-react";
@@ -259,13 +260,15 @@ export const CommandBar = () => {
   return (
     <>
       {/* Command Dialog */}
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput 
-          placeholder="Search jerseys, users, marketplace..." 
-          value={search}
-          onValueChange={setSearch}
-        />
-        <CommandList>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="overflow-hidden p-0 shadow-lg">
+          <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5" shouldFilter={false}>
+            <CommandInput 
+              placeholder="Search jerseys, users, marketplace..." 
+              value={search}
+              onValueChange={setSearch}
+            />
+            <CommandList>
           {!search ? (
             <CommandEmpty>
               <div className="py-6 text-center text-sm">
@@ -379,8 +382,10 @@ export const CommandBar = () => {
               )}
             </>
           )}
-        </CommandList>
-      </CommandDialog>
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
