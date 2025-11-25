@@ -47,6 +47,8 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -139,6 +141,8 @@ const Chat = () => {
   };
 
   useEffect(() => {
+    if (!conversationId || !user || !conversation) return;
+
     const loadChat = async () => {
       await Promise.all([fetchConversation(), fetchMessages()]);
     };
@@ -146,7 +150,7 @@ const Chat = () => {
     loadChat();
 
     // Subscribe to real-time messages
-    const channel = supabase
+    const messagesChannel = supabase
       .channel(`messages-${conversationId}`)
       .on(
         "postgres_changes",
@@ -171,17 +175,79 @@ const Chat = () => {
       )
       .subscribe();
 
+    // Subscribe to presence for typing indicators
+    const presenceChannel = supabase
+      .channel(`typing-${conversationId}`, {
+        config: { presence: { key: user.id } },
+      })
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const otherUserId = conversation.otherParticipant.id;
+        const otherUserPresence = state[otherUserId];
+        
+        if (otherUserPresence && otherUserPresence.length > 0) {
+          const presenceData = otherUserPresence[0] as any;
+          const isTyping = presenceData.typing === true;
+          setOtherUserTyping(isTyping);
+        } else {
+          setOtherUserTyping(false);
+        }
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(presenceChannel);
     };
-  }, [conversationId, user]);
+  }, [conversationId, user, conversation]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  const updateTypingStatus = async (typing: boolean) => {
+    if (!conversationId || !user) return;
+
+    const channel = supabase.channel(`typing-${conversationId}`);
+    await channel.track({ typing, user_id: user.id });
+  };
+
+  const handleInputChange = (value: string) => {
+    setNewMessage(value);
+
+    if (!value.trim()) {
+      updateTypingStatus(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      return;
+    }
+
+    // Start typing
+    updateTypingStatus(true);
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      updateTypingStatus(false);
+    }, 2000);
+  };
+
   const handleSend = async () => {
     if (!newMessage.trim() || !user || !conversationId) return;
+
+    // Clear typing status
+    updateTypingStatus(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     setSending(true);
     try {
@@ -331,6 +397,20 @@ const Chat = () => {
               </div>
             );
           })}
+          
+          {/* Typing Indicator */}
+          {otherUserTyping && (
+            <div className="flex justify-start">
+              <div className="bg-secondary rounded-lg px-4 py-3">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -341,7 +421,7 @@ const Chat = () => {
           <div className="flex gap-2">
             <Input
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => handleInputChange(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder="Type a message..."
               className="flex-1"
