@@ -3,10 +3,50 @@ import { SidebarNavLink } from "./SidebarNavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Sidebar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadCount = async () => {
+      const { data: conversations } = await supabase
+        .from("conversations")
+        .select(`
+          id,
+          participant_1_id,
+          participant_2_id,
+          messages!inner(read, sender_id)
+        `)
+        .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`);
+
+      const count = conversations?.reduce((acc, conv) => {
+        return acc + conv.messages.filter((m: any) => !m.read && m.sender_id !== user.id).length;
+      }, 0) || 0;
+
+      setUnreadCount(count);
+    };
+
+    fetchUnreadCount();
+
+    const channel = supabase
+      .channel("unread-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => fetchUnreadCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const handleAuthAction = () => {
     if (user) {
@@ -32,7 +72,7 @@ export const Sidebar = () => {
         <SidebarNavLink to="/community" icon={Users} label="Community" />
         <SidebarNavLink to="/profile" icon={User} label="Profile" />
         <div className="pt-4 mt-4 border-t border-border">
-          <SidebarNavLink to="/messages" icon={MessageSquare} label="Messages" />
+          <SidebarNavLink to="/messages" icon={MessageSquare} label="Messages" badge={unreadCount} />
           <SidebarNavLink to="/notifications" icon={Bell} label="Notifications" />
           <SidebarNavLink to="/settings" icon={Settings} label="Settings" />
         </div>

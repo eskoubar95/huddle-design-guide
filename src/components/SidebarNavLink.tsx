@@ -6,9 +6,10 @@ interface SidebarNavLinkProps {
   to: string;
   icon: LucideIcon;
   label: string;
+  badge?: number;
 }
 
-export const SidebarNavLink = ({ to, icon: Icon, label }: SidebarNavLinkProps) => {
+export const SidebarNavLink = ({ to, icon: Icon, label, badge }: SidebarNavLinkProps) => {
   const location = useLocation();
   const isActive = location.pathname === to;
 
@@ -24,6 +25,13 @@ export const SidebarNavLink = ({ to, icon: Icon, label }: SidebarNavLinkProps) =
     >
       <Icon className="w-5 h-5" />
       <span>{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-primary flex items-center justify-center">
+          <span className="text-xs text-primary-foreground font-bold">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        </span>
+      )}
     </Link>
   );
 };
