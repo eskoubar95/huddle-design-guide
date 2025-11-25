@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CommandBar } from "./CommandBar";
 
 export const Sidebar = () => {
   const { user, signOut } = useAuth();
@@ -63,11 +62,6 @@ export const Sidebar = () => {
       <div className="p-6">
         <h1 className="text-2xl font-bold text-foreground">Huddle</h1>
         <p className="text-xs text-muted-foreground mt-1">Jersey Collection</p>
-      </div>
-
-      {/* Search Bar */}
-      <div className="px-4 mb-4">
-        <CommandBar />
       </div>
 
       {/* Navigation */}
