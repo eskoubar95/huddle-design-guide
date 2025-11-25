@@ -164,8 +164,16 @@ const Profile = () => {
         <div className="max-w-4xl mx-auto px-4 lg:px-8">
           {/* Avatar & Info */}
           <div className="relative -mt-16 mb-6">
-            <div className="w-32 h-32 rounded-full bg-secondary border-4 border-background flex items-center justify-center text-4xl font-bold text-foreground mb-4">
-              {profile.username.charAt(0).toUpperCase()}
+            <div className="w-32 h-32 rounded-full bg-secondary border-4 border-background flex items-center justify-center text-4xl font-bold text-foreground mb-4 overflow-hidden">
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                profile.username.charAt(0).toUpperCase()
+              )}
             </div>
             <div className="flex items-start justify-between">
               <div className="flex-1">
