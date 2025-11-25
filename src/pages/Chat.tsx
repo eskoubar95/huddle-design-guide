@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, User, Loader2, Check, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -171,6 +171,23 @@ const Chat = () => {
               .eq("id", payload.new.id)
               .then(() => {});
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          // Update read status in real-time
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === payload.new.id ? (payload.new as Message) : msg
+            )
+          );
         }
       )
       .subscribe();
@@ -385,14 +402,23 @@ const Chat = () => {
                   )}
                 >
                   <p className="text-sm">{message.content}</p>
-                  <p
+                  <div
                     className={cn(
-                      "text-xs mt-1",
+                      "flex items-center gap-1 text-xs mt-1",
                       isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
                     )}
                   >
-                    {getTimeDisplay(message.created_at)}
-                  </p>
+                    <span>{getTimeDisplay(message.created_at)}</span>
+                    {isOwn && (
+                      <span className="flex-shrink-0">
+                        {message.read ? (
+                          <CheckCheck className="w-3.5 h-3.5" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             );
