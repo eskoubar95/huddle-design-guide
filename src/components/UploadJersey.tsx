@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge as BadgeUI } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -491,19 +492,27 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
                 </div>
 
                 <div>
-                  <Label htmlFor="visibility">Visibility</Label>
-                  <Select
-                    value={visibility}
-                    onValueChange={(v) => setVisibility(v as "public" | "private")}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public">Public - Visible to everyone</SelectItem>
-                      <SelectItem value="private">Private - Only you can see</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <Label htmlFor="visibility">Visibility</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {visibility === "public"
+                          ? "Everyone can see this jersey"
+                          : "Only you can see this jersey"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">Private</span>
+                      <Switch
+                        id="visibility"
+                        checked={visibility === "public"}
+                        onCheckedChange={(checked) =>
+                          setVisibility(checked ? "public" : "private")
+                        }
+                      />
+                      <span className="text-sm font-medium">Public</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
