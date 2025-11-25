@@ -160,6 +160,66 @@ export const CommandBar = () => {
     return () => clearTimeout(debounce);
   }, [search]);
 
+  // Real-time subscriptions for live search updates
+  useEffect(() => {
+    if (!open || !search.trim()) return;
+
+    const channels = [
+      supabase
+        .channel("search-jerseys")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "jerseys" },
+          () => {
+            // Trigger re-search when jerseys change
+            setSearch((s) => s + " ");
+            setTimeout(() => setSearch((s) => s.trim()), 10);
+          }
+        )
+        .subscribe(),
+      
+      supabase
+        .channel("search-profiles")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "profiles" },
+          () => {
+            setSearch((s) => s + " ");
+            setTimeout(() => setSearch((s) => s.trim()), 10);
+          }
+        )
+        .subscribe(),
+      
+      supabase
+        .channel("search-sales")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "sale_listings" },
+          () => {
+            setSearch((s) => s + " ");
+            setTimeout(() => setSearch((s) => s.trim()), 10);
+          }
+        )
+        .subscribe(),
+      
+      supabase
+        .channel("search-auctions")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "auctions" },
+          () => {
+            setSearch((s) => s + " ");
+            setTimeout(() => setSearch((s) => s.trim()), 10);
+          }
+        )
+        .subscribe(),
+    ];
+
+    return () => {
+      channels.forEach((channel) => supabase.removeChannel(channel));
+    };
+  }, [open, search]);
+
   const handleSelect = (result: SearchResult) => {
     setOpen(false);
     setSearch("");
