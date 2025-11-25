@@ -37,6 +37,27 @@ export const CommandBar = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Keyboard shortcut hints
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to close
+      if (e.key === "Escape") {
+        setOpen(false);
+        setSearch("");
+      }
+      // Cmd/Ctrl + Backspace to clear search
+      if ((e.metaKey || e.ctrlKey) && e.key === "Backspace" && search) {
+        e.preventDefault();
+        setSearch("");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, search]);
+
   // Load search history from localStorage
   useEffect(() => {
     const history = localStorage.getItem("searchHistory");
@@ -475,6 +496,29 @@ export const CommandBar = () => {
             </>
           )}
             </CommandList>
+            
+            {/* Keyboard shortcuts hint */}
+            <div className="border-t border-border px-4 py-2 text-xs text-muted-foreground flex items-center justify-between bg-secondary/30">
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-background border border-border rounded">↑↓</kbd>
+                  Navigate
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-background border border-border rounded">↵</kbd>
+                  Select
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-background border border-border rounded">ESC</kbd>
+                  Close
+                </span>
+              </div>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-background border border-border rounded">⌘</kbd>
+                <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-background border border-border rounded">⌫</kbd>
+                Clear
+              </span>
+            </div>
           </Command>
         </DialogContent>
       </Dialog>
