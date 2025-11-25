@@ -17,7 +17,7 @@ const Profile = () => {
       <div className="max-w-4xl mx-auto px-4 lg:px-8">
         {/* Avatar & Info */}
         <div className="relative -mt-16 mb-6">
-          <div className="w-32 h-32 rounded-full bg-secondary border-4 border-background flex items-center justify-center text-4xl font-bold text-primary mb-4">
+          <div className="w-32 h-32 rounded-full bg-secondary border-4 border-background flex items-center justify-center text-4xl font-bold text-foreground mb-4">
             JC
           </div>
           <div className="flex items-start justify-between">
@@ -46,13 +46,13 @@ const Profile = () => {
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-4">
-            <Button className="flex-1 bg-primary hover:bg-primary/90 shadow-glow">
+            <Button variant="secondary" className="flex-1">
               Edit Profile
             </Button>
-            <Button variant="outline" size="icon" className="border-border hover:border-primary">
+            <Button variant="outline" size="icon" className="border-border hover:bg-secondary">
               <Share2 className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="icon" className="border-border hover:border-primary">
+            <Button variant="outline" size="icon" className="border-border hover:bg-secondary">
               <Settings className="w-4 h-4" />
             </Button>
           </div>
@@ -61,11 +61,11 @@ const Profile = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="p-4 rounded-xl bg-card border border-border">
-            <p className="text-2xl font-bold text-primary mb-1">12</p>
+            <p className="text-2xl font-bold text-foreground mb-1">12</p>
             <p className="text-sm text-muted-foreground">For Sale</p>
           </div>
           <div className="p-4 rounded-xl bg-card border border-border">
-            <p className="text-2xl font-bold text-accent mb-1">3</p>
+            <p className="text-2xl font-bold text-foreground mb-1">3</p>
             <p className="text-sm text-muted-foreground">Active Auctions</p>
           </div>
         </div>

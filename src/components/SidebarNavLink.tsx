@@ -18,8 +18,8 @@ export const SidebarNavLink = ({ to, icon: Icon, label }: SidebarNavLinkProps) =
       className={cn(
         "flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth text-sm font-medium",
         isActive
-          ? "bg-primary text-primary-foreground shadow-glow"
-          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          ? "bg-secondary text-foreground border-l-2 border-primary"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
       )}
     >
       <Icon className="w-5 h-5" />
