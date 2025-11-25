@@ -14,6 +14,8 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import JerseyDetail from "./pages/JerseyDetail";
 import UserProfile from "./pages/UserProfile";
+import Messages from "./pages/Messages";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +39,8 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/jersey/:id" element={<JerseyDetail />} />
             <Route path="/user/:userId" element={<UserProfile />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/chat/:conversationId" element={<Chat />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -81,10 +81,13 @@ export type NotificationType =
   | "save"
   | "outbid"
   | "bid"
+  | "bid_placed"
   | "auction_won"
   | "interest"
   | "sold"
-  | "auction_ended";
+  | "item_sold"
+  | "auction_ended"
+  | "message";
 
 export interface User {
   id: string;

@@ -1,4 +1,4 @@
-import { Home, ShoppingBag, Shirt, Users, User as UserIcon } from "lucide-react";
+import { Home, ShoppingBag, Shirt, Users, MessageSquare } from "lucide-react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +8,7 @@ const navItems = [
   { to: "/marketplace", icon: ShoppingBag, label: "Shop" },
   { to: "/wardrobe", icon: Shirt, label: "Wardrobe" },
   { to: "/community", icon: Users, label: "Community" },
-  { to: "/profile", icon: UserIcon, label: "Profile" },
+  { to: "/messages", icon: MessageSquare, label: "Messages" },
 ];
 
 export const BottomNav = () => {
@@ -18,7 +18,7 @@ export const BottomNav = () => {
 
   const handleNavClick = (to: string, e: React.MouseEvent) => {
     // Protect certain routes
-    if (!user && (to === "/wardrobe" || to === "/profile")) {
+    if (!user && (to === "/wardrobe" || to === "/messages")) {
       e.preventDefault();
       navigate("/auth");
     }
