@@ -6,8 +6,17 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, User, Loader2, Check, CheckCheck, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, Send, User, Loader2, Check, CheckCheck, Image as ImageIcon, X, Smile } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+interface Reaction {
+  id: string;
+  emoji: string;
+  user_id: string;
+  count?: number;
+  users?: string[];
+}
 
 interface Message {
   id: string;
@@ -16,6 +25,7 @@ interface Message {
   created_at: string;
   read: boolean;
   images?: string[];
+  reactions?: Reaction[];
 }
 
 interface Conversation {
@@ -53,6 +63,9 @@ const Chat = () => {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, Reaction[]>>({});
+
+  const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -122,6 +135,49 @@ const Chat = () => {
 
       if (error) throw error;
       setMessages(data || []);
+
+      // Fetch reactions for all messages
+      if (data && data.length > 0) {
+        const { data: reactionsData } = await supabase
+          .from("message_reactions")
+          .select("*")
+          .in("message_id", data.map(m => m.id));
+
+        if (reactionsData) {
+          const reactionsByMessage: Record<string, Reaction[]> = {};
+          reactionsData.forEach(reaction => {
+            if (!reactionsByMessage[reaction.message_id]) {
+              reactionsByMessage[reaction.message_id] = [];
+            }
+            reactionsByMessage[reaction.message_id].push({
+              id: reaction.id,
+              emoji: reaction.emoji,
+              user_id: reaction.user_id,
+            });
+          });
+          
+          // Group reactions by emoji
+          Object.keys(reactionsByMessage).forEach(messageId => {
+            const grouped: Record<string, Reaction> = {};
+            reactionsByMessage[messageId].forEach(reaction => {
+              if (!grouped[reaction.emoji]) {
+                grouped[reaction.emoji] = {
+                  id: reaction.id,
+                  emoji: reaction.emoji,
+                  user_id: reaction.user_id,
+                  count: 0,
+                  users: [],
+                };
+              }
+              grouped[reaction.emoji].count! += 1;
+              grouped[reaction.emoji].users!.push(reaction.user_id);
+            });
+            reactionsByMessage[messageId] = Object.values(grouped);
+          });
+
+          setMessageReactions(reactionsByMessage);
+        }
+      }
 
       // Mark messages as read
       const unreadMessages = data?.filter(
@@ -196,6 +252,23 @@ const Chat = () => {
       )
       .subscribe();
 
+    // Subscribe to reactions
+    const reactionsChannel = supabase
+      .channel(`reactions-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reactions",
+        },
+        () => {
+          // Refetch reactions when they change
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
     // Subscribe to presence for typing indicators
     const presenceChannel = supabase
       .channel(`typing-${conversationId}`, {
@@ -222,12 +295,50 @@ const Chat = () => {
       }
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(reactionsChannel);
     };
   }, [conversationId, user, conversation]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    try {
+      // Check if user already reacted with this emoji
+      const existingReaction = messageReactions[messageId]?.find(
+        r => r.emoji === emoji && r.users?.includes(user.id)
+      );
+
+      if (existingReaction) {
+        // Remove reaction
+        await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("message_id", messageId)
+          .eq("user_id", user.id)
+          .eq("emoji", emoji);
+      } else {
+        // Add reaction
+        await supabase
+          .from("message_reactions")
+          .insert({
+            message_id: messageId,
+            user_id: user.id,
+            emoji,
+          });
+      }
+    } catch (error) {
+      console.error("Error handling reaction:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add reaction",
+        variant: "destructive",
+      });
+    }
+  };
 
   const updateTypingStatus = async (typing: boolean) => {
     if (!conversationId || !user) return;
@@ -460,47 +571,92 @@ const Chat = () => {
                 key={message.id}
                 className={cn("flex", isOwn ? "justify-end" : "justify-start")}
               >
-                <div
-                  className={cn(
-                    "max-w-[70%] rounded-lg px-4 py-2",
-                    isOwn
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary"
-                  )}
-                >
-                  {message.images && message.images.length > 0 && (
-                    <div className={cn(
-                      "grid gap-2 mb-2",
-                      message.images.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                    )}>
-                      {message.images.map((imageUrl, idx) => (
-                        <img
-                          key={idx}
-                          src={imageUrl}
-                          alt=""
-                          className="rounded max-h-60 w-full object-cover cursor-pointer"
-                          onClick={() => window.open(imageUrl, "_blank")}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {message.content && <p className="text-sm">{message.content}</p>}
+                <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
                   <div
                     className={cn(
-                      "flex items-center gap-1 text-xs mt-1",
-                      isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                      "max-w-[70%] rounded-lg px-4 py-2",
+                      isOwn
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary"
                     )}
                   >
-                    <span>{getTimeDisplay(message.created_at)}</span>
-                    {isOwn && (
-                      <span className="flex-shrink-0">
-                        {message.read ? (
-                          <CheckCheck className="w-3.5 h-3.5" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5" />
-                        )}
-                      </span>
+                    {message.images && message.images.length > 0 && (
+                      <div className={cn(
+                        "grid gap-2 mb-2",
+                        message.images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                      )}>
+                        {message.images.map((imageUrl, idx) => (
+                          <img
+                            key={idx}
+                            src={imageUrl}
+                            alt=""
+                            className="rounded max-h-60 w-full object-cover cursor-pointer"
+                            onClick={() => window.open(imageUrl, "_blank")}
+                          />
+                        ))}
+                      </div>
                     )}
+                    {message.content && <p className="text-sm">{message.content}</p>}
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 text-xs mt-1",
+                        isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                      )}
+                    >
+                      <span>{getTimeDisplay(message.created_at)}</span>
+                      {isOwn && (
+                        <span className="flex-shrink-0">
+                          {message.read ? (
+                            <CheckCheck className="w-3.5 h-3.5" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reactions */}
+                  <div className="flex items-center gap-1 mt-1">
+                    {messageReactions[message.id] && messageReactions[message.id].length > 0 && (
+                      <div className="flex gap-1">
+                        {messageReactions[message.id].map((reaction) => (
+                          <button
+                            key={reaction.emoji}
+                            onClick={() => handleReaction(message.id, reaction.emoji)}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-secondary hover:bg-secondary/80 transition-colors border",
+                              reaction.users?.includes(user?.id || "") && "border-primary"
+                            )}
+                          >
+                            <span>{reaction.emoji}</span>
+                            <span className="text-muted-foreground">{reaction.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Add Reaction Button */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="p-1 rounded-full hover:bg-secondary transition-colors">
+                          <Smile className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-2" align={isOwn ? "end" : "start"}>
+                        <div className="flex gap-2">
+                          {EMOJI_OPTIONS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => handleReaction(message.id, emoji)}
+                              className="text-2xl hover:scale-125 transition-transform"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>
