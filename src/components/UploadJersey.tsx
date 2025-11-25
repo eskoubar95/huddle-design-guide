@@ -1,22 +1,29 @@
-import { useState } from "react";
-import { X, Upload, ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Upload, ImageIcon, GripVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Badge, JerseyType } from "@/types";
-import { cn } from "@/lib/utils";
+import { Badge as BadgeUI } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { z } from "zod";
 
 interface UploadJerseyProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-const jerseyTypes: JerseyType[] = [
+const JERSEY_TYPES = [
   "Home",
   "Away",
   "Third",
@@ -27,80 +34,229 @@ const jerseyTypes: JerseyType[] = [
   "GK Third",
 ];
 
-const badges: Badge[] = [
-  "Champions League",
+const COMPETITION_BADGES = [
+  "UEFA Champions League",
+  "UEFA Europa League",
   "Premier League",
   "Serie A",
   "La Liga",
   "Bundesliga",
-  "FIFA Club WC",
-  "Other",
+  "Ligue 1",
+  "FIFA Club World Cup",
+  "Copa Libertadores",
 ];
 
-const seasons = Array.from({ length: 36 }, (_, i) => {
-  const year = 2025 - i;
-  return `${year}/${(year + 1).toString().slice(2)}`;
+const jerseySchema = z.object({
+  club: z.string().trim().min(1, "Club name is required").max(100),
+  season: z.string().trim().min(1, "Season is required").max(20),
+  jerseyType: z.string().min(1, "Jersey type is required"),
+  playerName: z.string().trim().max(50).optional(),
+  playerNumber: z.string().trim().max(3).optional(),
+  competitionBadges: z.array(z.string()).optional(),
+  conditionRating: z.number().min(1).max(10),
+  notes: z.string().trim().max(1000).optional(),
+  visibility: z.enum(["public", "private"]),
 });
 
-export const UploadJersey = ({ isOpen, onClose }: UploadJerseyProps) => {
+interface ImageFile {
+  id: string;
+  file: File;
+  preview: string;
+}
+
+export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) => {
   const [step, setStep] = useState(1);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
   const [club, setClub] = useState("");
   const [season, setSeason] = useState("");
-  const [type, setType] = useState<JerseyType | "">("");
-  const [hasPlayer, setHasPlayer] = useState(false);
+  const [jerseyType, setJerseyType] = useState("");
   const [playerName, setPlayerName] = useState("");
   const [playerNumber, setPlayerNumber] = useState("");
-  const [selectedBadges, setSelectedBadges] = useState<Badge[]>([]);
-  const [condition, setCondition] = useState([8]);
+  const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
+  const [conditionRating, setConditionRating] = useState([8]);
   const [notes, setNotes] = useState("");
-  const [isPublic, setIsPublic] = useState(true);
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const totalSteps = 9;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remainingSlots = 10 - images.length;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newImages = Array.from(files).map((file) => URL.createObjectURL(file));
-      setImages((prev) => [...prev, ...newImages].slice(0, 10));
+    if (files.length > remainingSlots) {
+      toast({
+        title: "Too Many Images",
+        description: `You can only upload ${remainingSlots} more image(s)`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    files.forEach((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: `${file.name} is larger than 5MB`,
+          variant: "destructive",
+        });
+        return;
+      }
+    });
+
+    const newImages: ImageFile[] = files
+      .filter((file) => file.size <= 5 * 1024 * 1024)
+      .map((file) => ({
+        id: Math.random().toString(36),
+        file,
+        preview: URL.createObjectURL(file),
+      }));
+
+    setImages([...images, ...newImages]);
+  };
+
+  const removeImage = (id: string) => {
+    const image = images.find((img) => img.id === id);
+    if (image) {
+      URL.revokeObjectURL(image.preview);
+    }
+    setImages(images.filter((img) => img.id !== id));
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newImages = [...images];
+    const draggedImage = newImages[draggedIndex];
+    newImages.splice(draggedIndex, 1);
+    newImages.splice(index, 0, draggedImage);
+    setImages(newImages);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const toggleBadge = (badge: string) => {
+    if (selectedBadges.includes(badge)) {
+      setSelectedBadges(selectedBadges.filter((b) => b !== badge));
+    } else {
+      setSelectedBadges([...selectedBadges, badge]);
     }
   };
 
-  const toggleBadge = (badge: Badge) => {
-    setSelectedBadges((prev) =>
-      prev.includes(badge) ? prev.filter((b) => b !== badge) : [...prev, badge]
-    );
-  };
+  const handleSubmit = async () => {
+    if (images.length < 4) {
+      toast({
+        title: "Not Enough Images",
+        description: "Please upload at least 4 images",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const handleNext = () => {
-    if (step < totalSteps) setStep(step + 1);
-  };
+    try {
+      const validated = jerseySchema.parse({
+        club,
+        season,
+        jerseyType,
+        playerName: playerName || undefined,
+        playerNumber: playerNumber || undefined,
+        competitionBadges: selectedBadges.length > 0 ? selectedBadges : undefined,
+        conditionRating: conditionRating[0],
+        notes: notes || undefined,
+        visibility,
+      });
 
-  const handleBack = () => {
-    if (step > 1) setStep(step - 1);
-  };
+      setIsSubmitting(true);
 
-  const handleFinish = () => {
-    toast({
-      title: "Jersey Uploaded!",
-      description: "Your jersey has been added to your wardrobe.",
-    });
-    onClose();
-    // Reset form
-    setStep(1);
-    setImages([]);
-    setClub("");
-    setSeason("");
-    setType("");
-    setHasPlayer(false);
-    setPlayerName("");
-    setPlayerNumber("");
-    setSelectedBadges([]);
-    setCondition([8]);
-    setNotes("");
-    setIsPublic(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          title: "Not Authenticated",
+          description: "Please log in to upload a jersey",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Upload images to storage
+      const imageUrls: string[] = [];
+      for (const image of images) {
+        const fileExt = image.file.name.split(".").pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("jersey_images")
+          .upload(filePath, image.file);
+
+        if (uploadError) throw uploadError;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("jersey_images").getPublicUrl(filePath);
+
+        imageUrls.push(publicUrl);
+      }
+
+      // Create jersey record
+      const { error: jerseyError } = await supabase.from("jerseys").insert({
+        owner_id: user.id,
+        club: validated.club,
+        season: validated.season,
+        jersey_type: validated.jerseyType,
+        player_name: validated.playerName,
+        player_number: validated.playerNumber,
+        competition_badges: validated.competitionBadges,
+        condition_rating: validated.conditionRating,
+        notes: validated.notes,
+        visibility: validated.visibility,
+        images: imageUrls,
+      });
+
+      if (jerseyError) throw jerseyError;
+
+      toast({
+        title: "Jersey Uploaded!",
+        description: "Your jersey has been added to your collection",
+      });
+
+      // Cleanup
+      images.forEach((img) => URL.revokeObjectURL(img.preview));
+
+      onSuccess?.();
+      onClose();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const firstError = error.issues[0];
+        toast({
+          title: "Validation Error",
+          description: firstError.message,
+          variant: "destructive",
+        });
+      } else {
+        console.error("Error uploading jersey:", error);
+        toast({
+          title: "Error",
+          description: "Failed to upload jersey. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const canProceed = () => {
@@ -108,13 +264,254 @@ export const UploadJersey = ({ isOpen, onClose }: UploadJerseyProps) => {
       case 1:
         return images.length >= 4;
       case 2:
-        return club && season;
-      case 3:
-        return type;
-      case 4:
-        return !hasPlayer || (playerName && playerNumber);
+        return club && season && jerseyType;
       default:
         return true;
+    }
+  };
+
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold mb-2">Upload Images (4-10 photos)</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Add at least 4 photos. Drag to reorder. First image will be the cover.
+              </p>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                {images.map((image, index) => (
+                  <div
+                    key={image.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className="relative aspect-[3/4] rounded-lg border-2 border-border overflow-hidden group cursor-move hover:border-primary transition-colors"
+                  >
+                    <img
+                      src={image.preview}
+                      alt={`Upload ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <GripVertical className="w-6 h-6 text-white" />
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeImage(image.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                    {index === 0 && (
+                      <BadgeUI className="absolute top-2 left-2">Cover</BadgeUI>
+                    )}
+                  </div>
+                ))}
+
+                {images.length < 10 && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-[3/4] rounded-lg border-2 border-dashed border-border hover:border-primary flex flex-col items-center justify-center gap-2 transition-colors"
+                  >
+                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Add Photo</span>
+                  </button>
+                )}
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {images.length}/10 images • Max 5MB per image
+              </p>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold mb-4">Jersey Information</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="club">Club *</Label>
+                  <Input
+                    id="club"
+                    placeholder="e.g., Real Madrid, Manchester United"
+                    value={club}
+                    onChange={(e) => setClub(e.target.value)}
+                    className="mt-2"
+                    maxLength={100}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="season">Season *</Label>
+                  <Input
+                    id="season"
+                    placeholder="e.g., 2023/24, 2022-23"
+                    value={season}
+                    onChange={(e) => setSeason(e.target.value)}
+                    className="mt-2"
+                    maxLength={20}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="jerseyType">Jersey Type *</Label>
+                  <Select value={jerseyType} onValueChange={setJerseyType}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select jersey type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {JERSEY_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold mb-4">Player Print (Optional)</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="playerName">Player Name</Label>
+                  <Input
+                    id="playerName"
+                    placeholder="e.g., Messi, Ronaldo"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    className="mt-2"
+                    maxLength={50}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="playerNumber">Player Number</Label>
+                  <Input
+                    id="playerNumber"
+                    placeholder="e.g., 10, 7"
+                    value={playerNumber}
+                    onChange={(e) => setPlayerNumber(e.target.value)}
+                    className="mt-2"
+                    maxLength={3}
+                  />
+                </div>
+
+                <div>
+                  <Label>Competition Badges</Label>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Select all badges that appear on this jersey
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {COMPETITION_BADGES.map((badge) => (
+                      <BadgeUI
+                        key={badge}
+                        variant={selectedBadges.includes(badge) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => toggleBadge(badge)}
+                      >
+                        {badge}
+                      </BadgeUI>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold mb-4">Condition & Notes</h3>
+
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <Label>Condition Rating</Label>
+                    <span className="text-2xl font-bold text-primary">
+                      {conditionRating[0]}/10
+                    </span>
+                  </div>
+                  <Slider
+                    value={conditionRating}
+                    onValueChange={setConditionRating}
+                    min={1}
+                    max={10}
+                    step={1}
+                    className="mt-2"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>Poor</span>
+                    <span>Good</span>
+                    <span>Excellent</span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Any additional details about the jersey (defects, authenticity, history, etc.)"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                    className="mt-2"
+                    maxLength={1000}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {notes.length}/1000 characters
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <Select
+                    value={visibility}
+                    onValueChange={(v) => setVisibility(v as "public" | "private")}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public - Visible to everyone</SelectItem>
+                      <SelectItem value="private">Private - Only you can see</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
@@ -125,365 +522,81 @@ export const UploadJersey = ({ isOpen, onClose }: UploadJerseyProps) => {
         <header className="border-b border-border bg-card">
           <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={onClose}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                disabled={isSubmitting}
+              >
                 <X className="w-5 h-5" />
               </Button>
               <div>
                 <h2 className="text-xl font-bold">Upload Jersey</h2>
-                <p className="text-sm text-muted-foreground">
-                  Step {step} of {totalSteps}
-                </p>
+                <p className="text-sm text-muted-foreground">Step {step} of 4</p>
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {Math.round((step / totalSteps) * 100)}%
-            </div>
-          </div>
-          {/* Progress bar */}
-          <div className="h-1 bg-secondary">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${(step / totalSteps) * 100}%` }}
-            />
           </div>
         </header>
 
+        {/* Progress Bar */}
+        <div className="h-1 bg-secondary">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${(step / 4) * 100}%` }}
+          />
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-4 py-8">
-            {/* Step 1: Images */}
-            {step === 1 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Upload Images</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Add 4-10 photos of your jersey
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {images.map((img, index) => (
-                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-secondary">
-                      <img src={img} alt={`Jersey ${index + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => setImages(images.filter((_, i) => i !== index))}
-                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-background/90 flex items-center justify-center"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  {images.length < 10 && (
-                    <label className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors">
-                      <Upload className="w-8 h-8 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Add Photo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Club & Season */}
-            {step === 2 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Club & Season</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Select the club and season
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="club">Club</Label>
-                    <Input
-                      id="club"
-                      placeholder="e.g., FC Barcelona"
-                      value={club}
-                      onChange={(e) => setClub(e.target.value)}
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="season">Season</Label>
-                    <Select value={season} onValueChange={setSeason}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select season" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {seasons.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Jersey Type */}
-            {step === 3 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Jersey Type</h3>
-                  <p className="text-sm text-muted-foreground">
-                    What type of jersey is this?
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {jerseyTypes.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setType(t)}
-                      className={cn(
-                        "p-4 rounded-lg border-2 transition-colors text-left",
-                        type === t
-                          ? "border-primary bg-secondary"
-                          : "border-border hover:border-muted"
-                      )}
-                    >
-                      <span className="font-medium">{t}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Player Print */}
-            {step === 4 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Player Print</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Does the jersey have a player name and number?
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Switch checked={hasPlayer} onCheckedChange={setHasPlayer} />
-                  <Label>Has player print</Label>
-                </div>
-                {hasPlayer && (
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="playerName">Player Name</Label>
-                      <Input
-                        id="playerName"
-                        placeholder="e.g., Messi"
-                        value={playerName}
-                        onChange={(e) => setPlayerName(e.target.value)}
-                        className="mt-2"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="playerNumber">Number</Label>
-                      <Input
-                        id="playerNumber"
-                        type="number"
-                        placeholder="e.g., 10"
-                        value={playerNumber}
-                        onChange={(e) => setPlayerNumber(e.target.value)}
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 5: Badges */}
-            {step === 5 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Competition Badges</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Select any badges on the jersey
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {badges.map((badge) => (
-                    <button
-                      key={badge}
-                      onClick={() => toggleBadge(badge)}
-                      className={cn(
-                        "p-4 rounded-lg border-2 transition-colors text-left relative",
-                        selectedBadges.includes(badge)
-                          ? "border-primary bg-secondary"
-                          : "border-border hover:border-muted"
-                      )}
-                    >
-                      <span className="font-medium text-sm">{badge}</span>
-                      {selectedBadges.includes(badge) && (
-                        <Check className="w-5 h-5 text-primary absolute top-2 right-2" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 6: Condition */}
-            {step === 6 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Condition</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Rate the condition of your jersey (1-10)
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-5xl font-bold text-primary">{condition[0]}</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {condition[0] <= 3 && "Poor - Significant wear"}
-                      {condition[0] > 3 && condition[0] <= 6 && "Good - Minor wear"}
-                      {condition[0] > 6 && condition[0] <= 8 && "Very Good - Light wear"}
-                      {condition[0] > 8 && "Excellent - Like new"}
-                    </div>
-                  </div>
-                  <Slider
-                    value={condition}
-                    onValueChange={setCondition}
-                    min={1}
-                    max={10}
-                    step={1}
-                    className="mt-6"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Step 7: Notes */}
-            {step === 7 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Additional Notes</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Add any additional information (optional)
-                  </p>
-                </div>
-                <Textarea
-                  placeholder="e.g., Signed by player, matchday worn, limited edition..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={6}
-                />
-              </div>
-            )}
-
-            {/* Step 8: Visibility */}
-            {step === 8 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Visibility</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Choose who can see this jersey
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <button
-                    onClick={() => setIsPublic(true)}
-                    className={cn(
-                      "w-full p-4 rounded-lg border-2 transition-colors text-left",
-                      isPublic ? "border-primary bg-secondary" : "border-border hover:border-muted"
-                    )}
-                  >
-                    <div className="font-semibold">Public</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Everyone can see this jersey in your collection
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setIsPublic(false)}
-                    className={cn(
-                      "w-full p-4 rounded-lg border-2 transition-colors text-left",
-                      !isPublic ? "border-primary bg-secondary" : "border-border hover:border-muted"
-                    )}
-                  >
-                    <div className="font-semibold">Private</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Only you can see this jersey
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 9: Summary */}
-            {step === 9 && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Summary</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Review your jersey details
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-4 gap-2">
-                    {images.slice(0, 4).map((img, i) => (
-                      <img key={i} src={img} alt="" className="aspect-square rounded-lg object-cover" />
-                    ))}
-                  </div>
-                  <div className="bg-secondary rounded-lg p-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Club:</span>
-                      <span className="font-medium">{club}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Season:</span>
-                      <span className="font-medium">{season}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="font-medium">{type}</span>
-                    </div>
-                    {hasPlayer && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Player:</span>
-                        <span className="font-medium">
-                          {playerName} #{playerNumber}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Condition:</span>
-                      <span className="font-medium">{condition[0]}/10</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Visibility:</span>
-                      <span className="font-medium">{isPublic ? "Public" : "Private"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <div className="max-w-3xl mx-auto px-4 py-8">{renderStep()}</div>
         </div>
 
         {/* Footer */}
         <footer className="border-t border-border bg-card p-4">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-            <Button variant="outline" onClick={handleBack} disabled={step === 1}>
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Back
+            <Button
+              variant="outline"
+              onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
+              disabled={isSubmitting}
+            >
+              {step === 1 ? "Cancel" : "Back"}
             </Button>
-            {step < totalSteps ? (
-              <Button onClick={handleNext} disabled={!canProceed()}>
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleFinish}>
-                <Check className="w-4 h-4 mr-2" />
-                Finish Upload
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {[1, 2, 3, 4].map((s) => (
+                <div
+                  key={s}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    s === step ? "bg-primary" : s < step ? "bg-primary/50" : "bg-muted"
+                  }`}
+                />
+              ))}
+            </div>
+            <Button
+              onClick={() => {
+                if (step === 4) {
+                  handleSubmit();
+                } else if (!canProceed()) {
+                  if (step === 1) {
+                    toast({
+                      title: "Not Enough Images",
+                      description: "Please upload at least 4 images",
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "Required Fields",
+                      description: "Please fill in all required fields",
+                      variant: "destructive",
+                    });
+                  }
+                } else {
+                  setStep(step + 1);
+                }
+              }}
+              disabled={isSubmitting || !canProceed()}
+            >
+              {step === 4 ? (isSubmitting ? "Uploading..." : "Upload Jersey") : "Next"}
+            </Button>
           </div>
         </footer>
       </div>
