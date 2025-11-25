@@ -1,7 +1,21 @@
-import { Home, ShoppingBag, Shirt, Users, User, Bell, Settings } from "lucide-react";
+import { Home, ShoppingBag, Shirt, Users, User, Bell, Settings, LogOut, LogIn } from "lucide-react";
 import { SidebarNavLink } from "./SidebarNavLink";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
 
 export const Sidebar = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAuthAction = () => {
+    if (user) {
+      signOut();
+    } else {
+      navigate("/auth");
+    }
+  };
+
   return (
     <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 bg-card border-r border-border z-50">
       {/* Logo */}
@@ -24,7 +38,29 @@ export const Sidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-2">
+        {user && (
+          <div className="text-xs text-muted-foreground mb-2">
+            Signed in as <span className="font-medium">{user.email}</span>
+          </div>
+        )}
+        <Button
+          variant="outline"
+          onClick={handleAuthAction}
+          className="w-full justify-start gap-2"
+        >
+          {user ? (
+            <>
+              <LogOut className="w-4 h-4" />
+              Log Out
+            </>
+          ) : (
+            <>
+              <LogIn className="w-4 h-4" />
+              Log In
+            </>
+          )}
+        </Button>
         <p className="text-xs text-muted-foreground">© 2024 Huddle</p>
       </div>
     </aside>

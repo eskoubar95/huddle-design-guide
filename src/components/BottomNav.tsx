@@ -1,17 +1,28 @@
-import { Home, ShoppingBag, Shirt, Users, User } from "lucide-react";
-import { useLocation, Link } from "react-router-dom";
+import { Home, ShoppingBag, Shirt, Users, User as UserIcon } from "lucide-react";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { to: "/", icon: Home, label: "Home" },
   { to: "/marketplace", icon: ShoppingBag, label: "Shop" },
   { to: "/wardrobe", icon: Shirt, label: "Wardrobe" },
   { to: "/community", icon: Users, label: "Community" },
-  { to: "/profile", icon: User, label: "Profile" },
+  { to: "/profile", icon: UserIcon, label: "Profile" },
 ];
 
 export const BottomNav = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleNavClick = (to: string, e: React.MouseEvent) => {
+    // Protect certain routes
+    if (!user && (to === "/wardrobe" || to === "/profile")) {
+      e.preventDefault();
+      navigate("/auth");
+    }
+  };
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
@@ -22,6 +33,7 @@ export const BottomNav = () => {
             <Link
               key={to}
               to={to}
+              onClick={(e) => handleNavClick(to, e)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 transition-colors",
                 isActive ? "text-foreground" : "text-muted-foreground"
