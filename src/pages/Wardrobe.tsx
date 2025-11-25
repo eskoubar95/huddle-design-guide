@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { JerseyCard } from "@/components/JerseyCard";
+import { UploadJersey } from "@/components/UploadJersey";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -67,9 +68,12 @@ const filters = ["All", "Public", "Private", "For Sale", "Auctions"];
 
 const Wardrobe = () => {
   const [activeFilter, setActiveFilter] = useState("All");
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   return (
-    <div className="min-h-screen pb-20 lg:pb-8">
+    <>
+      <UploadJersey isOpen={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <div className="min-h-screen pb-20 lg:pb-8">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
@@ -119,12 +123,16 @@ const Wardrobe = () => {
       </div>
 
       {/* Floating Action Button */}
-      <button className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 shadow-elevated transition-smooth">
+      <button
+        onClick={() => setUploadOpen(true)}
+        className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 shadow-elevated transition-smooth"
+      >
         <Plus className="w-6 h-6 text-primary-foreground mx-auto" />
       </button>
 
-      <BottomNav />
-    </div>
+        <BottomNav />
+      </div>
+    </>
   );
 };
 

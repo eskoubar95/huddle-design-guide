@@ -1,37 +1,37 @@
-import { Home, ShoppingBag, ShirtIcon, Users, User } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
+import { Home, ShoppingBag, Shirt, Users, User } from "lucide-react";
+import { useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: Home, label: "Home" },
-  { to: "/marketplace", icon: ShoppingBag, label: "Market" },
-  { to: "/wardrobe", icon: ShirtIcon, label: "Wardrobe" },
+  { to: "/marketplace", icon: ShoppingBag, label: "Shop" },
+  { to: "/wardrobe", icon: Shirt, label: "Wardrobe" },
   { to: "/community", icon: Users, label: "Community" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
 
 export const BottomNav = () => {
+  const location = useLocation();
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border lg:hidden">
-      <div className="flex items-center justify-around h-16 max-w-md mx-auto px-2">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg transition-smooth",
-              "text-muted-foreground hover:text-foreground"
-            )}
-            activeClassName="text-foreground"
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon className="w-5 h-5" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
+      <div className="grid grid-cols-5 h-16">
+        {navItems.map(({ to, icon: Icon, label }) => {
+          const isActive = location.pathname === to;
+          return (
+            <Link
+              key={to}
+              to={to}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 transition-colors",
+                isActive ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="text-xs">{label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

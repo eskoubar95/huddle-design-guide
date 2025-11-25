@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Search } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { JerseyCard } from "@/components/JerseyCard";
+import { SearchModal } from "@/components/SearchModal";
 import { cn } from "@/lib/utils";
 
 const mockJerseys = [
@@ -49,64 +51,67 @@ const mockJerseys = [
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState<"following" | "explore">("explore");
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
-    <div className="min-h-screen pb-20 lg:pb-8">
-      {/* Header with gradient glow */}
-      <header className="relative pt-8 pb-6 px-4 lg:px-8">
-        <div
-          className="absolute top-0 left-0 right-0 h-32 opacity-40"
-          style={{ background: "var(--gradient-glow)" }}
-        />
-        <div className="relative z-10 max-w-7xl mx-auto">
-          <h1 className="text-3xl lg:text-4xl font-bold mb-1 text-foreground">Huddle</h1>
-          <p className="text-sm text-muted-foreground">Your jersey collection community</p>
-        </div>
-      </header>
+    <>
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      <div className="min-h-screen pb-20 lg:pb-8">
+        {/* Header */}
+        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-foreground">Huddle</h1>
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            </div>
 
-      {/* Tab Toggle */}
-      <div className="px-4 lg:px-8 mb-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex gap-2 p-1 rounded-xl bg-secondary max-w-md">
-            <button
-              onClick={() => setActiveTab("following")}
-              className={cn(
-                "flex-1 py-2.5 rounded-lg font-medium text-sm transition-smooth",
-                activeTab === "following"
-                  ? "bg-card text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Following
-            </button>
-            <button
-              onClick={() => setActiveTab("explore")}
-              className={cn(
-                "flex-1 py-2.5 rounded-lg font-medium text-sm transition-smooth",
-                activeTab === "explore"
-                  ? "bg-card text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Explore
-            </button>
+            {/* Tab Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab("following")}
+                className={cn(
+                  "flex-1 py-2 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === "following"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Following
+              </button>
+              <button
+                onClick={() => setActiveTab("explore")}
+                className={cn(
+                  "flex-1 py-2 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === "explore"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Explore
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Jersey Grid */}
+        <div className="px-4 lg:px-8 pt-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {mockJerseys.map((jersey) => (
+                <JerseyCard key={jersey.id} {...jersey} />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Jersey Grid */}
-      <div className="px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {mockJerseys.map((jersey) => (
-              <JerseyCard key={jersey.id} {...jersey} />
-            ))}
-          </div>
-        </div>
+        <BottomNav />
       </div>
-
-      <BottomNav />
-    </div>
+    </>
   );
 };
 
