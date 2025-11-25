@@ -1,0 +1,23 @@
+---
+title: CI/CD Pipeline
+description: GitHub Actions build/test/deploy, gates og rollback for Huddle
+owner: platform@huddle
+severity: warn
+globs: ".github/workflows/**"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Flow
+- Install + cache → typecheck + lint → unit tests → build → preview → integration tests.
+- Deploy: Vercel (frontend/API routes) + Railway (Medusa when added).
+
+## Gates
+- `severity: error` rules gate CI (fail build/test).
+- Upload Sentry sourcemaps on release.
+- Run Supabase migrations in staging before production.
+
+## Monorepo considerations
+- Build `apps/web` (Next.js app) for frontend + API routes.
+- Future: Build `apps/medusa` separately when added.
+

@@ -1,0 +1,72 @@
+---
+title: API Design
+description: Huddle API design — Next.js API routes, resource modeling, versioning, errors, pagination
+owner: backend@huddle
+severity: warn
+globs: "apps/web/app/api/**, apps/web/lib/services/**"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Principles
+- Resource-first design; stable IDs; explicit versioning (`/api/v1`).
+- Consistent errors: `{ error: { code, message, details? } }`; never leak internals.
+- Pagination: cursor-based by default; `limit` caps; stable sort.
+- Idempotency for mutations where applicable.
+- All API routes live in `apps/web/app/api/v1/...` as Next.js route handlers.
+
+## Structure
+- Route handlers: `apps/web/app/api/v1/jerseys/route.ts` (GET, POST), `apps/web/app/api/v1/jerseys/[id]/route.ts` (GET, PATCH, DELETE).
+- Services layer: `apps/web/lib/services/` for business logic.
+- Repositories: `apps/web/lib/repositories/` for Supabase/DB access.
+
+## Authentication
+- Clerk JWT verification in all protected routes using `@clerk/backend`.
+- Use `requireAuth()` helper from `lib/auth.ts` to extract userId.
+- Map Clerk userId to Supabase `profiles.id` (1:1 relationship).
+
+## Good
+```
+GET /api/v1/jerseys?limit=20&cursor=abc
+200 { items: [...], nextCursor: "def" }
+
+GET /api/v1/jerseys/:id
+200 { id: "j_001", club: "AC Milan", ... }
+
+POST /api/v1/jerseys
+Authorization: Bearer <clerk_token>
+201 { id: "j_001", ... }
+```
+
+## Bad
+```
+GET /jerseys?offset=1000 // unstable paging under writes, wrong path
+GET /api/jerseys // missing version
+```
+
+## Error contract
+```
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Jersey not found",
+    "details": null
+  }
+}
+```
+
+## Response formats
+- Success: direct JSON object (no envelope for simplicity).
+- Errors: `{ error: { code, message, details? } }`.
+- Status codes: 200 (success), 201 (created), 204 (no content), 400 (bad request), 401 (unauthorized), 403 (forbidden), 404 (not found), 409 (conflict), 500 (internal error).
+
+## Authorization
+- Check ownership: `owner_id === currentUserId` for jerseys, `seller_id === currentUserId` for listings/auctions.
+- Verify user status: ID verification required for creating listings/bids (check `profiles.is_verified` or Clerk claims).
+
+## Autofix
+- Replace offset pagination with cursor-based.
+- Normalize error shapes and redact stack traces.
+- Ensure all protected routes use `requireAuth()`.
+- Follow endpoint patterns from `05-API_Design.md`.
+

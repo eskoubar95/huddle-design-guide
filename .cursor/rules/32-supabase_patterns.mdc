@@ -1,0 +1,60 @@
+---
+title: Supabase Patterns
+description: Supabase integration patterns for Huddle — RLS, client setup, migrations
+owner: backend@huddle
+severity: warn
+globs: "apps/web/lib/supabase/**, apps/web/app/api/**"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Standardize Supabase client usage, RLS patterns, and migration practices for Huddle.
+
+## Client setup
+- Server-side: `lib/supabase-server.ts` uses `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS for admin operations).
+- Client-side: `lib/supabase-client.ts` uses `SUPABASE_ANON_KEY` (respects RLS).
+- Never expose service role key to client bundles.
+
+## RLS (Row Level Security)
+- All user-facing tables have RLS enabled (`profiles`, `jerseys`, `sale_listings`, `auctions`, `bids`, `transactions`, `follows`, `likes`, `saved_jerseys`, `posts`, `conversations`, `messages`, `notifications`).
+- Policies check `auth.uid()` for ownership/access.
+- Service role client bypasses RLS; use only in API routes/server code.
+
+## Good
+```
+// Server-side (API route)
+import { supabaseServer } from "@/lib/supabase-server";
+const { data } = await supabaseServer.from("jerseys").select("*").eq("id", id);
+
+// Client-side (with RLS)
+import { supabaseClient } from "@/lib/supabase-client";
+const { data } = await supabaseClient.from("jerseys").select("*").eq("visibility", "public");
+```
+
+## Bad
+```
+// Service role in client component
+"use client";
+const client = createClient(url, SERVICE_ROLE_KEY); // NEVER
+```
+
+## Migrations
+- All migrations in `supabase/migrations/` (timestamped SQL files).
+- Never edit existing migrations; create new ones for changes.
+- Test migrations on local Supabase instance before applying to staging/production.
+
+## Types
+- Generate TypeScript types: `npx supabase gen types typescript --project-id <id> > apps/web/lib/supabase/types.ts`.
+- Use generated types: `Tables<"jerseys">`, `TablesInsert<"jerseys">`, `TablesUpdate<"jerseys">`.
+
+## Queries
+- Use Supabase query builder for type safety.
+- Prefer `.select()` with explicit fields over `*`.
+- Use indexes defined in migrations (`idx_jerseys_owner`, `idx_auctions_ends_at`, etc.).
+- Batch related queries or use JOINs to avoid N+1 problems.
+
+## Error handling
+- Check `error` property from Supabase responses.
+- Handle RLS errors (403) gracefully; redirect to login if needed.
+- Log Supabase errors with context (table, operation, userId) but no PII.

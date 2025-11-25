@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  root: path.resolve(__dirname, ".."), // Point to parent directory (root) since package.json is now in src/
+  root: path.resolve(__dirname, ".."), // Point to parent directory (root) where index.html is located
   server: {
     host: "::",
     port: 8080,
@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(__dirname, "."), // src/ is now current directory
     },
   },
 }));

@@ -1,0 +1,48 @@
+---
+title: Git Branching and PR Governance
+description: Branch- og PR-governance for Huddle — gælder for alle repos
+owner: platform@huddle
+severity: warn
+globs: ".github/*, **/*"
+alwaysApply: true
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Define consistent branching and PR workflow so humans and AI agents follow the same flow with quality, transparency, and traceability.
+
+## Branch naming
+- Format: `{type}/huddle-{issueID}-{short-title}` (or `feature/huddle-<id>-<kort-navn>` per `03-Tech_Stack.md`)
+- Examples: `feature/huddle-152-jersey-upload`, `fix/huddle-231-auction-bid-bug`, `chore/huddle-99-update-deps`
+- Allowed types: `feature`, `fix`, `chore`, `refactor`, `hotfix`
+
+## Commit conventions
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`)
+- Small, meaningful commits (aim ≤ 200 LOC per commit)
+- Messages describe WHAT and WHY
+
+## Pull Request basics
+- PR must include: WHAT/WHY/HOW, risks, rollback plan, test results, screenshots (if UI)
+- All merges via PR; no direct commits to `main`
+- Split PRs if > 400 LOC or > 20 files
+
+## Review process
+- Require green CI (lint, typecheck, tests, build)
+- Automated baseline review (e.g., BugBot/Copilot) + ≥1 human approver
+- High-risk (auth, payments, PII) → 2 human approvers
+
+## Definition of Done
+- Acceptance criteria met; tests updated and passing
+- No TODOs or console warnings
+- Docs updated (README/ADR) if architecture affected
+- PR merged; branch auto-deleted; issue closed
+
+## Branch protection
+- No direct pushes to `main`
+- Require green CI + review
+- Auto-delete branch on merge
+
+## CI integration (reference)
+- Install + cache deps → typecheck + lint → unit tests → build → deploy preview → integration tests
+

@@ -1,0 +1,55 @@
+---
+title: Clerk Authentication Patterns
+description: Clerk integration patterns for Huddle — frontend auth, API verification, profile sync
+owner: backend@huddle
+severity: warn
+globs: "apps/web/lib/auth/**, apps/web/app/api/**"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Standardize Clerk authentication patterns for Huddle frontend and API routes.
+
+## Frontend auth
+- Use `@clerk/nextjs` for frontend components (`<ClerkProvider>`, `<SignIn>`, `<SignUp>`, `useUser()`, `useAuth()`).
+- Protect routes with middleware or `auth()` helper from `@clerk/nextjs/server`.
+- Store Clerk user ID in session; map to Supabase `profiles.id` (1:1 relationship).
+
+## API route verification
+- Use `@clerk/backend` to verify JWT tokens in API routes.
+- Extract `userId` from verified token: `const { userId } = await clerk.verifyToken(token)`.
+- Helper function: `lib/auth.ts` exports `requireAuth(req: Request)` that returns `{ userId }` or throws 401.
+
+## Good
+```
+// API route
+import { requireAuth } from "@/lib/auth";
+
+export async function POST(req: Request) {
+  const { userId } = await requireAuth(req);
+  // Use userId for ownership checks
+}
+```
+
+## Bad
+```
+// Trusting token without verification
+const userId = req.headers.get("x-user-id"); // NEVER
+```
+
+## Profile sync
+- On first API call with authenticated user, check if `profiles` row exists for `userId`.
+- If not, create profile with default values (username from Clerk, etc.).
+- Keep Clerk as source of truth for auth; Supabase `profiles` for Huddle-specific data (username, bio, country, stats).
+
+## ID verification
+- Check `isVerified` status (from Clerk claims or `profiles.is_verified`) before allowing:
+  - Creating sale listings
+  - Creating auctions
+  - Placing bids
+- Return 403 with clear message if verification required.
+
+## Error handling
+- 401: No token or invalid token → "Authentication required".
+- 403: Valid token but insufficient permissions → "Verification required" or "Not authorized".

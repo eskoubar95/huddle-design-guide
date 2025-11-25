@@ -1,0 +1,37 @@
+---
+title: Forms, Server Actions & Validation
+description: Next.js 15 + RHF + Zod — ensartede formularer og server actions for Huddle
+owner: web@huddle
+severity: warn
+globs: "apps/web/app/**/actions.ts, apps/web/app/**/page.tsx, apps/web/components/forms/**"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Standardize forms using Server Actions, React Hook Form and Zod, with accessible UX and consistent result shapes.
+- Forms for: jersey upload, sale listing creation, auction creation, bid placement, profile updates, messaging.
+
+## Rules
+- Zod-first schemas in `apps/web/lib/validation/` (e.g., `jerseySchemas.ts`, `listingSchemas.ts`); infer TS types.
+- Server Actions handle mutations; return `{ ok: true, data? }` or `{ ok: false, error: { code, message, fields? } }`.
+- Client uses RHF + zodResolver; inline errors; aria-live feedback.
+- API routes can also handle form submissions (POST to `/api/v1/jerseys`, etc.) — choose based on complexity.
+
+## Good result shape
+```
+{ ok: true, data: { id: "j_001", ... } }
+{ ok: false, error: { code: "VALIDATION", message: "Invalid input", fields: { club: "Required" } }}
+```
+
+## Validation schemas
+- Jersey: `club`, `season`, `jerseyType`, `conditionRating` (1-10), `visibility` ("public" | "private"), `images` (array, max 5).
+- Sale listing: `jerseyId`, `price` (> 0), `currency`, `negotiable`, shipping flags.
+- Auction: `jerseyId`, `startingBid`, `durationHours` (24|48|72|168), shipping flags.
+- Bid: `amount` (> currentBid + min step).
+
+## Form patterns
+- Use `react-hook-form` with `@hookform/resolvers/zod` for client-side validation.
+- Server Actions or API routes perform final validation before DB writes.
+- Show loading states during submission; disable submit button to prevent double-submit.
+

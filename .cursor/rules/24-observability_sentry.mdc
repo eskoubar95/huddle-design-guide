@@ -1,0 +1,27 @@
+---
+title: Observability & Sentry
+description: Sentry monitoring — errors, performance, breadcrumbs, privacy & releases (Huddle standard)
+owner: platform@huddle
+severity: warn
+globs: "**/*"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Unified error/perf monitoring without PII; consistent release and sourcemaps.
+
+## Org & projects
+- SENTRY_ORG: `huddle` (or your org name)
+- Prefer per-app projects: `web` (Next.js app), `medusa` (when added)
+
+## Releases & sourcemaps (example)
+```
+npx sentry-cli releases new "$GITHUB_SHA"
+npx sentry-cli releases set-commits "$GITHUB_SHA" --auto
+npx sentry-cli sourcemaps upload --org huddle --project web apps/web/.next/static --release "$GITHUB_SHA"
+```
+
+## Privacy
+- Never send PII; mask sensitive fields; add `userId`, `release`, active flags as context.
+

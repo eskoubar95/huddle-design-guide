@@ -1,0 +1,23 @@
+---
+title: Feature Flags (Future)
+description: Naming, rollout, governance & SDK usage (Huddle standard - not yet implemented)
+owner: platform@huddle
+severity: warn
+globs: "**/*"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Naming
+- `feature_<area>_<name>`; avoid generic names.
+
+## Rollout
+- Start with off-by-default; progressive rollout; define success/rollback.
+
+## SDK usage
+- Evaluate server-side for logic; client only for visual gating.
+
+## DoD
+- Named with `feature_<area>_<name>`; owner/TTL set; default OFF in prod.
+- Server paths tested for ON/OFF; Sentry breadcrumb added; cleanup issue created.
+

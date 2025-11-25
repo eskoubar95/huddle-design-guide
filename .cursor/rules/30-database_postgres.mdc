@@ -1,0 +1,26 @@
+---
+title: Database (Postgres via Supabase)
+description: Schema, RLS, migrations, performance and backup basics for Huddle
+owner: backend@huddle
+severity: warn
+globs: "supabase/migrations/**, apps/web/lib/supabase/**"
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Database patterns for Huddle using Supabase (managed Postgres).
+- See `04-Database_Schema.md` for full schema documentation.
+- See `32-supabase_patterns.mdc` for Supabase-specific patterns.
+
+## Principles
+- RLS on all user-facing tables; service-role only on server (API routes).
+- Migrations versioned in `supabase/migrations/`; no ad-hoc schema drift.
+- Index hot paths (defined in migrations); measure with EXPLAIN ANALYZE.
+- Backups handled by Supabase; restore tested in staging.
+
+## Schema organization
+- Supabase `public` schema: Huddle app data (jerseys, listings, auctions, social graph, messaging).
+- MedusaJS schema (future): Commerce data (products, orders, regions, shipping) in separate schema/tables.
+- Key tables: `profiles`, `jerseys`, `sale_listings`, `auctions`, `bids`, `transactions`, `follows`, `likes`, `saved_jerseys`, `posts`, `conversations`, `messages`, `notifications`.
+

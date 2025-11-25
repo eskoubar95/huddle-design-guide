@@ -1,0 +1,101 @@
+---
+title: Core Engineering Foundations
+description: Global coding foundations for Huddle — apply in any repository
+owner: platform@huddle
+severity: warn
+globs: "*"
+alwaysApply: true
+last_review: 2025-11-25
+next_review: 2026-01-01
+sprint_context: "Active sprint: MVP foundation and core features"
+---
+
+## Purpose
+- Establish predictable structure, readable code, robust error handling and disciplined dependencies across all code.
+
+## Principles
+- Single Responsibility: one clear responsibility per file/component/function.
+- Composition over inheritance: prefer composition, dependency injection and interfaces.
+- Small files: aim < ~500 LOC; refactor around ~400 LOC.
+- Determinism: favor pure functions; minimize global state and side effects.
+- Make it obvious: avoid opaque magic; write intent explicitly.
+
+## Naming
+- Intention-revealing names (avoid `data`, `info`, `helper`, `temp`).
+- Files/folders: kebab-case (e.g. `bundle-service.ts`).
+- Components: PascalCase (`<KitCard/>`); hooks: `useXxx`; variables/functions: camelCase.
+- Domain models: `Jersey`, `SaleListing`, `Auction`, `Bid`; DTO/IO types suffix `DTO`.
+- Tests: same name as target file + `.test.ts(x)`.
+
+## Files and Structure
+- Organize by domain first, then by technology (e.g. `lib/domain/*`, `lib/services/*`, `components/*`).
+- Keep business logic out of UI components.
+- Export small public APIs from index files; avoid deep relative-import chains.
+- Prefer small, reusable utilities over copy-paste.
+
+## Comments and Docs
+- Comment the why, not the obvious what.
+- Add short rationale (2–5 lines) near non-obvious decisions.
+- Keep README/ADR concise; use PR description as a micro-ADR for architecture changes.
+- Express intent via function signatures and precise types.
+
+## Dependencies
+- Lightweight-first: prefer small, well-maintained libs; avoid heavy frameworks without strong rationale.
+- Remove dead deps/imports regularly.
+- Lock versions for deterministic builds; document major upgrades in PRs.
+- Evaluate security/maintenance (downloads, issues, CVEs) before adoption.
+
+## Error Handling
+- Fail fast near the source; throw meaningful errors with context (no PII).
+- Differentiate user vs system errors; never swallow errors.
+- UI: show clear, neutral error messages; offer retry when useful.
+
+## Readability and Style
+- Small, focused functions; early returns to reduce nesting.
+- Use explicit guards over implicit behavior.
+- Keep branches small and covered by tests; document edge cases.
+- Consistent formatting (prettier/eslint); avoid inline styles in UI (use tokens/util classes).
+
+## Testing Basics
+- Cover the critical paths: happy path, failure paths, edge cases.
+- AAA (Arrange–Act–Assert); intention-revealing test names.
+- Avoid large snapshots; test behavior, not implementation details.
+- Co-locate tests or mirror structure under `__tests__/`.
+
+## Git and PR Habits
+- Small, meaningful commits (Conventional Commits: `feat:`, `fix:`, `chore:` …).
+- Split PRs if > ~400 LOC or > ~20 files.
+- PR must include WHAT/WHY/HOW, risks/rollback, test plan, screenshots (if UI).
+- Link to issue; state what is intentionally left out (scope left).
+
+## Security Basics
+- Never commit secrets; use environment/secret management.
+- Validate all external input; sanitize strings; assume hostile boundaries.
+- No PII in logs; mask sensitive fields; minimize data kept in memory.
+- Keep dependencies up to date; react to known CVEs.
+
+## i18n and Locale
+- Monetary values in minor units in logic; format at a single shared layer.
+- Standardized helpers for date/time/currency; avoid ad-hoc formatters.
+- UI strings centralizable/localizable; avoid scattered hard-coded strings.
+
+## Observability Basics
+- Structured logs (level, scope, correlationId); never log PII.
+- Capture errors with context (userId, release, feature flags) in telemetry.
+- Reduce noise: use breadcrumbs/info-level for non-critical events.
+
+## Performance
+- Avoid needless allocations and large objects in hot paths.
+- Lazy-load heavy modules; use dynamic `import()` in client code.
+- Use memoization only where profiling shows impact; remove micro-optimizations with no effect.
+
+## Accessibility Minimums
+- Semantic elements; correct roles/labels; visible focus states.
+- All interactive components must be keyboard accessible.
+- Images require meaningful `alt` (or empty when decorative).
+
+## Collaboration and Cleanup
+- Leave the code cleaner than you found it (boy-scout rule).
+- Remove dead code and TODOs, or open an issue with clear action/owner.
+- Document decisions briefly in PR; link to ADR for larger architecture choices.
+

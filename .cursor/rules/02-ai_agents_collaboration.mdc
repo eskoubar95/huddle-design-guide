@@ -1,0 +1,38 @@
+---
+title: AI Agent Collaboration & Governance
+description: AI Agent Collaboration & Governance — Huddle
+owner: platform@huddle
+severity: warn
+globs: ".cursor/**/*, .github/*, **/*"
+alwaysApply: true
+last_review: 2025-11-25
+next_review: 2026-01-01
+---
+
+## Purpose
+- Define clear rules for how Cursor (IDE), Copilot Background and automated reviewers collaborate with humans. AI accelerates, humans decide.
+
+## Agent roles
+- Cursor (IDE): complex features, architecture, UI/brand-sensitive tasks, critical bugs with local context.
+- Copilot Background: mechanical, repeatable tasks (CRUD, tests, lint), ≤ 400 LOC / ≤ 20 files per PR.
+- Automated Review (BugBot/Copilot): baseline QA; annotates, never auto-merges.
+
+## Workflow
+1) Issue created with scope + AC + risk/impact
+2) Branch created `feature/huddle-<id>-<slug>` (or `feature/huddle-<id>-<kort-navn>`) and labeled for agent
+3) Agent executes; PR opened → status Review
+4) CI green + automated review + human approval(s)
+5) Merge → branch auto-deleted → issue Done
+
+## Quality controls
+- Background agent requires clear AC and single-topic issues
+- PR template filled (summary, changes, tests, rollback, affected areas)
+- Size limits: ≤ 400 LOC / ≤ 20 files
+- Tests: sufficient coverage for changed modules
+
+## Best practices
+- AI works within a defined domain (backend, CMS, UI)
+- Cursor when human refinement is required; Background when deterministic
+- No architecture changes without human approval
+- Document AI outputs in PR (generated files, rationale)
+
