@@ -1,4 +1,4 @@
-import { Home, ShoppingBag, Shirt, Users, User, Bell, Settings, LogOut, LogIn } from "lucide-react";
+import { Home, ShoppingBag, Shirt, Users, User, Bell, Settings, MessageSquare, LogOut, LogIn } from "lucide-react";
 import { SidebarNavLink } from "./SidebarNavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +32,7 @@ export const Sidebar = () => {
         <SidebarNavLink to="/community" icon={Users} label="Community" />
         <SidebarNavLink to="/profile" icon={User} label="Profile" />
         <div className="pt-4 mt-4 border-t border-border">
+          <SidebarNavLink to="/messages" icon={MessageSquare} label="Messages" />
           <SidebarNavLink to="/notifications" icon={Bell} label="Notifications" />
           <SidebarNavLink to="/settings" icon={Settings} label="Settings" />
         </div>

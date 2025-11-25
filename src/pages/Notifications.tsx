@@ -33,6 +33,7 @@ const getNotificationIcon = (type: string) => {
     case "item_sold":
       return <DollarSign className="w-5 h-5" />;
     case "interest":
+    case "message":
       return <MessageSquare className="w-5 h-5" />;
     case "auction_won":
     case "auction_ended":

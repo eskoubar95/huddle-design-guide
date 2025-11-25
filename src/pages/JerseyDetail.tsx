@@ -327,6 +327,60 @@ const JerseyDetail = () => {
     });
   };
 
+  const handleMessageSeller = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to message the seller",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!jersey) return;
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConversations, error: fetchError } = await supabase
+        .from("conversations")
+        .select("id")
+        .or(`and(participant_1_id.eq.${user.id},participant_2_id.eq.${jersey.owner_id}),and(participant_1_id.eq.${jersey.owner_id},participant_2_id.eq.${user.id})`)
+        .eq("jersey_id", jersey.id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (existingConversations) {
+        // Navigate to existing conversation
+        navigate(`/chat/${existingConversations.id}`);
+        return;
+      }
+
+      // Create new conversation
+      const { data: newConversation, error: createError} = await supabase
+        .from("conversations")
+        .insert({
+          participant_1_id: user.id,
+          participant_2_id: jersey.owner_id,
+          jersey_id: jersey.id,
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // Navigate to new conversation
+      navigate(`/chat/${newConversation.id}`);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen pb-20 lg:pb-8 flex items-center justify-center">
@@ -626,14 +680,21 @@ const JerseyDetail = () => {
                 </div>
               </div>
             ) : (
-              <>
+              <div className="space-y-2">
+                <Button 
+                  variant="default" 
+                  className="w-full" 
+                  onClick={handleMessageSeller}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Message Seller
+                </Button>
                 {!listing && !auction && (
                   <Button variant="outline" className="w-full" onClick={handleShowInterest}>
-                    <MessageSquare className="w-4 h-4 mr-2" />
                     Show Interest
                   </Button>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
