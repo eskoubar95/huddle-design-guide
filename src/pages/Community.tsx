@@ -289,7 +289,10 @@ const Community = () => {
                 <div key={post.id} className="bg-card rounded-lg border border-border overflow-hidden">
                   {/* Post Header */}
                   <div className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <div
+                      className="flex items-center gap-3 cursor-pointer"
+                      onClick={() => navigate(`/user/${post.user_id}`)}
+                    >
                       <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
                         {post.profiles.avatar_url ? (
                           <img
@@ -302,7 +305,7 @@ const Community = () => {
                         )}
                       </div>
                       <div>
-                        <div className="font-semibold">{post.profiles.username}</div>
+                        <div className="font-semibold hover:underline">{post.profiles.username}</div>
                         <div className="text-xs text-muted-foreground">
                           {post.profiles.country && `${post.profiles.country} • `}
                           {getTimeAgo(post.created_at)}

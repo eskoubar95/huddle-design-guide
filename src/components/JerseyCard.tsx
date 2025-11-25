@@ -1,5 +1,6 @@
 import { Heart, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface JerseyCardProps {
   id: string;
@@ -17,6 +18,7 @@ interface JerseyCardProps {
 }
 
 export const JerseyCard = ({
+  id,
   image,
   club,
   season,
@@ -29,8 +31,11 @@ export const JerseyCard = ({
   price,
   className,
 }: JerseyCardProps) => {
+  const navigate = useNavigate();
+
   return (
     <div
+      onClick={() => navigate(`/jersey/${id}`)}
       className={cn(
         "group relative rounded-xl overflow-hidden transition-smooth cursor-pointer",
         "bg-card hover:bg-card-hover shadow-card hover:shadow-elevated",
