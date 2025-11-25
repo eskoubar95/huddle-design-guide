@@ -1,1 +1,4 @@
 project_id = "qhwfvtzibpwqouzidooe"
+
+[functions.close-auctions]
+verify_jwt = false
