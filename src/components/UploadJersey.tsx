@@ -154,10 +154,10 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
   };
 
   const handleSubmit = async () => {
-    if (images.length < 4) {
+    if (images.length < 1) {
       toast({
-        title: "Not Enough Images",
-        description: "Please upload at least 4 images",
+        title: "No Images",
+        description: "Please upload at least 1 image",
         variant: "destructive",
       });
       return;
@@ -262,7 +262,7 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
   const canProceed = () => {
     switch (step) {
       case 1:
-        return images.length >= 4;
+        return images.length >= 1;
       case 2:
         return club && season && jerseyType;
       default:
@@ -276,9 +276,9 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-bold mb-2">Upload Images (4-10 photos)</h3>
+              <h3 className="text-lg font-bold mb-2">Upload Images (1-10 photos)</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Add at least 4 photos. Drag to reorder. First image will be the cover.
+                Add at least 1 photo. Drag to reorder. First image will be the cover.
               </p>
 
               <input
@@ -578,8 +578,8 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
                 } else if (!canProceed()) {
                   if (step === 1) {
                     toast({
-                      title: "Not Enough Images",
-                      description: "Please upload at least 4 images",
+                      title: "No Images",
+                      description: "Please upload at least 1 image",
                       variant: "destructive",
                     });
                   } else {
