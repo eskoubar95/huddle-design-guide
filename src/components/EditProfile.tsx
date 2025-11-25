@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
+import Cropper, { Area } from "react-easy-crop";
 
 interface EditProfileProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface EditProfileProps {
     username: string;
     bio?: string;
     country?: string;
+    avatar_url?: string;
   };
   onUpdate: () => void;
 }
@@ -35,12 +37,107 @@ export const EditProfile = ({ isOpen, onClose, profile, onUpdate }: EditProfileP
   const [bio, setBio] = useState(profile.bio || "");
   const [country, setCountry] = useState(profile.country || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setUsername(profile.username);
     setBio(profile.bio || "");
     setCountry(profile.country || "");
+    setAvatarPreview(profile.avatar_url || null);
   }, [profile]);
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Avatar image must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatarPreview(reader.result as string);
+        setShowCropper(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> => {
+    const image = new Image();
+    image.src = imageSrc;
+    await new Promise((resolve) => {
+      image.onload = resolve;
+    });
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      throw new Error("No 2d context");
+    }
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+      }, "image/jpeg");
+    });
+  };
+
+  const handleCropConfirm = async () => {
+    if (!avatarPreview || !croppedAreaPixels) return;
+
+    try {
+      const croppedBlob = await getCroppedImg(avatarPreview, croppedAreaPixels);
+      const croppedFile = new File([croppedBlob], avatarFile?.name || "avatar.jpg", {
+        type: "image/jpeg",
+      });
+      setAvatarFile(croppedFile);
+      setShowCropper(false);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(croppedFile);
+    } catch (error) {
+      console.error("Error cropping image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to crop image",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -67,12 +164,45 @@ export const EditProfile = ({ isOpen, onClose, profile, onUpdate }: EditProfileP
         return;
       }
 
+      let avatar_url = profile.avatar_url;
+
+      // Upload avatar if a new one was selected
+      if (avatarFile) {
+        // Delete old avatar if exists
+        if (profile.avatar_url) {
+          const oldPath = profile.avatar_url.split("/").pop();
+          if (oldPath) {
+            await supabase.storage.from("avatars").remove([`${user.id}/${oldPath}`]);
+          }
+        }
+
+        // Upload new avatar
+        const fileExt = avatarFile.name.split(".").pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, avatarFile);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+        avatar_url = publicUrl;
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({
           username: validated.username,
           bio: validated.bio,
           country: validated.country,
+          avatar_url,
         })
         .eq("id", user.id);
 
@@ -134,16 +264,36 @@ export const EditProfile = ({ isOpen, onClose, profile, onUpdate }: EditProfileP
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-            {/* Avatar (placeholder for future implementation) */}
+            {/* Avatar Upload */}
             <div className="flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center mb-4">
-                <span className="text-3xl font-bold text-muted-foreground">
-                  {username.charAt(0).toUpperCase()}
-                </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <div className="relative w-24 h-24 rounded-full bg-secondary flex items-center justify-center mb-4 overflow-hidden">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-3xl font-bold text-muted-foreground">
+                    {username.charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
-              <button className="text-sm text-primary hover:underline">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
                 Change Avatar
-              </button>
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                JPG, PNG or GIF. Max 5MB.
+              </p>
             </div>
 
             {/* Username */}
@@ -205,6 +355,75 @@ export const EditProfile = ({ isOpen, onClose, profile, onUpdate }: EditProfileP
           </div>
         </footer>
       </div>
+
+      {/* Image Cropper Modal */}
+      {showCropper && avatarPreview && (
+        <div className="fixed inset-0 z-[60] bg-background flex flex-col">
+          <header className="border-b border-border bg-card p-4">
+            <div className="max-w-3xl mx-auto flex items-center justify-between">
+              <h3 className="text-lg font-bold">Crop Avatar</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setShowCropper(false);
+                  setAvatarPreview(profile.avatar_url || null);
+                  setAvatarFile(null);
+                }}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </header>
+
+          <div className="flex-1 relative bg-black">
+            <Cropper
+              image={avatarPreview}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          </div>
+
+          <footer className="border-t border-border bg-card p-4">
+            <div className="max-w-3xl mx-auto space-y-4">
+              <div>
+                <Label className="text-sm mb-2 block">Zoom</Label>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowCropper(false);
+                    setAvatarPreview(profile.avatar_url || null);
+                    setAvatarFile(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCropConfirm} className="flex-1">
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          </footer>
+        </div>
+      )}
     </div>
   );
 };
