@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, User, Loader2, Check, CheckCheck } from "lucide-react";
+import { ArrowLeft, Send, User, Loader2, Check, CheckCheck, Image as ImageIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -15,6 +15,7 @@ interface Message {
   sender_id: string;
   created_at: string;
   read: boolean;
+  images?: string[];
 }
 
 interface Conversation {
@@ -49,6 +50,9 @@ const Chat = () => {
   const [sending, setSending] = useState(false);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -232,6 +236,59 @@ const Chat = () => {
     await channel.track({ typing, user_id: user.id });
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Limit to 5 images per message
+    const maxImages = 5;
+    const limitedFiles = files.slice(0, maxImages - selectedImages.length);
+
+    setSelectedImages((prev) => [...prev, ...limitedFiles]);
+
+    // Create preview URLs
+    limitedFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviewUrls((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    if (selectedImages.length === 0 || !user) return [];
+
+    const uploadedUrls: string[] = [];
+
+    for (const file of selectedImages) {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}-${Math.random()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("chat_images")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        continue;
+      }
+
+      const { data } = supabase.storage
+        .from("chat_images")
+        .getPublicUrl(fileName);
+
+      uploadedUrls.push(data.publicUrl);
+    }
+
+    return uploadedUrls;
+  };
+
   const handleInputChange = (value: string) => {
     setNewMessage(value);
 
@@ -258,7 +315,7 @@ const Chat = () => {
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !user || !conversationId) return;
+    if ((!newMessage.trim() && selectedImages.length === 0) || !user || !conversationId) return;
 
     // Clear typing status
     updateTypingStatus(false);
@@ -268,23 +325,33 @@ const Chat = () => {
 
     setSending(true);
     try {
+      // Upload images first
+      const imageUrls = await uploadImages();
+
       const { error } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
-        content: newMessage.trim(),
+        content: newMessage.trim() || "",
+        images: imageUrls.length > 0 ? imageUrls : undefined,
       });
 
       if (error) throw error;
 
       setNewMessage("");
+      setSelectedImages([]);
+      setImagePreviewUrls([]);
 
       // Create notification for the other participant
       if (conversation) {
+        const notificationMessage = imageUrls.length > 0
+          ? `Sent ${imageUrls.length} image${imageUrls.length > 1 ? "s" : ""}${newMessage.trim() ? `: ${newMessage.trim().substring(0, 30)}...` : ""}`
+          : newMessage.trim().substring(0, 50) + (newMessage.length > 50 ? "..." : "");
+
         await supabase.from("notifications").insert({
           user_id: conversation.otherParticipant.id,
           type: "message",
           title: "New Message",
-          message: `${newMessage.trim().substring(0, 50)}${newMessage.length > 50 ? "..." : ""}`,
+          message: notificationMessage,
         });
       }
     } catch (error) {
@@ -401,7 +468,23 @@ const Chat = () => {
                       : "bg-secondary"
                   )}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  {message.images && message.images.length > 0 && (
+                    <div className={cn(
+                      "grid gap-2 mb-2",
+                      message.images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                    )}>
+                      {message.images.map((imageUrl, idx) => (
+                        <img
+                          key={idx}
+                          src={imageUrl}
+                          alt=""
+                          className="rounded max-h-60 w-full object-cover cursor-pointer"
+                          onClick={() => window.open(imageUrl, "_blank")}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {message.content && <p className="text-sm">{message.content}</p>}
                   <div
                     className={cn(
                       "flex items-center gap-1 text-xs mt-1",
@@ -444,7 +527,44 @@ const Chat = () => {
       {/* Input */}
       <div className="sticky bottom-0 bg-background border-t border-border">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
+          {/* Image Previews */}
+          {imagePreviewUrls.length > 0 && (
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+              {imagePreviewUrls.map((url, idx) => (
+                <div key={idx} className="relative flex-shrink-0">
+                  <img
+                    src={url}
+                    alt=""
+                    className="h-20 w-20 rounded object-cover border border-border"
+                  />
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || selectedImages.length >= 5}
+            >
+              <ImageIcon className="w-4 h-4" />
+            </Button>
             <Input
               value={newMessage}
               onChange={(e) => handleInputChange(e.target.value)}
@@ -452,7 +572,7 @@ const Chat = () => {
               placeholder="Type a message..."
               className="flex-1"
             />
-            <Button onClick={handleSend} disabled={sending || !newMessage.trim()}>
+            <Button onClick={handleSend} disabled={sending || (!newMessage.trim() && selectedImages.length === 0)}>
               {sending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (

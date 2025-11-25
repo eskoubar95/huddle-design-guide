@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { User, Loader2, MessageSquare, Search, X } from "lucide-react";
+import { User, Loader2, MessageSquare, Search, X, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ interface Conversation {
     sender_id: string;
     read: boolean;
     created_at: string;
+    images?: string[];
   }[];
   otherParticipant: {
     id: string;
@@ -65,7 +66,8 @@ const Messages = () => {
             content,
             sender_id,
             read,
-            created_at
+            created_at,
+            images
           )
         `)
         .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`)
@@ -324,9 +326,12 @@ const Messages = () => {
                       </div>
 
                       {lastMessage && (
-                        <p className="text-sm text-muted-foreground mt-1 truncate">
+                        <p className="text-sm text-muted-foreground mt-1 truncate flex items-center gap-1">
                           {lastMessage.sender_id === user?.id && "You: "}
-                          {lastMessage.content}
+                          {lastMessage.images && lastMessage.images.length > 0 && (
+                            <ImageIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                          )}
+                          {lastMessage.content || (lastMessage.images?.length ? `${lastMessage.images.length} image${lastMessage.images.length > 1 ? "s" : ""}` : "")}
                         </p>
                       )}
                     </div>
