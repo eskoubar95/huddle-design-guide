@@ -50,11 +50,15 @@ All colors MUST be HSL.
     --gradient-accent: linear-gradient(135deg, hsl(38 100% 60%), hsl(38 100% 70%));
     --gradient-card: linear-gradient(180deg, hsl(222 40% 10%), hsl(222 40% 7%));
     --gradient-glow: radial-gradient(circle at 50% 0%, hsl(189 94% 55% / 0.15), transparent 70%);
+    --gradient-hero: linear-gradient(135deg, hsl(189 94% 55% / 0.1), hsl(142 76% 56% / 0.1), hsl(189 94% 55% / 0.05));
+    --gradient-stadium: radial-gradient(ellipse at center, hsl(189 94% 55% / 0.08), transparent 70%);
+    --gradient-neon: linear-gradient(90deg, hsl(189 94% 55%), hsl(142 76% 56%), hsl(38 100% 60%));
     
     /* Shadows */
     --shadow-glow: 0 0 40px hsl(189 94% 55% / 0.25);
     --shadow-card: 0 8px 32px hsl(222 47% 3% / 0.6);
     --shadow-elevated: 0 20px 60px hsl(222 47% 3% / 0.8);
+    --shadow-neon: 0 0 60px hsl(189 94% 55% / 0.4), 0 0 30px hsl(189 94% 55% / 0.3);
 
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -107,6 +111,18 @@ All colors MUST be HSL.
     background: var(--gradient-card);
   }
 
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-stadium {
+    background: var(--gradient-stadium);
+  }
+
+  .gradient-neon {
+    background: var(--gradient-neon);
+  }
+
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
@@ -117,6 +133,10 @@ All colors MUST be HSL.
 
   .shadow-elevated {
     box-shadow: var(--shadow-elevated);
+  }
+
+  .shadow-neon {
+    box-shadow: var(--shadow-neon);
   }
 
   .transition-smooth {
@@ -135,5 +155,49 @@ All colors MUST be HSL.
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .text-gradient-neon {
+    background: var(--gradient-neon);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Stadium atmosphere effects */
+  .stadium-glow {
+    position: relative;
+  }
+
+  .stadium-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-stadium);
+    filter: blur(80px);
+    opacity: 0.5;
+    z-index: -1;
+  }
+
+  /* Neon border effect */
+  .neon-border {
+    border: 1px solid hsl(189 94% 55% / 0.3);
+    box-shadow: 0 0 20px hsl(189 94% 55% / 0.15);
+  }
+
+  /* Pulse animation for live elements */
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 20px hsl(189 94% 55% / 0.4);
+    }
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 30px hsl(189 94% 55% / 0.6);
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
   }
 }
