@@ -51,23 +51,23 @@ const Home = () => {
   const [activeTab, setActiveTab] = useState<"following" | "explore">("explore");
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 lg:pb-8">
       {/* Header with gradient glow */}
-      <header className="relative pt-8 pb-6 px-4">
+      <header className="relative pt-8 pb-6 px-4 lg:px-8">
         <div
           className="absolute top-0 left-0 right-0 h-32 opacity-40"
           style={{ background: "var(--gradient-glow)" }}
         />
-        <div className="relative z-10 max-w-md mx-auto">
-          <h1 className="text-3xl font-bold mb-1 text-gradient-primary">Huddle</h1>
+        <div className="relative z-10 max-w-7xl mx-auto">
+          <h1 className="text-3xl lg:text-4xl font-bold mb-1 text-gradient-primary">Huddle</h1>
           <p className="text-sm text-muted-foreground">Your jersey collection community</p>
         </div>
       </header>
 
       {/* Tab Toggle */}
-      <div className="px-4 mb-6">
-        <div className="max-w-md mx-auto">
-          <div className="flex gap-2 p-1 rounded-xl bg-secondary">
+      <div className="px-4 lg:px-8 mb-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex gap-2 p-1 rounded-xl bg-secondary max-w-md">
             <button
               onClick={() => setActiveTab("following")}
               className={cn(
@@ -95,9 +95,9 @@ const Home = () => {
       </div>
 
       {/* Jersey Grid */}
-      <div className="px-4">
-        <div className="max-w-md mx-auto">
-          <div className="grid grid-cols-2 gap-4">
+      <div className="px-4 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {mockJerseys.map((jersey) => (
               <JerseyCard key={jersey.id} {...jersey} />
             ))}

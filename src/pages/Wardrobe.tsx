@@ -69,10 +69,10 @@ const Wardrobe = () => {
   const [activeFilter, setActiveFilter] = useState("All");
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 lg:pb-8">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
-        <div className="max-w-md mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold">My Wardrobe</h1>
@@ -108,9 +108,9 @@ const Wardrobe = () => {
       </header>
 
       {/* Jersey Grid */}
-      <div className="px-4 pt-6">
-        <div className="max-w-md mx-auto">
-          <div className="grid grid-cols-2 gap-4">
+      <div className="px-4 lg:px-8 pt-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {mockJerseys.map((jersey) => (
               <JerseyCard key={jersey.id} {...jersey} />
             ))}
@@ -120,7 +120,7 @@ const Wardrobe = () => {
 
       {/* Floating Action Button */}
       <button
-        className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full shadow-elevated transition-smooth"
+        className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full shadow-elevated transition-smooth"
         style={{ background: "var(--gradient-primary)" }}
       >
         <Plus className="w-6 h-6 text-primary-foreground mx-auto" />
