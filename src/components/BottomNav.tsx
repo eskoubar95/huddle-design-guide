@@ -22,16 +22,11 @@ export const BottomNav = () => {
               "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg transition-smooth",
               "text-muted-foreground hover:text-foreground"
             )}
-            activeClassName="text-primary"
+            activeClassName="text-foreground"
           >
             {({ isActive }) => (
               <>
-                <item.icon
-                  className={cn(
-                    "w-5 h-5 transition-smooth",
-                    isActive && "drop-shadow-[0_0_8px_hsl(var(--primary))]"
-                  )}
-                />
+                <item.icon className="w-5 h-5" />
                 <span className="text-xs font-medium">{item.label}</span>
               </>
             )}

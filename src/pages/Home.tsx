@@ -59,7 +59,7 @@ const Home = () => {
           style={{ background: "var(--gradient-glow)" }}
         />
         <div className="relative z-10 max-w-7xl mx-auto">
-          <h1 className="text-3xl lg:text-4xl font-bold mb-1 text-gradient-primary">Huddle</h1>
+          <h1 className="text-3xl lg:text-4xl font-bold mb-1 text-foreground">Huddle</h1>
           <p className="text-sm text-muted-foreground">Your jersey collection community</p>
         </div>
       </header>
@@ -73,7 +73,7 @@ const Home = () => {
               className={cn(
                 "flex-1 py-2.5 rounded-lg font-medium text-sm transition-smooth",
                 activeTab === "following"
-                  ? "bg-primary text-primary-foreground shadow-glow"
+                  ? "bg-card text-foreground border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -84,7 +84,7 @@ const Home = () => {
               className={cn(
                 "flex-1 py-2.5 rounded-lg font-medium text-sm transition-smooth",
                 activeTab === "explore"
-                  ? "bg-primary text-primary-foreground shadow-glow"
+                  ? "bg-card text-foreground border-b-2 border-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >

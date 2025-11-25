@@ -94,10 +94,10 @@ const Wardrobe = () => {
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-smooth",
+                  "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-smooth border",
                   activeFilter === filter
-                    ? "bg-primary text-primary-foreground shadow-glow"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    ? "bg-secondary text-foreground border-primary"
+                    : "bg-secondary/50 text-muted-foreground border-border hover:text-foreground hover:border-muted"
                 )}
               >
                 {filter}
@@ -119,10 +119,7 @@ const Wardrobe = () => {
       </div>
 
       {/* Floating Action Button */}
-      <button
-        className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full shadow-elevated transition-smooth"
-        style={{ background: "var(--gradient-primary)" }}
-      >
+      <button className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 shadow-elevated transition-smooth">
         <Plus className="w-6 h-6 text-primary-foreground mx-auto" />
       </button>
 
