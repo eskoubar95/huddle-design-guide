@@ -1,9 +1,19 @@
 import { BottomNav } from "@/components/BottomNav";
-import { ChevronRight, User, Bell, Lock, Eye, Globe, HelpCircle, LogOut } from "lucide-react";
+import { Settings as SettingsIcon, ChevronRight, User, Bell, Lock, Eye, Globe, HelpCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
   return (
     <div className="min-h-screen pb-20 lg:pb-8">
       {/* Header */}
@@ -134,8 +144,12 @@ const Settings = () => {
         </div>
 
         {/* Logout */}
-        <Button variant="outline" className="w-full justify-start gap-3 text-destructive border-destructive/50 hover:bg-destructive/10">
-          <LogOut className="w-5 h-5" />
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          className="w-full justify-start gap-3 text-destructive border-destructive/50 hover:bg-destructive/10"
+        >
+          <SettingsIcon className="w-5 h-5" />
           Log Out
         </Button>
 
