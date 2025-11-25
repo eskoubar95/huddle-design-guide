@@ -102,57 +102,69 @@ export const CommandBar = () => {
           );
         }
 
-        // Search marketplace sales
-        const { data: sales } = await supabase
-          .from("sale_listings")
-          .select(`
-            id,
-            price,
-            currency,
-            jerseys!inner(id, club, season, images)
-          `)
-          .eq("status", "active")
-          .or(`jerseys.club.ilike.%${searchQuery}%,jerseys.season.ilike.%${searchQuery}%`)
-          .limit(5);
+        // Search marketplace sales - get matching jerseys first
+        const { data: matchingJerseyIds } = await supabase
+          .from("jerseys")
+          .select("id")
+          .or(`club.ilike.%${searchQuery}%,season.ilike.%${searchQuery}%,player_name.ilike.%${searchQuery}%`)
+          .eq("visibility", "public");
 
-        if (sales) {
-          allResults.push(
-            ...sales.map((sale: any) => ({
-              type: "sale" as const,
-              id: sale.jerseys.id,
-              title: `${sale.jerseys.club} ${sale.jerseys.season}`,
-              subtitle: `For Sale • ${sale.currency} ${sale.price}`,
-              image: sale.jerseys.images[0],
-              price: sale.price,
-            }))
-          );
+        if (matchingJerseyIds && matchingJerseyIds.length > 0) {
+          const { data: sales } = await supabase
+            .from("sale_listings")
+            .select(`
+              id,
+              price,
+              currency,
+              jersey_id,
+              jerseys!inner(id, club, season, images)
+            `)
+            .eq("status", "active")
+            .in("jersey_id", matchingJerseyIds.map(j => j.id))
+            .limit(5);
+
+          if (sales) {
+            allResults.push(
+              ...sales.map((sale: any) => ({
+                type: "sale" as const,
+                id: sale.jerseys.id,
+                title: `${sale.jerseys.club} ${sale.jerseys.season}`,
+                subtitle: `For Sale • ${sale.currency} ${sale.price}`,
+                image: sale.jerseys.images[0],
+                price: sale.price,
+              }))
+            );
+          }
         }
 
         // Search marketplace auctions
-        const { data: auctions } = await supabase
-          .from("auctions")
-          .select(`
-            id,
-            current_bid,
-            starting_bid,
-            currency,
-            jerseys!inner(id, club, season, images)
-          `)
-          .eq("status", "active")
-          .or(`jerseys.club.ilike.%${searchQuery}%,jerseys.season.ilike.%${searchQuery}%`)
-          .limit(5);
+        if (matchingJerseyIds && matchingJerseyIds.length > 0) {
+          const { data: auctions } = await supabase
+            .from("auctions")
+            .select(`
+              id,
+              current_bid,
+              starting_bid,
+              currency,
+              jersey_id,
+              jerseys!inner(id, club, season, images)
+            `)
+            .eq("status", "active")
+            .in("jersey_id", matchingJerseyIds.map(j => j.id))
+            .limit(5);
 
-        if (auctions) {
-          allResults.push(
-            ...auctions.map((auction: any) => ({
-              type: "auction" as const,
-              id: auction.jerseys.id,
-              title: `${auction.jerseys.club} ${auction.jerseys.season}`,
-              subtitle: `Auction • ${auction.currency} ${auction.current_bid || auction.starting_bid}`,
-              image: auction.jerseys.images[0],
-              price: auction.current_bid || auction.starting_bid,
-            }))
-          );
+          if (auctions) {
+            allResults.push(
+              ...auctions.map((auction: any) => ({
+                type: "auction" as const,
+                id: auction.jerseys.id,
+                title: `${auction.jerseys.club} ${auction.jerseys.season}`,
+                subtitle: `Auction • ${auction.currency} ${auction.current_bid || auction.starting_bid}`,
+                image: auction.jerseys.images[0],
+                price: auction.current_bid || auction.starting_bid,
+              }))
+            );
+          }
         }
 
         setResults(allResults);
