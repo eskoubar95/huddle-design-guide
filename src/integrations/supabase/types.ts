@@ -112,6 +112,86 @@ export type Database = {
           },
         ]
       }
+      jerseys: {
+        Row: {
+          club: string
+          competition_badges: string[] | null
+          condition_rating: number | null
+          created_at: string
+          id: string
+          images: string[]
+          jersey_type: string
+          notes: string | null
+          owner_id: string
+          player_name: string | null
+          player_number: string | null
+          season: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          club: string
+          competition_badges?: string[] | null
+          condition_rating?: number | null
+          created_at?: string
+          id?: string
+          images: string[]
+          jersey_type: string
+          notes?: string | null
+          owner_id: string
+          player_name?: string | null
+          player_number?: string | null
+          season: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          club?: string
+          competition_badges?: string[] | null
+          condition_rating?: number | null
+          created_at?: string
+          id?: string
+          images?: string[]
+          jersey_type?: string
+          notes?: string | null
+          owner_id?: string
+          player_name?: string | null
+          player_number?: string | null
+          season?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      likes: {
+        Row: {
+          created_at: string
+          id: string
+          jersey_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          jersey_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          jersey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_jersey_id_fkey"
+            columns: ["jersey_id"]
+            isOneToOne: false
+            referencedRelation: "jerseys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -198,6 +278,35 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      saved_jerseys: {
+        Row: {
+          created_at: string
+          id: string
+          jersey_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          jersey_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          jersey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_jerseys_jersey_id_fkey"
+            columns: ["jersey_id"]
+            isOneToOne: false
+            referencedRelation: "jerseys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
