@@ -12,7 +12,12 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Search, Shirt, User, ShoppingBag, Users, TrendingUp } from "lucide-react";
+import { Search, Shirt, User, ShoppingBag, Users, TrendingUp, Clock, X } from "lucide-react";
+
+interface SearchHistory {
+  query: string;
+  timestamp: number;
+}
 
 interface SearchResult {
   type: "jersey" | "user" | "sale" | "auction";
@@ -28,8 +33,50 @@ export const CommandBar = () => {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Load search history from localStorage
+  useEffect(() => {
+    const history = localStorage.getItem("searchHistory");
+    if (history) {
+      try {
+        setSearchHistory(JSON.parse(history));
+      } catch (e) {
+        console.error("Failed to load search history:", e);
+      }
+    }
+  }, []);
+
+  // Save search history to localStorage
+  const saveSearchHistory = (history: SearchHistory[]) => {
+    localStorage.setItem("searchHistory", JSON.stringify(history));
+    setSearchHistory(history);
+  };
+
+  // Add to search history
+  const addToHistory = (query: string) => {
+    if (!query.trim()) return;
+    
+    const newHistory = [
+      { query: query.trim(), timestamp: Date.now() },
+      ...searchHistory.filter(h => h.query !== query.trim())
+    ].slice(0, 5); // Keep only last 5 searches
+    
+    saveSearchHistory(newHistory);
+  };
+
+  // Clear individual history item
+  const clearHistoryItem = (query: string) => {
+    const newHistory = searchHistory.filter(h => h.query !== query);
+    saveSearchHistory(newHistory);
+  };
+
+  // Clear all history
+  const clearAllHistory = () => {
+    saveSearchHistory([]);
+  };
 
   // Expose setOpen to parent components
   useEffect(() => {
@@ -241,6 +288,7 @@ export const CommandBar = () => {
   }, [open, search]);
 
   const handleSelect = (result: SearchResult) => {
+    addToHistory(search); // Add current search to history
     setOpen(false);
     setSearch("");
     
@@ -249,6 +297,11 @@ export const CommandBar = () => {
     } else if (result.type === "jersey" || result.type === "sale" || result.type === "auction") {
       navigate(`/jersey/${result.id}`);
     }
+  };
+
+  // Handle selecting from history
+  const handleHistorySelect = (query: string) => {
+    setSearch(query);
   };
 
   const groupedResults = {
@@ -270,12 +323,51 @@ export const CommandBar = () => {
             />
             <CommandList>
           {!search ? (
-            <CommandEmpty>
-              <div className="py-6 text-center text-sm">
-                <Search className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                <p className="text-muted-foreground">Start typing to search</p>
-              </div>
-            </CommandEmpty>
+            <>
+              {searchHistory.length > 0 ? (
+                <>
+                  <CommandGroup heading="Recent Searches">
+                    {searchHistory.map((item) => (
+                      <CommandItem
+                        key={item.query}
+                        onSelect={() => handleHistorySelect(item.query)}
+                        className="flex items-center gap-3 px-4 py-3 group"
+                      >
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{item.query}</div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearHistoryItem(item.query);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandSeparator />
+                  <div className="px-4 py-2">
+                    <button
+                      onClick={clearAllHistory}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Clear all history
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <CommandEmpty>
+                  <div className="py-6 text-center text-sm">
+                    <Search className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Start typing to search</p>
+                  </div>
+                </CommandEmpty>
+              )}
+            </>
           ) : results.length === 0 && !loading ? (
             <CommandEmpty>No results found.</CommandEmpty>
           ) : (
