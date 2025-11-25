@@ -97,37 +97,50 @@ export const ActivitySnapshot = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 bg-gradient-primary rounded-full" />
-        <h2 className="text-2xl font-bold">Your Huddle Snapshot</h2>
+        <div className="w-1 h-8 bg-gradient-neon rounded-full" />
+        <h2 className="text-3xl font-black uppercase tracking-tight">Your Huddle Snapshot</h2>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card) => (
-          <button
-            key={card.label}
-            onClick={card.onClick}
-            className="group relative overflow-hidden p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all hover:shadow-card hover:-translate-y-1"
-          >
-            {/* Gradient overlay on hover */}
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-transparent to-primary/5" />
-            
-            <div className="relative space-y-4">
-              <div className={`w-12 h-12 rounded-xl ${card.bgColor} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                <card.icon className={`w-6 h-6 ${card.color}`} />
-              </div>
+      {/* Unified horizontal strip */}
+      <div className="relative overflow-hidden rounded-3xl bg-card border-2 border-border shadow-elevated">
+        {/* Ambient glow background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-success/5 opacity-50" />
+        
+        <div className="relative grid grid-cols-2 lg:grid-cols-4">
+          {statCards.map((card, index) => (
+            <button
+              key={card.label}
+              onClick={card.onClick}
+              className={`group relative p-8 hover:bg-card-hover transition-all ${
+                index !== statCards.length - 1 ? 'border-r border-border/50' : ''
+              }`}
+            >
+              {/* Neon separator glow */}
+              {index !== statCards.length - 1 && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-px h-16 bg-gradient-to-b from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+              
+              {/* Hover gradient */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-transparent via-transparent to-primary/10" />
+              
+              <div className="relative space-y-5">
+                <div className={`w-14 h-14 rounded-2xl ${card.bgColor} flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all shadow-lg`}>
+                  <card.icon className={`w-7 h-7 ${card.color}`} />
+                </div>
 
-              <div className="space-y-1">
-                <div className="text-3xl font-bold">{card.value}</div>
-                <div className="text-sm text-muted-foreground">{card.subtitle}</div>
-              </div>
+                <div className="space-y-2 text-left">
+                  <div className="text-5xl font-black">{card.value}</div>
+                  <div className="text-sm text-muted-foreground font-medium">{card.subtitle}</div>
+                </div>
 
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <span>{card.label}</span>
-                <TrendingUp className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <span>{card.label}</span>
+                  <TrendingUp className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

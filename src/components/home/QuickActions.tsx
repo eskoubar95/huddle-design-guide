@@ -46,34 +46,37 @@ export const QuickActions = () => {
   return (
     <div className="space-y-4 animate-fade-in" style={{ animationDelay: "100ms" }}>
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 bg-gradient-accent rounded-full" />
-        <h2 className="text-2xl font-bold">Quick Actions</h2>
-        <Sparkles className="w-5 h-5 text-accent animate-pulse" />
+        <div className="w-1 h-8 bg-gradient-accent rounded-full animate-pulse-glow" />
+        <h2 className="text-3xl font-black uppercase tracking-tight">Quick Actions</h2>
+        <Sparkles className="w-6 h-6 text-accent animate-pulse" />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {actions.map((action) => (
           <button
             key={action.title}
             onClick={action.onClick}
-            className="group relative overflow-hidden p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all hover:shadow-card hover:-translate-y-1"
+            className="group relative overflow-hidden p-8 rounded-3xl bg-card border-2 border-border hover:border-primary/40 transition-all hover:shadow-neon hover:-translate-y-2"
           >
-            {/* Animated gradient background */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
+            {/* Animated neon gradient background */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
             
-            <div className="relative space-y-4">
-              <div className={`w-14 h-14 rounded-2xl ${action.iconBg} flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all`}>
-                <action.icon className={`w-7 h-7 ${action.iconColor}`} />
+            {/* Corner accent */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/20 to-transparent rounded-bl-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            
+            <div className="relative space-y-6">
+              <div className={`w-16 h-16 rounded-2xl ${action.iconBg} flex items-center justify-center group-hover:scale-125 group-hover:rotate-6 transition-all duration-500 shadow-lg neon-border`}>
+                <action.icon className={`w-8 h-8 ${action.iconColor}`} />
               </div>
 
-              <div className="space-y-1 text-left">
-                <div className="text-lg font-bold">{action.title}</div>
-                <div className="text-sm text-muted-foreground">{action.description}</div>
+              <div className="space-y-2 text-left">
+                <div className="text-xl font-black">{action.title}</div>
+                <div className="text-sm text-muted-foreground font-medium">{action.description}</div>
               </div>
 
-              {/* Hover arrow */}
-              <div className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-primary/0 group-hover:bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                <span className="text-primary text-sm">→</span>
+              {/* Animated arrow */}
+              <div className="absolute bottom-6 right-6 w-8 h-8 rounded-full bg-primary/0 group-hover:bg-primary/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 neon-border">
+                <span className="text-primary text-lg font-bold">→</span>
               </div>
             </div>
           </button>

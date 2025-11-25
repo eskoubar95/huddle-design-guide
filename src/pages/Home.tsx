@@ -6,6 +6,7 @@ import { ActivitySnapshot } from "@/components/home/ActivitySnapshot";
 import { QuickActions } from "@/components/home/QuickActions";
 import { MarketplaceForYou } from "@/components/home/MarketplaceForYou";
 import { CommunityPreview } from "@/components/home/CommunityPreview";
+import { RightSidebar } from "@/components/home/RightSidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -15,14 +16,16 @@ const Home = () => {
 
   return (
     <>
-      <div className="min-h-screen pb-20 lg:pb-8">
-        {/* Sticky Header */}
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold">Huddle</h1>
+      <div className="min-h-screen pb-20 lg:pb-8 flex">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Sticky Header */}
+          <header className="sticky top-0 z-40 bg-background/90 backdrop-blur-xl border-b border-border shadow-lg">
+            <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-black tracking-tight text-gradient-neon uppercase">Huddle</h1>
               
-              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                 {/* Search */}
                 <button
                   onClick={() => window.dispatchEvent(new Event("openCommandBar"))}
@@ -55,13 +58,13 @@ const Home = () => {
                     </AvatarFallback>
                   </Avatar>
                 </button>
+                </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8 space-y-12">
+          {/* Main Content */}
+          <main className="flex-1 max-w-7xl mx-auto px-4 lg:px-8 py-10 space-y-16 w-full">
           {/* Hero Spotlight */}
           <HeroSpotlight />
 
@@ -77,21 +80,13 @@ const Home = () => {
           {/* Community Preview */}
           <CommunityPreview />
 
-          {/* Optional: Live Scores Section - Commented out for now */}
-          {/* 
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-8 bg-gradient-primary rounded-full" />
-              <h2 className="text-2xl font-bold">Live Scores</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              // Score cards will go here
-            </div>
-          </div>
-          */}
-        </main>
+          </main>
 
-        <BottomNav />
+          <BottomNav />
+        </div>
+
+        {/* Right Sidebar */}
+        <RightSidebar />
       </div>
     </>
   );
