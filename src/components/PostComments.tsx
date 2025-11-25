@@ -159,7 +159,10 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
           ) : (
             comments.map((comment) => (
               <div key={comment.id} className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                <button
+                  onClick={() => window.location.href = `/user/${comment.user_id}`}
+                  className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity"
+                >
                   {comment.profiles.avatar_url ? (
                     <img
                       src={comment.profiles.avatar_url}
@@ -169,12 +172,15 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
                   ) : (
                     <User className="w-4 h-4 text-muted-foreground" />
                   )}
-                </div>
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="bg-secondary rounded-lg p-3">
-                    <div className="font-semibold text-sm">
+                    <button
+                      onClick={() => window.location.href = `/user/${comment.user_id}`}
+                      className="font-semibold text-sm hover:underline text-left"
+                    >
                       {comment.profiles.username}
-                    </div>
+                    </button>
                     <p className="text-sm mt-1">{comment.content}</p>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 px-3">
