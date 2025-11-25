@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { JerseyCard } from "@/components/JerseyCard";
-import { SearchModal } from "@/components/SearchModal";
 import { cn } from "@/lib/utils";
 
 const mockJerseys = [
@@ -51,11 +50,9 @@ const mockJerseys = [
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState<"following" | "explore">("explore");
-  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <>
-      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       <div className="min-h-screen pb-20 lg:pb-8">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
@@ -63,7 +60,7 @@ const Home = () => {
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold text-foreground">Huddle</h1>
               <button
-                onClick={() => setSearchOpen(true)}
+                onClick={() => window.dispatchEvent(new Event("openCommandBar"))}
                 className="w-10 h-10 rounded-full bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors"
               >
                 <Search className="w-5 h-5" />

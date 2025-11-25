@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Sidebar } from "./components/Sidebar";
+import { CommandBar } from "./components/CommandBar";
 import Home from "./pages/Home";
 import Wardrobe from "./pages/Wardrobe";
 import Marketplace from "./pages/Marketplace";
@@ -26,6 +27,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <CommandBar />
         <Sidebar />
         <div className="lg:pl-64">
           <Routes>
