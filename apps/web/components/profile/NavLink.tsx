@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-interface NavLinkProps extends Omit<React.ComponentPropsWithoutRef<typeof Link>, 'children'> {
+interface NavLinkProps {
   href: string;
   className?: string;
   activeClassName?: string;
   children: React.ReactNode;
+  [key: string]: unknown;
 }
 
 export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
@@ -23,7 +24,7 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
         href={href}
         className={cn(className, isActive && activeClassName)}
         aria-current={isActive ? "page" : undefined}
-        {...props}
+        {...(props as React.ComponentPropsWithoutRef<typeof Link>)}
       >
         {children}
       </Link>
