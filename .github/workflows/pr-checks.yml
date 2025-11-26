@@ -1,0 +1,74 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          # Get changed files count
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l | tr -d ' ')
+          
+          # Get lines changed
+          ADDED=$(git diff --numstat origin/${{ github.base_ref }}...HEAD | awk '{sum+=$1} END {print sum+0}')
+          DELETED=$(git diff --numstat origin/${{ github.base_ref }}...HEAD | awk '{sum+=$2} END {print sum+0}')
+          TOTAL_LOC=$(($ADDED + $DELETED))
+          
+          echo "📊 PR Size Analysis:"
+          echo "Files changed: $CHANGED_FILES"
+          echo "Lines changed: $TOTAL_LOC (+$ADDED / -$DELETED)"
+          
+          # Warn if exceeds recommended limits (per project rules: 400 LOC / 20 files)
+          if [ "$CHANGED_FILES" -gt 20 ]; then
+            echo "⚠️ Warning: PR exceeds recommended file limit (20 files). Consider splitting."
+          fi
+          
+          if [ "$TOTAL_LOC" -gt 400 ]; then
+            echo "⚠️ Warning: PR exceeds recommended LOC limit (400 LOC). Consider splitting."
+          fi
+          
+          # Don't fail, just warn
+          exit 0
+
+  validate-commits:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          # Get commits in PR
+          COMMITS=$(git log --format="%H" origin/${{ github.base_ref }}...HEAD)
+          
+          for commit in $COMMITS; do
+            MESSAGE=$(git log --format="%s" -n 1 $commit)
+            
+            # Check if follows Conventional Commits format
+            if ! echo "$MESSAGE" | grep -qE "^(feat|fix|chore|docs|test|refactor|style|perf|ci|build|revert)(\(.+\))?:"; then
+              echo "❌ Commit $commit does not follow Conventional Commits format:"
+              echo "   $MESSAGE"
+              echo "   Expected format: <type>(<scope>): <description>"
+              echo "   Example: feat(migration): migrate domain components"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All commit messages follow Conventional Commits format"
+
