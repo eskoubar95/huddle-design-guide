@@ -702,3 +702,4 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
   );
 };
 
+

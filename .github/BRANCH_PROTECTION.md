@@ -105,3 +105,4 @@ Efter konfiguration, test at det virker:
 - `.cursor/rules/01-git_branch_pr.mdc` - Git branching and PR governance
 - `.cursor/rules/31-ci_cd_pipeline.mdc` - CI/CD pipeline configuration
 
+

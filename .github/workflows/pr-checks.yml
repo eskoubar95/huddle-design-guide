@@ -54,8 +54,13 @@ jobs:
 
       - name: Validate commit messages
         run: |
-          # Get commits in PR
-          COMMITS=$(git log --format="%H" origin/${{ github.base_ref }}...HEAD)
+          # Get commits in PR (excluding merge commits)
+          COMMITS=$(git log --no-merges --format="%H" origin/${{ github.base_ref }}...HEAD)
+          
+          if [ -z "$COMMITS" ]; then
+            echo "ℹ️ No non-merge commits to validate"
+            exit 0
+          fi
           
           for commit in $COMMITS; do
             MESSAGE=$(git log --format="%s" -n 1 $commit)
@@ -71,4 +76,5 @@ jobs:
           done
           
           echo "✅ All commit messages follow Conventional Commits format"
+
 

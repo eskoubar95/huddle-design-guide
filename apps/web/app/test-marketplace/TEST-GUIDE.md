@@ -255,3 +255,4 @@
 - [ ] Special characters i input → Handles correctly
 - [ ] Multiple dialogs open → Only one active at a time
 
+
