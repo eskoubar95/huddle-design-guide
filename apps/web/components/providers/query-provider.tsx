@@ -8,6 +8,26 @@ interface QueryProviderProps {
   children: ReactNode;
 }
 
+// Wrapper component to handle React 19 type compatibility
+function QueryClientProviderWrapper({ 
+  client, 
+  children 
+}: { 
+  client: QueryClient; 
+  children: ReactNode;
+}) {
+  // Type assertion to handle React 19 type compatibility with @tanstack/react-query
+  // React 19's ReactNode type is stricter than what @tanstack/react-query expects
+  // Using double type assertion via variable to bypass type checking
+  const childrenAsAny = children as any;
+  
+  return (
+    <QueryClientProvider client={client}>
+      {childrenAsAny}
+    </QueryClientProvider>
+  );
+}
+
 export function QueryProvider({ children }: QueryProviderProps) {
   // Use useState to create QueryClient once per component instance
   // This prevents creating new client on every render (Next.js App Router requirement)
@@ -23,16 +43,10 @@ export function QueryProvider({ children }: QueryProviderProps) {
       })
   );
 
-  // Workaround for React 19 type compatibility with @tanstack/react-query
-  // React 19's ReactNode type is stricter than what @tanstack/react-query expects
-  // Casting to any first, then to React.ReactNode to bypass type checking
-  // This is safe at runtime - the actual types are compatible
-  const childrenAsReactNode = children as any as React.ReactNode;
-
   return (
-    <QueryClientProvider client={queryClient}>
-      {childrenAsReactNode}
-    </QueryClientProvider>
+    <QueryClientProviderWrapper client={queryClient}>
+      {children}
+    </QueryClientProviderWrapper>
   );
 }
 
