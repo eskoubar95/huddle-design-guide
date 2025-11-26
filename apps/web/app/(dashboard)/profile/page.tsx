@@ -285,7 +285,7 @@ const Profile = () => {
                 {stats.totalJerseys === 0 ? (
                   <div className="text-center py-12 bg-card rounded-lg border border-border">
                     <p className="text-muted-foreground mb-4">
-                      You haven't added any jerseys yet
+                      You haven&apos;t added any jerseys yet
                     </p>
                     <Button onClick={() => router.push("/wardrobe")}>
                       Upload Your First Jersey
