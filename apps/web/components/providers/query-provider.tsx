@@ -25,10 +25,13 @@ export function QueryProvider({ children }: QueryProviderProps) {
 
   // Workaround for React 19 type compatibility with @tanstack/react-query
   // React 19's ReactNode type is stricter than what @tanstack/react-query expects
-  // Using double type assertion to satisfy both type systems
+  // Casting to any first, then to React.ReactNode to bypass type checking
+  // This is safe at runtime - the actual types are compatible
+  const childrenAsReactNode = children as any as React.ReactNode;
+
   return (
     <QueryClientProvider client={queryClient}>
-      {children as unknown as React.ReactNode}
+      {childrenAsReactNode}
     </QueryClientProvider>
   );
 }
