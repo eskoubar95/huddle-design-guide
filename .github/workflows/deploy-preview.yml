@@ -30,10 +30,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Install root dependencies first (workspace setup)
+          # Install all workspace dependencies from root
+          # npm workspaces handles apps/web automatically
           npm install
-          # Then install workspace dependencies
-          cd apps/web && npm install
 
       - name: Build Next.js app
         run: npm run build
