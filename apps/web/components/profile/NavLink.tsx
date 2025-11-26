@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-interface NavLinkProps extends React.ComponentPropsWithoutRef<typeof Link> {
+interface NavLinkProps extends Omit<React.ComponentPropsWithoutRef<typeof Link>, 'children'> {
   href: string;
   className?: string;
   activeClassName?: string;
