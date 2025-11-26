@@ -204,3 +204,4 @@ After completing tests, report:
 - Component approach chosen for consistency with legacy app
 - Loading state from AuthContext is used to prevent flash of content
 
+

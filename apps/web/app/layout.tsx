@@ -33,11 +33,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
-          <AuthProvider>
-            {children}
+        <AuthProvider>
+          {children}
             <Toaster />
             <Sonner />
-          </AuthProvider>
+        </AuthProvider>
         </QueryProvider>
       </body>
     </html>
