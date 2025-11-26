@@ -2,19 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { forwardRef } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 interface NavLinkProps {
   href: string;
   className?: string;
   activeClassName?: string;
-  children: React.ReactNode;
-  [key: string]: unknown;
+  children: ReactNode;
 }
 
 export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
-  ({ href, className, activeClassName, children, ...props }, ref) => {
+  ({ href, className, activeClassName, children }, ref) => {
     const pathname = usePathname();
     const isActive = pathname === href;
 
@@ -24,7 +23,6 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
         href={href}
         className={cn(className, isActive && activeClassName)}
         aria-current={isActive ? "page" : undefined}
-        {...(props as React.ComponentPropsWithoutRef<typeof Link>)}
       >
         {children}
       </Link>
