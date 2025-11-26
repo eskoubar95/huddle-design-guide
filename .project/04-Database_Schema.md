@@ -136,7 +136,88 @@ Vi planlægger **ikke** at redesigne alt fra dag ét, men at migrere ansvar grad
 
 ---
 
-## 5. Migrations- og ændringsstrategi
+## 5. Medusa Schema (implementeret)
+
+### 5.1 Schema Oprettelse
+
+`medusa` schema er oprettet i Supabase Postgres via migration `202511262142_create_medusa_schema.sql`.
+
+**Schema Isolation:**
+- MedusaJS bruger `search_path=medusa` i connection string
+- Alle Medusa tabeller oprettes i `medusa.*` namespace
+- Ingen konflikter med `public.*` tabeller
+
+**Medusa Tabeller (oprettes via Medusa migrations):**
+- `products`, `variants`, `orders`, `regions`, `shipping_profiles`, osv.
+- Se Medusa dokumentation for fuld liste
+
+### 5.2 Connection String Format
+
+Medusa konfigureres med:
+```
+DATABASE_URL=postgres://user:pass@host:port/dbname?search_path=medusa
+DATABASE_SCHEMA=medusa
+```
+
+**KRITISK:** Medusa v2 (MikroORM) kræver BÅDE `search_path` i connection string OG `databaseSchema: "medusa"` i `medusa-config.ts` for korrekt schema isolation.
+
+Dette sikrer at alle Medusa queries og migrations automatisk bruger `medusa` schema.
+
+### 5.3 Integration Patterns (implementeret)
+
+**Cross-Schema References:**
+
+Huddle tabeller kan referere til Medusa tabeller via UUID felter (ikke foreign keys, da cross-schema FKs ikke altid understøttes):
+
+**Eksempel: Jersey → Product Mapping:**
+```sql
+-- I public.jerseys tabel (fremtidig migration)
+ALTER TABLE public.jerseys 
+ADD COLUMN medusa_product_id UUID;
+
+-- Kommentar
+COMMENT ON COLUMN public.jerseys.medusa_product_id IS 
+  'Reference til medusa.products.id. Når et jersey listeres til salg, oprettes et Medusa product.';
+```
+
+**Eksempel: Sale Listing → Product Mapping:**
+```sql
+-- I public.sale_listings tabel (fremtidig migration)
+ALTER TABLE public.sale_listings 
+ADD COLUMN medusa_product_id UUID;
+
+-- Kommentar
+COMMENT ON COLUMN public.sale_listings.medusa_product_id IS 
+  'Reference til medusa.products.id. Sale listing er en wrapper omkring Medusa product.';
+```
+
+**API Integration Pattern:**
+
+Huddle Next.js API routes (`apps/web/app/api/v1/...`) skal:
+1. Kalde Medusa API (`http://localhost:9000`) for commerce operations
+2. Bruge Supabase direkte for Huddle-specifikke data (jerseys, social graph)
+3. Kombinere data fra begge kilder i API responses
+
+**Eksempel API Flow:**
+```
+User creates sale listing
+  ↓
+Next.js API route (apps/web/app/api/v1/listings/route.ts)
+  ↓
+1. Create Medusa product via Medusa API
+2. Store medusa_product_id in public.sale_listings
+3. Return combined data
+```
+
+**Ikke Direkte SQL Joins:**
+
+Undgå direkte SQL joins på tværs af schemas. Brug API calls eller application-level joins i stedet.
+
+**Rationale:** Dokumenterer hvordan Huddle og Medusa domæner integreres. Giver klare patterns for fremtidig udvikling.
+
+---
+
+## 6. Migrations- og ændringsstrategi
 
 ### 5.1 Supabase‑schema (public)
 
@@ -173,7 +254,7 @@ ORM i klassisk forstand (Prisma/Drizzle) er ikke strengt nødvendigt her, fordi:
 
 ---
 
-## 6. Fremtidige udvidelser
+## 7. Fremtidige udvidelser
 
 Når vi bevæger os mod Fase 2+ i PRD’et (ratings, collections, trade mode, price history osv.), bør vi:
 

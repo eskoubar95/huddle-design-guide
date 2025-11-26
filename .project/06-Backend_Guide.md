@@ -85,6 +85,63 @@ Hold service role og Stripe-nøgler strengt server-side (aldrig i client bundles
 
 Denne guide fokuserer primært på Huddle API + Supabase. Medusa sættes op i **Fase 4** (Advanced features).
 
+### 2.7 MedusaJS Setup (Fase 4 - Implementeret)
+
+Medusa backend er installeret i `apps/medusa/` og konfigureret til at bruge Supabase Postgres med `medusa` schema.
+
+**Lokal Setup:**
+
+1. **Environment Variables:**
+   ```bash
+   cd apps/medusa
+   cp .env.example .env
+   # Rediger .env med Supabase connection string + search_path=medusa
+   # Format: DATABASE_URL=postgres://user:pass@host:port/dbname?search_path=medusa
+   # KRITISK: DATABASE_SCHEMA=medusa skal også være i .env
+   ```
+
+2. **Start Medusa:**
+   ```bash
+   # Fra root
+   npm run dev:medusa
+   
+   # Eller fra apps/medusa
+   cd apps/medusa && npm run dev
+   ```
+
+3. **Access Admin:**
+   - Medusa Admin: http://localhost:9000/app
+   - Standard Medusa login (ikke Clerk)
+   - Opret admin user: `npx medusa user -e admin@huddle.dk -p supersecret`
+
+4. **Run Migrations:**
+   ```bash
+   cd apps/medusa
+   npx medusa db:migrate
+   ```
+
+**Database Connection:**
+- Connection string format: `postgres://user:pass@host:port/dbname?search_path=medusa`
+- **KRITISK:** Medusa v2 kræver BÅDE `search_path` i connection string OG `databaseSchema: "medusa"` i `medusa-config.ts`
+- Schema isolation sikrer ingen konflikter med `public.*` tabeller
+- Medusa migrations opretter tabeller i `medusa.*` namespace (118 tabeller verificeret)
+
+**Troubleshooting:**
+- Hvis tabeller placeres i `public` schema: Verificer at `databaseSchema: "medusa"` er sat i `medusa-config.ts`
+- Hvis admin dashboard hænger: Installer dependencies: `use-sidecar`, `react-remove-scroll-bar`, `use-callback-ref`, `react-style-singleton`
+- Hvis port 9000 er i brug: `lsof -ti:9000 | xargs kill -9`
+- Clear cache hvis bundling fejler: `rm -rf node_modules/.vite .medusa/admin .cache`
+
+**Integration med Huddle API:**
+- Huddle Next.js API routes kalder Medusa API (`http://localhost:9000`)
+- Cross-schema references via UUID felter (fx `jerseys.medusa_product_id`)
+- Se `.project/04-Database_Schema.md` for integration patterns
+
+**Se også:**
+- `apps/medusa/README.md` - Lokal setup guide
+- `.project/04-Database_Schema.md` - Schema isolation og integration patterns
+- Implementation plan: `.project/plans/HUD-15/implementation-plan-2025-11-26-HUD-15.md`
+
 ---
 
 ## 3. Udviklingsfaser (high level)
