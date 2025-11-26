@@ -59,6 +59,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: apps/web/package-lock.json
+        continue-on-error: true
 
       - name: Install dependencies
         run: |
