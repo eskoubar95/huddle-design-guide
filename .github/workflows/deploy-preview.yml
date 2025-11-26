@@ -12,6 +12,9 @@ jobs:
     name: Deploy Preview
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      pull-requests: write
     defaults:
       run:
         working-directory: apps/web
