@@ -31,10 +31,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Install root dependencies first (workspace setup)
+          # Install all workspace dependencies from root
+          # npm workspaces handles apps/web automatically
           npm install
-          # Then install workspace dependencies
-          cd apps/web && npm install
 
       - name: Type check
         run: npx tsc --noEmit --pretty
