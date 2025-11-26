@@ -26,18 +26,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
         continue-on-error: true
 
       - name: Install dependencies
         run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            echo "⚠️ package-lock.json not found, using npm install"
-            npm install
-          fi
-        working-directory: apps/web
+          # Install root dependencies first (workspace setup)
+          npm install
+          # Then install workspace dependencies
+          cd apps/web && npm install
 
       - name: Type check
         run: npx tsc --noEmit --pretty
@@ -58,18 +55,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
         continue-on-error: true
 
       - name: Install dependencies
         run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            echo "⚠️ package-lock.json not found, using npm install"
-            npm install
-          fi
-        working-directory: apps/web
+          # Install root dependencies first (workspace setup)
+          npm install
+          # Then install workspace dependencies
+          cd apps/web && npm install
 
       - name: Run ESLint
         run: npm run lint -- --max-warnings=100
@@ -91,18 +85,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
         continue-on-error: true
 
       - name: Install dependencies
         run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            echo "⚠️ package-lock.json not found, using npm install"
-            npm install
-          fi
-        working-directory: apps/web
+          # Install root dependencies first (workspace setup)
+          npm install
+          # Then install workspace dependencies
+          cd apps/web && npm install
 
       - name: Build Next.js app
         run: npm run build
@@ -126,4 +117,3 @@ jobs:
             exit 1
           fi
           echo "✅ All CI checks passed"
-

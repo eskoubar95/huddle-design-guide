@@ -25,17 +25,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
         continue-on-error: true
 
       - name: Install dependencies
         run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            echo "⚠️ package-lock.json not found, using npm install"
-            npm install
-          fi
+          # Install root dependencies first (workspace setup)
+          npm install
+          # Then install workspace dependencies
+          cd apps/web && npm install
 
       - name: Build Next.js app
         run: npm run build
@@ -54,4 +52,3 @@ jobs:
               repo: context.repo.repo,
               body: '✅ **Preview build successful!**\n\nBuild completed successfully. Ready for review.'
             })
-
