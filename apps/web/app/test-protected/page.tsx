@@ -2,7 +2,6 @@
 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
 
 export default function TestProtectedPage() {
   const { user, loading } = useAuth();
@@ -87,7 +86,7 @@ export default function TestProtectedPage() {
             <div>
               <h3 className="font-semibold mb-2">2. Loading State Test</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>During initial load: Spinner should show with "Loading..." text</li>
+                <li>During initial load: Spinner should show with &quot;Loading...&quot; text</li>
                 <li>Loading state should be announced to screen readers</li>
                 <li>After loading: Content should render or redirect should happen</li>
               </ul>
@@ -103,8 +102,8 @@ export default function TestProtectedPage() {
             <div>
               <h3 className="font-semibold mb-2">4. Accessibility Test</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Loading state is announced (aria-live="polite")</li>
-                <li>Spinner has aria-label="Loading"</li>
+                <li>Loading state is announced (aria-live=&quot;polite&quot;)</li>
+                <li>Spinner has aria-label=&quot;Loading&quot;</li>
                 <li>Keyboard navigation works</li>
               </ul>
             </div>

@@ -9,9 +9,9 @@ export default function TestAuthPage() {
   const { user, session, loading, signOut } = useAuth();
 
   const handleSignIn = async () => {
-    const supabase = createClient();
     // For testing - you can implement actual sign in flow here
-    console.log("Sign in clicked - implement sign in flow");
+    const supabase = createClient();
+    console.log("Sign in clicked - implement sign in flow", supabase);
   };
 
   return (

@@ -7,6 +7,12 @@ import { PlaceBid } from "@/components/marketplace/PlaceBid";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
 import { Button } from "@/components/ui/button";
 
+// Component to avoid Date.now() in render
+function ExpiredTimer() {
+  const [expiredAt] = useState(() => new Date(Date.now() - 1000).toISOString());
+  return <CountdownTimer endsAt={expiredAt} />;
+}
+
 export default function TestMarketplacePage() {
   const [saleListingOpen, setSaleListingOpen] = useState(false);
   const [auctionOpen, setAuctionOpen] = useState(false);
@@ -19,7 +25,10 @@ export default function TestMarketplacePage() {
   const mockStartingBid = 100.00;
   
   // Mock auction end time (1 hour from now)
-  const mockEndsAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  // Using useState to avoid calling Date.now() during render
+  const [mockEndsAt] = useState(() => 
+    new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground p-8">
@@ -137,7 +146,7 @@ export default function TestMarketplacePage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground mb-2">Expired auction:</p>
-              <CountdownTimer endsAt={new Date(Date.now() - 1000).toISOString()} />
+              <ExpiredTimer />
             </div>
           </div>
         </div>
