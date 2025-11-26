@@ -56,35 +56,35 @@ export const CommunityPreview = () => {
 
         if (data) {
           // Type assertion needed due to Supabase query structure
-          type SupabasePost = {
-            id: string;
-            content: string;
-            created_at: string;
-            user_id: string;
-            jersey_id?: string;
-            profiles?: { username: string; avatar_url?: string };
-            jerseys?: { images: string[]; club: string; season: string };
-            likes_count?: number;
-            comments_count?: number;
-          };
-          const typedPosts = data.map((post: SupabasePost) => ({
-            id: post.id,
-            content: post.content,
-            created_at: post.created_at,
-            user_id: post.user_id,
-            jersey_id: post.jersey_id,
-            profiles: {
-              username: post.profiles?.username || "Unknown",
-              avatar_url: post.profiles?.avatar_url,
-            },
-            jerseys: post.jerseys ? {
-              images: post.jerseys.images || [],
-              club: post.jerseys.club,
-              season: post.jerseys.season,
-            } : undefined,
-            likes_count: post.likes_count,
-            comments_count: post.comments_count,
-          })) as Post[];
+          // Supabase returns null for nullable fields, not undefined
+          // Also handles SelectQueryError for missing relations
+          // Using 'any' temporarily to handle Supabase's complex return types
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const typedPosts = data.map((post: any) => {
+            // Handle profiles - can be object, null, or SelectQueryError
+            const profiles = post.profiles && typeof post.profiles === 'object' && 'username' in post.profiles
+              ? post.profiles
+              : null;
+            
+            return {
+              id: post.id,
+              content: post.content || "",
+              created_at: post.created_at,
+              user_id: post.user_id,
+              jersey_id: post.jersey_id || undefined,
+              profiles: {
+                username: profiles?.username || "Unknown",
+                avatar_url: profiles?.avatar_url || undefined,
+              },
+              jerseys: post.jerseys ? {
+                images: post.jerseys.images || [],
+                club: post.jerseys.club,
+                season: post.jerseys.season,
+              } : undefined,
+              likes_count: post.likes_count || undefined,
+              comments_count: post.comments_count || undefined,
+            };
+          }) as Post[];
           setPosts(typedPosts);
         }
       } catch (error) {

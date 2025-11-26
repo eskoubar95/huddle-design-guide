@@ -43,23 +43,17 @@ export const MarketplaceForYou = () => {
           });
         } else if (trending) {
           // Map to Jersey interface
-          type SupabaseJersey = {
-            id: string;
-            club: string;
-            season: string;
-            jersey_type: string;
-            player_name?: string;
-            images?: string[];
-            condition_rating?: number;
-          };
-          const typedJerseys: Jersey[] = trending.map((j: SupabaseJersey) => ({
+          // Supabase returns null for nullable fields, not undefined
+          // Using 'any' temporarily to handle Supabase's complex return types
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const typedJerseys: Jersey[] = trending.map((j: any) => ({
             id: j.id,
             club: j.club,
             season: j.season,
             jersey_type: j.jersey_type,
-            player_name: j.player_name,
+            player_name: j.player_name || undefined,
             images: j.images || [],
-            condition_rating: j.condition_rating,
+            condition_rating: j.condition_rating || undefined,
           }));
           setTrendingJerseys(typedJerseys);
         }
@@ -82,10 +76,18 @@ export const MarketplaceForYou = () => {
             code: auctionsError.code,
           });
         } else if (auctions) {
-          type SupabaseAuction = {
-            jerseys: Jersey;
-          };
-          const jerseys = auctions.map((a: SupabaseAuction) => a.jerseys);
+          // Supabase returns null for nullable fields in nested objects
+          // Using 'any' temporarily to handle Supabase's complex return types
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const jerseys: Jersey[] = auctions.map((a: any) => ({
+            id: a.jerseys.id,
+            club: a.jerseys.club,
+            season: a.jerseys.season,
+            jersey_type: a.jerseys.jersey_type,
+            player_name: a.jerseys.player_name || undefined,
+            images: a.jerseys.images || [],
+            condition_rating: a.jerseys.condition_rating || undefined,
+          }));
           setEndingSoon(jerseys);
         }
       } catch (error) {
