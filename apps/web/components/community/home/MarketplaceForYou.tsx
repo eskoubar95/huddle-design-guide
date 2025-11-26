@@ -43,7 +43,16 @@ export const MarketplaceForYou = () => {
           });
         } else if (trending) {
           // Map to Jersey interface
-          const typedJerseys: Jersey[] = trending.map((j: any) => ({
+          type SupabaseJersey = {
+            id: string;
+            club: string;
+            season: string;
+            jersey_type: string;
+            player_name?: string;
+            images?: string[];
+            condition_rating?: number;
+          };
+          const typedJerseys: Jersey[] = trending.map((j: SupabaseJersey) => ({
             id: j.id,
             club: j.club,
             season: j.season,
@@ -73,7 +82,10 @@ export const MarketplaceForYou = () => {
             code: auctionsError.code,
           });
         } else if (auctions) {
-          const jerseys = auctions.map((a: any) => a.jerseys);
+          type SupabaseAuction = {
+            jerseys: Jersey;
+          };
+          const jerseys = auctions.map((a: SupabaseAuction) => a.jerseys);
           setEndingSoon(jerseys);
         }
       } catch (error) {

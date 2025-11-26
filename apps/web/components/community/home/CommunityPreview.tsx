@@ -56,7 +56,18 @@ export const CommunityPreview = () => {
 
         if (data) {
           // Type assertion needed due to Supabase query structure
-          const typedPosts = data.map((post: any) => ({
+          type SupabasePost = {
+            id: string;
+            content: string;
+            created_at: string;
+            user_id: string;
+            jersey_id?: string;
+            profiles?: { username: string; avatar_url?: string };
+            jerseys?: { images: string[]; club: string; season: string };
+            likes_count?: number;
+            comments_count?: number;
+          };
+          const typedPosts = data.map((post: SupabasePost) => ({
             id: post.id,
             content: post.content,
             created_at: post.created_at,
