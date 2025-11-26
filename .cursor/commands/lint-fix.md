@@ -12,7 +12,7 @@ Fix code style, formatting, and linting errors to maintain consistent code quali
 
 ## Linting Tools
 
-Beauty Shop uses:
+The Project uses:
 - **ESLint:** Code quality and best practices
 - **Prettier:** Code formatting
 - **TypeScript:** Type checking

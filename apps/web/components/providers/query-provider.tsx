@@ -19,6 +19,7 @@ function QueryClientProviderWrapper({
   // Type assertion to handle React 19 type compatibility with @tanstack/react-query
   // React 19's ReactNode type is stricter than what @tanstack/react-query expects
   // Using double type assertion via variable to bypass type checking
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const childrenAsAny = children as any;
   
   return (
