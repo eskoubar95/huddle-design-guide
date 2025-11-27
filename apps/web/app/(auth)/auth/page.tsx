@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: "Invalid email address" }),
@@ -26,22 +25,38 @@ const signupSchema = z.object({
 });
 
 const Auth = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoaded } = useUser();
+  const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
+  const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
+  
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [username, setUsername] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
-  const { user } = useAuth();
-  const { toast } = useToast();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      router.push("/");
+    if (isLoaded && user) {
+      const redirectUrl = searchParams.get("redirect_url") || "/";
+      router.push(redirectUrl);
     }
-  }, [user, router]);
+  }, [user, isLoaded, router, searchParams]);
+
+  // Show loading state while Clerk is initializing
+  if (!isLoaded || !signInLoaded || !signUpLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-secondary">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,54 +65,37 @@ const Auth = () => {
       const validated = loginSchema.parse({ email, password });
       setIsSubmitting(true);
 
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: validated.email,
-        password: validated.password,
-      });
-
-      if (error) {
-        // Handle specific Supabase auth errors
-        if (error.message.includes("Invalid login credentials")) {
-          toast({
-            title: "Login Failed",
-            description: "Invalid email or password",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
+      if (!signIn) {
+        toast.error("Authentication service not available");
         return;
       }
 
-      if (data.user) {
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully logged in",
-        });
-        router.push("/");
+      const result = await signIn.create({
+        identifier: validated.email,
+        password: validated.password,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        toast.success("Welcome back!");
+        const redirectUrl = searchParams.get("redirect_url") || "/";
+        router.push(redirectUrl);
+      } else {
+        // Handle multi-step authentication (e.g., MFA, email verification)
+        toast.error("Additional authentication required");
       }
     } catch (error) {
-      // Handle validation errors
       if (error instanceof z.ZodError) {
         const firstError = error.issues[0];
-        toast({
-          title: "Validation Error",
-          description: firstError.message,
-          variant: "destructive",
-        });
+        toast.error(firstError.message);
+      } else if (error instanceof Error) {
+        if (error.message.includes("form_identifier_not_found") || error.message.includes("form_password_incorrect")) {
+          toast.error("Invalid email or password");
+        } else {
+          toast.error(error.message || "Login failed");
+        }
       } else {
-        // Unexpected errors
-        console.error("Login error:", error);
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        });
+        toast.error("An unexpected error occurred");
       }
     } finally {
       setIsSubmitting(false);
@@ -111,154 +109,46 @@ const Auth = () => {
       const validated = signupSchema.parse({ username, email, password, confirmPassword });
       setIsSubmitting(true);
 
-      const supabase = createClient();
-      
-      // Pre-validate username uniqueness before signup (only if profiles table exists)
-      // If table doesn't exist (PGRST205), skip pre-check and rely on post-check
-      const { data: existingProfile, error: checkError } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("username", validated.username)
-        .maybeSingle();
-
-      // If table doesn't exist, skip pre-check (migrations not run yet)
-      if (checkError && checkError.code === "PGRST205") {
-        console.warn("Profiles table not found - skipping username pre-check. Migrations may not be applied.");
-        // Continue with signup - will catch username conflict in post-check
-      } else if (checkError && checkError.code !== "PGRST116") {
-        // Other error (not "not found")
-        console.warn("Error checking username availability:", checkError);
-        // Continue anyway - will catch in post-check
-      } else if (existingProfile) {
-        // Username already exists
-        toast({
-          title: "Username Taken",
-          description: "This username is already in use. Please choose another.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
+      if (!signUp) {
+        toast.error("Authentication service not available");
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({
-        email: validated.email,
+      const result = await signUp.create({
+        username: validated.username,
+        emailAddress: validated.email,
         password: validated.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            username: validated.username,
-          },
-        },
       });
 
-      if (error) {
-        if (error.message.includes("User already registered")) {
-          toast({
-            title: "Account Exists",
-            description: "An account with this email already exists. Please log in instead.",
-            variant: "destructive",
-          });
-          // Switch to login tab
-          setIsLogin(true);
-        } else if (error.message.includes("duplicate key") || error.message.includes("unique constraint") || error.message.includes("username")) {
-          // Database constraint error (username already exists)
-          toast({
-            title: "Username Taken",
-            description: "This username is already in use. Please choose another.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Signup Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
+      // Send email verification code
+      if (result.status === 'missing_requirements') {
+        await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+        toast.info("Please check your email for a verification code");
+        // In a real app, you'd redirect to a verification page
+        // For now, we'll just show a message
         return;
       }
 
-      if (data.user) {
-        // Wait a moment for trigger to create profile, then verify it was created
-        // If username was duplicate, trigger will fail and profile won't exist
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const { data: profileCheck, error: profileError } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", data.user.id)
-          .maybeSingle();
-
-        // If profile doesn't exist, check why
-        if (!profileCheck) {
-          // If table doesn't exist, that's a migration issue - continue anyway
-          if (profileError && profileError.code === "PGRST205") {
-            console.warn("Profiles table not found - migrations may not be applied. User created but profile not created.");
-            // Continue - user account is created, profile will be created when migrations run
-          } else if (profileError) {
-            // Profile should exist but doesn't - might be username conflict
-            // Check if username already exists (trigger failed due to duplicate)
-            const { data: existingUsername, error: usernameCheckError } = await supabase
-              .from("profiles")
-              .select("username")
-              .eq("username", validated.username)
-              .maybeSingle();
-
-            // Only show error if table exists and username is taken
-            if (!usernameCheckError && existingUsername) {
-              // Username was duplicate - trigger failed
-              toast({
-                title: "Username Taken",
-                description: "This username is already in use. Please choose another.",
-                variant: "destructive",
-              });
-              // Sign out the user since account creation partially failed
-              await supabase.auth.signOut();
-              setIsSubmitting(false);
-              return;
-            }
-          }
-        }
-
-        // Check if email is verified
-        if (!data.user.email_confirmed_at) {
-          // Email not verified - Supabase may have logged them in automatically
-          // Show message and don't redirect
-          toast({
-            title: "Verification Email Sent",
-            description: "Please check your email to verify your account. You can sign in after verification.",
-          });
-          // Switch to login tab so user can try logging in after verification
-          setIsLogin(true);
-          // Clear form
-          setEmail("");
-          setPassword("");
-          setConfirmPassword("");
-          setUsername("");
-          // Don't redirect - let them stay on auth page
-        } else {
-          // Email already verified - proceed normally
-          toast({
-            title: "Account Created!",
-            description: "Welcome to Huddle! Your account has been created.",
-          });
-          router.push("/");
-        }
+      if (result.status === 'complete') {
+        await setActiveSignUp({ session: result.createdSessionId });
+        toast.success("Account created successfully!");
+        const redirectUrl = searchParams.get("redirect_url") || "/";
+        router.push(redirectUrl);
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
         const firstError = error.issues[0];
-        toast({
-          title: "Validation Error",
-          description: firstError.message,
-          variant: "destructive",
-        });
+        toast.error(firstError.message);
+      } else if (error instanceof Error) {
+        if (error.message.includes("form_username_invalid")) {
+          toast.error("Username is already taken or invalid");
+        } else if (error.message.includes("form_identifier_exists")) {
+          toast.error("An account with this email already exists");
+        } else {
+          toast.error(error.message || "Sign up failed");
+        }
       } else {
-        console.error("Signup error:", error);
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred. Please try again.",
-          variant: "destructive",
-        });
+        toast.error("An unexpected error occurred");
       }
     } finally {
       setIsSubmitting(false);

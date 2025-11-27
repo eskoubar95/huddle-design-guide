@@ -42,6 +42,11 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
+          # Sentry configuration for source map uploads (optional for preview builds)
+          # Source maps are automatically uploaded by @sentry/nextjs during build if token is set
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: huddle-new
+          SENTRY_PROJECT: web
 
       - name: Comment PR with preview info
         if: github.event_name == 'pull_request'

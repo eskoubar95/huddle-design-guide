@@ -42,33 +42,28 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key' }}
+          # Sentry configuration for source map uploads
+          # Source maps are automatically uploaded by @sentry/nextjs during build
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: huddle-new
+          SENTRY_PROJECT: web
+          # Sentry release tracking
+          SENTRY_RELEASE: ${{ github.sha }}
 
       - name: Create Sentry release
         if: env.SENTRY_AUTH_TOKEN != ''
         env:
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG || 'huddle' }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || 'web' }}
+          SENTRY_ORG: huddle-new
+          SENTRY_PROJECT: web
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
-          # Install Sentry CLI if not available
-          if ! command -v sentry-cli &> /dev/null; then
-            echo "Sentry CLI not found, skipping release creation"
-            exit 0
-          fi
-          
+          # Create release and associate commits
+          # Source maps are already uploaded during build by @sentry/nextjs
           RELEASE="${{ github.sha }}"
           echo "Creating Sentry release: $RELEASE"
           
           npx @sentry/cli releases new "$RELEASE" || true
           npx @sentry/cli releases set-commits "$RELEASE" --auto || true
+          npx @sentry/cli releases finalize "$RELEASE" || true
           
-          # Upload sourcemaps if .next directory exists
-          if [ -d ".next/static" ]; then
-            npx @sentry/cli sourcemaps upload \
-              --org "$SENTRY_ORG" \
-              --project "$SENTRY_PROJECT" \
-              .next/static \
-              --release "$RELEASE" || true
-          fi
-          
-          echo "✅ Sentry release created: $RELEASE"
+          echo "✅ Sentry release created and finalized: $RELEASE"
