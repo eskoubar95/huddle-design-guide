@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Gavel, Tag, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
@@ -8,7 +8,7 @@ import { PlaceBid } from "@/components/marketplace/PlaceBid";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
+import { useMarketplaceSales, useMarketplaceAuctions, type AuctionWithJersey } from "@/lib/hooks/use-marketplace";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -49,17 +49,15 @@ interface Auction extends Jersey {
   ends_at: string;
 }
 
+
 const ITEMS_PER_PAGE = 20;
 
 const Marketplace = () => {
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"sales" | "auctions">("sales");
-  const [sales, setSales] = useState<SaleListing[]>([]);
-  const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<AuctionWithJersey | null>(null);
   const [bidModalOpen, setBidModalOpen] = useState(false);
   
   // Filters
@@ -70,261 +68,69 @@ const Marketplace = () => {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
 
-  useEffect(() => {
-    setCurrentPage(1); // Reset to page 1 when filters change
-  }, [activeTab, searchQuery, filterType, filterSeason, minPrice, maxPrice]);
+  // Fetch marketplace data with joins
+  const {
+    sales,
+    isLoading: salesLoading,
+    totalItems: salesTotal,
+  } = useMarketplaceSales({
+    searchQuery,
+    filterType,
+    filterSeason,
+    minPrice,
+    maxPrice,
+  });
 
-  useEffect(() => {
-    if (activeTab === "sales") {
-      fetchSales();
-    } else {
-      fetchAuctions();
-    }
-  }, [activeTab, searchQuery, filterType, filterSeason, minPrice, maxPrice, currentPage]);
+  const {
+    auctions,
+    isLoading: auctionsLoading,
+    totalItems: auctionsTotal,
+    refetch: refetchAuctions,
+  } = useMarketplaceAuctions({
+    searchQuery,
+    filterType,
+    filterSeason,
+    minPrice,
+    maxPrice,
+  });
 
-  // Real-time subscription for auctions
+  // Polling for auctions (replaces real-time subscriptions)
   useEffect(() => {
     if (activeTab !== "auctions") return;
 
-    const supabase = createClient();
-    const auctionsChannel = supabase
-      .channel("auctions-updates")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "auctions",
-        },
-        (payload) => {
-          // Auction updated via real-time subscription
-          fetchAuctions();
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      refetchAuctions();
+    }, 5000); // Poll every 5 seconds
 
-    const bidsChannel = supabase
-      .channel("bids-updates")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "bids",
-        },
-        (payload) => {
-          // New bid placed via real-time subscription
-          fetchAuctions();
-        }
-      )
-      .subscribe();
+    return () => clearInterval(interval);
+  }, [activeTab, refetchAuctions]);
 
-    return () => {
-      supabase.removeChannel(auctionsChannel);
-      supabase.removeChannel(bidsChannel);
-    };
-  }, [activeTab]);
+  const loading = activeTab === "sales" ? salesLoading : auctionsLoading;
+  const totalItems = activeTab === "sales" ? salesTotal : auctionsTotal;
 
-  const fetchSales = async () => {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      let query = supabase
-        .from("sale_listings")
-        .select(`
-          id,
-          price,
-          currency,
-          negotiable,
-          jerseys (
-            id,
-            club,
-            season,
-            jersey_type,
-            player_name,
-            player_number,
-            condition_rating,
-            images
-          )
-        `, { count: "exact" })
-        .eq("status", "active");
+  useEffect(() => {
+    // Reset to page 1 when filters change
+    // Use setTimeout to avoid synchronous setState in effect
+    setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+  }, [activeTab, searchQuery, filterType, filterSeason, minPrice, maxPrice]);
 
-      // Apply filters
-      if (searchQuery) {
-        query = query.or(`jerseys.club.ilike.%${searchQuery}%,jerseys.player_name.ilike.%${searchQuery}%`);
-      }
+  // Paginate filtered results
+  const paginatedSales = useMemo(() => {
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE;
+    return sales.slice(from, to);
+  }, [sales, currentPage]);
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      
-      const { data, error, count } = await query
-        .order("created_at", { ascending: false })
-        .range(from, to);
+  const paginatedAuctions = useMemo(() => {
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE;
+    return auctions.slice(from, to);
+  }, [auctions, currentPage]);
 
-      // TODO: Update when database is ready (HUD-14)
-      // Handle database table not found gracefully
-      if (error) {
-        if (error.code === "PGRST205") {
-          console.warn("Sale listings table not found - using empty state");
-          setSales([]);
-          setTotalItems(0);
-          setLoading(false);
-          return;
-        }
-        throw error;
-      }
-
-      interface SaleListingData {
-        id: string;
-        price: number;
-        currency: string | null;
-        negotiable: boolean | null;
-        jerseys: Jersey | null;
-      }
-
-      const formattedSales: SaleListing[] = ((data || []) as SaleListingData[])
-        .filter((item) => item.jerseys !== null)
-        .map((item) => {
-          const jersey = item.jerseys!; // Safe after filter
-          return {
-            ...jersey,
-            listing_id: item.id,
-            price: item.price,
-            currency: item.currency || "EUR",
-            negotiable: item.negotiable ?? false,
-          };
-        })
-        .filter((sale: SaleListing) => {
-          if (filterType !== "all" && sale.jersey_type !== filterType) return false;
-          if (filterSeason !== "all" && sale.season !== filterSeason) return false;
-          if (minPrice && sale.price < parseFloat(minPrice)) return false;
-          if (maxPrice && sale.price > parseFloat(maxPrice)) return false;
-          return true;
-        });
-
-      setSales(formattedSales);
-      setTotalItems(count || 0);
-    } catch (error) {
-      console.error("Error fetching sales:", error);
-      // Sentry error capture (if configured)
-      // *Sentry.captureException(error, { tags: { page: "marketplace" } });
-      toast({
-        title: "Error",
-        description: "Failed to load listings",
-        variant: "destructive",
-      });
-      setSales([]);
-      setTotalItems(0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAuctions = async () => {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      let query = supabase
-        .from("auctions")
-        .select(`
-          id,
-          current_bid,
-          starting_bid,
-          buy_now_price,
-          currency,
-          ends_at,
-          jerseys (
-            id,
-            club,
-            season,
-            jersey_type,
-            player_name,
-            player_number,
-            condition_rating,
-            images
-          )
-        `, { count: "exact" })
-        .eq("status", "active");
-
-      // Apply filters
-      if (searchQuery) {
-        query = query.or(`jerseys.club.ilike.%${searchQuery}%,jerseys.player_name.ilike.%${searchQuery}%`);
-      }
-
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      const { data, error, count } = await query
-        .order("ends_at", { ascending: true })
-        .range(from, to);
-
-      // TODO: Update when database is ready (HUD-14)
-      // Handle database table not found gracefully
-      if (error) {
-        if (error.code === "PGRST205") {
-          console.warn("Auctions table not found - using empty state");
-          setAuctions([]);
-          setTotalItems(0);
-          setLoading(false);
-          return;
-        }
-        throw error;
-      }
-
-      interface AuctionData {
-        id: string;
-        current_bid?: number | null;
-        starting_bid: number;
-        buy_now_price?: number | null;
-        currency: string | null;
-        ends_at: string;
-        jerseys: Jersey | null;
-      }
-
-      const formattedAuctions: Auction[] = ((data || []) as AuctionData[])
-        .filter((item) => item.jerseys !== null)
-        .map((item) => {
-          const jersey = item.jerseys!; // Safe after filter
-          return {
-            ...jersey,
-            auction_id: item.id,
-            current_bid: item.current_bid ?? undefined,
-            starting_bid: item.starting_bid,
-            buy_now_price: item.buy_now_price ?? undefined,
-            currency: item.currency || "EUR",
-            ends_at: item.ends_at,
-          };
-        })
-        .filter((auction: Auction) => {
-          if (filterType !== "all" && auction.jersey_type !== filterType) return false;
-          if (filterSeason !== "all" && auction.season !== filterSeason) return false;
-          const currentBid = auction.current_bid || auction.starting_bid;
-          if (minPrice && currentBid < parseFloat(minPrice)) return false;
-          if (maxPrice && currentBid > parseFloat(maxPrice)) return false;
-          return true;
-        });
-
-      setAuctions(formattedAuctions);
-      setTotalItems(count || 0);
-    } catch (error) {
-      console.error("Error fetching auctions:", error);
-      // Sentry error capture (if configured)
-      // *Sentry.captureException(error, { tags: { page: "marketplace" } });
-      toast({
-        title: "Error",
-        description: "Failed to load auctions",
-        variant: "destructive",
-      });
-      setAuctions([]);
-      setTotalItems(0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBidClick = (auction: Auction) => {
+  const handleBidClick = (auction: AuctionWithJersey) => {
     setSelectedAuction(auction);
     setBidModalOpen(true);
   };
@@ -469,10 +275,10 @@ const Marketplace = () => {
                 <p className="text-muted-foreground">Loading...</p>
               </div>
             ) : activeTab === "sales" ? (
-              sales.length > 0 ? (
+              paginatedSales.length > 0 ? (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {sales.map((sale) => (
+                    {paginatedSales.map((sale) => (
                       <div
                         key={sale.listing_id}
                         className="group relative rounded-xl overflow-hidden transition-all cursor-pointer bg-card hover:bg-card-hover shadow-card hover:shadow-elevated border border-border/50 hover:border-primary/30"
@@ -561,10 +367,10 @@ const Marketplace = () => {
                   </p>
                 </div>
               )
-            ) : auctions.length > 0 ? (
+            ) : paginatedAuctions.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {auctions.map((auction) => (
+                  {paginatedAuctions.map((auction) => (
                     <div
                       key={auction.auction_id}
                       className="bg-card rounded-lg border border-border overflow-hidden hover:border-primary transition-colors cursor-pointer"
@@ -600,7 +406,7 @@ const Marketplace = () => {
                           <span className="text-sm text-muted-foreground">Ends in</span>
                           <CountdownTimer 
                             endsAt={auction.ends_at} 
-                            onExpire={() => fetchAuctions()} 
+                            onExpire={() => refetchAuctions()} 
                           />
                         </div>
                         <Button
@@ -663,7 +469,7 @@ const Marketplace = () => {
               setBidModalOpen(false);
               setSelectedAuction(null);
               if (activeTab === "auctions") {
-                fetchAuctions(); // Refresh to show updated bid
+                refetchAuctions(); // Refresh to show updated bid
               }
             }}
             auctionId={selectedAuction.auction_id}

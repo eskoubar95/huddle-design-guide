@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { User, Loader2, MessageSquare, Search, X, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ interface Conversation {
 }
 
 const Messages = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -74,7 +74,7 @@ const Messages = () => {
             images
           )
         `)
-        .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`)
+        .or(`participant_1_id.eq.${user?.id},participant_2_id.eq.${user?.id}`)
         .order("updated_at", { ascending: false });
 
       // TODO: Update when database is ready (HUD-14)
@@ -93,7 +93,7 @@ const Messages = () => {
       // Get all unique participant IDs
       const participantIds = new Set<string>();
       data?.forEach((conv) => {
-        const otherId = conv.participant_1_id === user.id 
+        const otherId = conv.participant_1_id === user?.id 
           ? conv.participant_2_id 
           : conv.participant_1_id;
         participantIds.add(otherId);
@@ -114,7 +114,7 @@ const Messages = () => {
 
       // Combine data
       const conversationsWithProfiles = data?.map((conv) => {
-        const otherId = conv.participant_1_id === user.id 
+        const otherId = conv.participant_1_id === user?.id 
           ? conv.participant_2_id 
           : conv.participant_1_id;
         

@@ -2,14 +2,15 @@
 
 import { Home, ShoppingBag, Shirt, Users, User, Bell, Settings, MessageSquare, LogOut, LogIn } from "lucide-react";
 import { SidebarNavLink } from "@/components/profile/SidebarNavLink";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export const Sidebar = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -28,7 +29,7 @@ export const Sidebar = () => {
             participant_2_id,
             messages!inner(read, sender_id)
           `)
-          .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`);
+          .or(`participant_1_id.eq.${user?.id},participant_2_id.eq.${user?.id}`);
 
         if (error) {
           console.error("Error fetching unread count:", error);
@@ -41,7 +42,7 @@ export const Sidebar = () => {
         }
 
         const count = conversations?.reduce((acc, conv) => {
-          return acc + (conv.messages as Message[]).filter((m) => !m.read && m.sender_id !== user.id).length;
+          return acc + (conv.messages as Message[]).filter((m) => !m.read && m.sender_id !== user?.id).length;
         }, 0) || 0;
 
         setUnreadCount(count);
@@ -66,9 +67,10 @@ export const Sidebar = () => {
     };
   }, [user]);
 
-  const handleAuthAction = () => {
+  const handleAuthAction = async () => {
     if (user) {
-      signOut();
+      await signOut();
+      router.push("/auth");
     } else {
       router.push("/auth");
     }
@@ -100,7 +102,7 @@ export const Sidebar = () => {
       <div className="p-4 border-t border-border space-y-2">
         {user && (
           <div className="text-xs text-muted-foreground mb-2">
-            Signed in as <span className="font-medium">{user.email}</span>
+            Signed in as <span className="font-medium">{user.emailAddresses[0]?.emailAddress || user.username || "User"}</span>
           </div>
         )}
         <Button

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Image as ImageIcon } from "lucide-react";
@@ -30,7 +30,7 @@ interface Jersey {
 }
 
 export const CreatePost = ({ open, onOpenChange, onPostCreated }: CreatePostProps) => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const [content, setContent] = useState("");
   const [selectedJerseyId, setSelectedJerseyId] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export const CreatePost = ({ open, onOpenChange, onPostCreated }: CreatePostProp
       const { data, error } = await supabase
         .from("jerseys")
         .select("id, club, season, jersey_type, images")
-        .eq("owner_id", user.id)
+        .eq("owner_id", user?.id || "")
         .eq("visibility", "public")
         .order("created_at", { ascending: false });
 
@@ -126,7 +126,7 @@ export const CreatePost = ({ open, onOpenChange, onPostCreated }: CreatePostProp
     try {
       const supabase = createClient();
       const { error } = await supabase.from("posts").insert({
-        user_id: user.id,
+        user_id: user?.id || "",
         content: content.trim() || null,
         jersey_id: selectedJerseyId || null,
       });

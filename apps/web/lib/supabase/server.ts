@@ -1,7 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
 
+/**
+ * Create Supabase client for Server Components (uses cookie-based auth with anon key)
+ * This respects RLS policies based on the authenticated user's session
+ */
 export async function createClient() {
   // Validate environment variables at runtime
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -45,5 +50,28 @@ export async function createClient() {
       },
     }
   )
+}
+
+/**
+ * Create Supabase client with service role key for API routes
+ * This bypasses RLS - we handle authorization in the service layer
+ * Use this in repositories and API routes only
+ */
+export async function createServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      'Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+    )
+  }
+
+  return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
 

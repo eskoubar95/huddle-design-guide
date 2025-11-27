@@ -6,7 +6,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, User, Loader2, Check, CheckCheck, Image as ImageIcon, X, Smile } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ const Chat = () => {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user } = useUser();
   const conversationId = params.id;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -112,7 +112,7 @@ const Chat = () => {
       }
 
       // Get other participant
-      const otherId = data.participant_1_id === user.id 
+      const otherId = data.participant_1_id === user?.id 
         ? data.participant_2_id 
         : data.participant_1_id;
 
@@ -318,7 +318,7 @@ const Chat = () => {
     // Subscribe to presence for typing indicators
     const presenceChannel = supabase
       .channel(`typing-${conversationId}`, {
-        config: { presence: { key: user.id } },
+        config: { presence: { key: user?.id || "" } },
       })
       .on("presence", { event: "sync" }, () => {
         const state = presenceChannel.presenceState();
@@ -356,7 +356,7 @@ const Chat = () => {
       const supabase = createClient();
       // Check if user already reacted with this emoji
       const existingReaction = messageReactions[messageId]?.find(
-        r => r.emoji === emoji && r.users?.includes(user.id)
+        r => r.emoji === emoji && r.users?.includes(user?.id || "")
       );
 
       if (existingReaction) {
@@ -365,7 +365,7 @@ const Chat = () => {
           .from("message_reactions")
           .delete()
           .eq("message_id", messageId)
-          .eq("user_id", user.id)
+          .eq("user_id", user?.id || "")
           .eq("emoji", emoji);
       } else {
         // Add reaction
@@ -373,7 +373,7 @@ const Chat = () => {
           .from("message_reactions")
           .insert({
             message_id: messageId,
-            user_id: user.id,
+            user_id: user?.id || "",
             emoji,
           });
       }
@@ -392,7 +392,7 @@ const Chat = () => {
 
     const supabase = createClient();
     const channel = supabase.channel(`typing-${conversationId}`);
-    await channel.track({ typing, user_id: user.id });
+    await channel.track({ typing, user_id: user?.id || "" });
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -428,7 +428,7 @@ const Chat = () => {
 
     for (const file of selectedImages) {
       const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}-${Math.random()}.${fileExt}`;
+      const fileName = `${user?.id || "unknown"}/${Date.now()}-${Math.random()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("chat_images")
@@ -491,7 +491,7 @@ const Chat = () => {
 
       const { error } = await supabase.from("messages").insert({
         conversation_id: conversationId,
-        sender_id: user.id,
+        sender_id: user?.id || "",
         content: newMessage.trim() || "",
         images: imageUrls.length > 0 ? imageUrls : undefined,
       });

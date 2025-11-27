@@ -9,11 +9,11 @@ import { MarketplaceForYou } from "@/components/home/MarketplaceForYou";
 import { CommunityPreview } from "@/components/home/CommunityPreview";
 import { RightSidebar } from "@/components/home/RightSidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 
 const Home = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
 
   return (
     <div className="min-h-screen flex">
@@ -52,7 +52,7 @@ const Home = () => {
                   aria-label="Profile"
                 >
                   <Avatar className="w-full h-full border-2 border-primary/20 hover:border-primary/40 transition-colors">
-                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarImage src={user?.imageUrl} />
                     <AvatarFallback className="bg-gradient-primary text-primary-foreground">
                       <User className="w-5 h-5" />
                     </AvatarFallback>
