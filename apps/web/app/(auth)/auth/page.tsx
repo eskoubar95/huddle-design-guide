@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { z } from "zod";
@@ -24,7 +24,7 @@ const signupSchema = z.object({
   path: ["confirmPassword"],
 });
 
-const Auth = () => {
+const AuthContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
@@ -294,6 +294,23 @@ const Auth = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const Auth = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-secondary">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <AuthContent />
+    </Suspense>
   );
 };
 

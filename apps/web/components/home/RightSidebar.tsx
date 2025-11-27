@@ -15,7 +15,7 @@ import {
   Newspaper
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -51,7 +51,7 @@ interface CommunityActivity {
 
 export const RightSidebar = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
   const [savedJerseys, setSavedJerseys] = useState<SavedJersey[]>([]);
   const [liveAuctions, setLiveAuctions] = useState<LiveAuction[]>([]);
   const [activities, setActivities] = useState<CommunityActivity[]>([]);
@@ -71,7 +71,7 @@ export const RightSidebar = () => {
         const { data: saved, error: savedError } = await supabase
           .from("saved_jerseys")
           .select("*, jersey:jerseys!inner(*)")
-          .eq("user_id", user.id)
+          .eq("user_id", user?.id || "")
           .limit(5);
 
         if (savedError) {

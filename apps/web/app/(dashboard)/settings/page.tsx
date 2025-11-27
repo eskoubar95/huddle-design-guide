@@ -3,11 +3,11 @@
 import { Settings as SettingsIcon, ChevronRight, User, Bell, Lock, Eye, Globe, HelpCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
 const Settings = () => {
-  const { signOut } = useAuth();
+  const { signOut } = useClerk();
   const router = useRouter();
 
   const handleLogout = async () => {

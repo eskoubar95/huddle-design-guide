@@ -5,8 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { JerseyCard } from "@/components/jersey/JerseyCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
+import { useProfileByUsername } from "@/lib/hooks/use-profiles";
+import { useJerseys } from "@/lib/hooks/use-jerseys";
+import { usePosts } from "@/lib/hooks/use-posts";
 import { useToast } from "@/hooks/use-toast";
 import { User, MapPin, Calendar, Loader2, ArrowLeft, Heart, MessageSquare } from "lucide-react";
 
@@ -48,132 +50,67 @@ const UserProfile = () => {
   const params = useParams<{ username: string }>();
   const router = useRouter();
   const { toast } = useToast();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser } = useUser();
   const username = params.username;
   
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [jerseys, setJerseys] = useState<Jersey[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
+
+  // Fetch profile by username from API
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    error: profileError,
+  } = useProfileByUsername(username || "");
 
   const isOwnProfile = currentUser?.id === profile?.id;
 
-  const fetchProfile = async () => {
-    if (!username) return;
-
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("username", username)
-        .single();
-
-      // TODO: Update when database is ready (HUD-14)
-      // Handle database table not found gracefully
-      if (error) {
-        if (error.code === "PGRST116") {
-          // Profile not found - redirect to 404
-          router.push("/not-found");
-          return;
+  // Fetch jerseys from API
+  const { data: jerseysData } = useJerseys(
+    profile?.id
+      ? {
+          ownerId: profile.id,
+          visibility: isOwnProfile ? "all" : "public",
         }
-        if (error.code === "PGRST205") {
-          console.warn("Profiles table not found - redirecting to 404");
-          router.push("/not-found");
-          return;
+      : undefined
+  );
+
+  // Fetch posts from API
+  const { data: postsData } = usePosts(
+    profile?.id
+      ? {
+          userId: profile.id,
+          limit: 20,
         }
-        throw error;
-      }
-      
-      setProfile(data);
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      // Sentry error capture (if configured)
-      // *Sentry.captureException(error, { tags: { page: "user-profile", username } });
+      : undefined
+  );
+
+  const jerseys = jerseysData?.items || [];
+  const posts = postsData?.items || [];
+  const loading = profileLoading;
+
+  // Handle profile errors
+  useEffect(() => {
+    if (profileError) {
       toast({
         title: "Error",
         description: "Failed to load profile",
         variant: "destructive",
       });
       router.push("/not-found");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [profileError, toast, router]);
 
-  const fetchJerseys = async () => {
-    if (!username || !profile) return;
-
-    try {
-      const supabase = createClient();
-      let query = supabase
-        .from("jerseys")
-        .select("id, club, season, jersey_type, images, condition_rating, visibility")
-        .eq("owner_id", profile.id);
-
-      // Only show public jerseys unless it&apos;s the user&apos;s own profile
-      if (!isOwnProfile) {
-        query = query.eq("visibility", "public");
-      }
-
-      const { data, error } = await query.order("created_at", { ascending: false });
-
-      // TODO: Update when database is ready (HUD-14)
-      if (error && error.code !== "PGRST205") {
-        console.error("Error fetching jerseys:", error);
-      }
-      
-      setJerseys(data || []);
-    } catch (error) {
-      console.error("Error fetching jerseys:", error);
-    }
-  };
-
-  const fetchPosts = async () => {
-    if (!username || !profile) return;
-
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("posts")
-        .select(`
-          id,
-          content,
-          created_at,
-          jersey_id,
-          jerseys (
-            id,
-            club,
-            season,
-            images
-          ),
-          post_likes (user_id),
-          comments (id)
-        `)
-        .eq("user_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      // TODO: Update when database is ready (HUD-14)
-      if (error && error.code !== "PGRST205") {
-        console.error("Error fetching posts:", error);
-      }
-      
-      setPosts(data || []);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-    }
-  };
-
+  // TODO: Follows endpoints not implemented yet (HUD-17)
+  // For now, keep follow stats using direct Supabase calls
+  // This will be migrated when follows API endpoints are created
   const fetchFollowStats = async () => {
-    if (!username || !profile) return;
+    if (!profile) return;
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       
       // Get followers count
@@ -182,7 +119,6 @@ const UserProfile = () => {
         .select("*", { count: "exact", head: true })
         .eq("following_id", profile.id);
 
-      // TODO: Update when database is ready (HUD-14)
       if (followersError && followersError.code !== "PGRST205") {
         console.error("Error fetching followers count:", followersError);
       }
@@ -194,7 +130,6 @@ const UserProfile = () => {
         .select("*", { count: "exact", head: true })
         .eq("follower_id", profile.id);
 
-      // TODO: Update when database is ready (HUD-14)
       if (followingError && followingError.code !== "PGRST205") {
         console.error("Error fetching following count:", followingError);
       }
@@ -209,7 +144,6 @@ const UserProfile = () => {
           .eq("following_id", profile.id)
           .maybeSingle();
 
-        // TODO: Update when database is ready (HUD-14)
         if (error && error.code !== "PGRST205") {
           console.error("Error checking follow status:", error);
         } else if (!error) {
@@ -222,19 +156,13 @@ const UserProfile = () => {
   };
 
   useEffect(() => {
-    if (username) {
-      fetchProfile();
-    }
-  }, [username]);
-
-  useEffect(() => {
     if (profile) {
-      fetchJerseys();
-      fetchPosts();
       fetchFollowStats();
     }
-  }, [profile, isOwnProfile]);
+  }, [profile, currentUser?.id]);
 
+  // TODO: Follows endpoints not implemented yet (HUD-17)
+  // For now, keep follow functionality using direct Supabase calls
   const handleFollow = async () => {
     if (!currentUser || !profile) {
       toast({
@@ -247,6 +175,7 @@ const UserProfile = () => {
 
     setFollowLoading(true);
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       if (isFollowing) {
         const { error } = await supabase
@@ -277,7 +206,7 @@ const UserProfile = () => {
             user_id: profile.id,
             type: "follow",
             title: "New Follower",
-            message: `${currentUser.user_metadata?.username || profile.username} started following you`,
+            message: `${profile.username} started following you`,
           });
         } catch (notifError) {
           // Silently fail if notifications table doesn't exist
@@ -480,21 +409,19 @@ const UserProfile = () => {
                       </div>
                     )}
 
-                    {post.jerseys && (
+                    {post.jersey_id && (
                       <div
                         className="px-4 pb-4 cursor-pointer"
-                        onClick={() => router.push(`/jersey/${post.jerseys!.id}`)}
+                        onClick={() => router.push(`/jersey/${post.jersey_id}`)}
                       >
                         <div className="bg-secondary/50 rounded-lg p-3 flex gap-3 hover:bg-secondary/70 transition-colors">
-                          <img
-                            src={post.jerseys.images[0]}
-                            alt=""
-                            className="w-16 h-24 rounded object-cover"
-                          />
+                          <div className="w-16 h-24 rounded bg-secondary flex items-center justify-center text-xs text-muted-foreground">
+                            Jersey
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm">{post.jerseys.club}</div>
+                            <div className="font-semibold text-sm">View Jersey</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              {post.jerseys.season}
+                              Click to view details
                             </div>
                           </div>
                         </div>
@@ -505,11 +432,11 @@ const UserProfile = () => {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Heart className="w-4 h-4" />
-                          {post.post_likes.length}
+                          0
                         </div>
                         <div className="flex items-center gap-1">
                           <MessageSquare className="w-4 h-4" />
-                          {post.comments.length}
+                          0
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground">

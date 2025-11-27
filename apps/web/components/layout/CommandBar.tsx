@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { Search, Shirt, User, ShoppingBag, TrendingUp, Clock, X } from "lucide-react";
 
 interface SearchHistory {
@@ -43,7 +43,7 @@ export const CommandBar = () => {
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [trendingSearches, setTrendingSearches] = useState<TrendingSearch[]>([]);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
 
   // Load trending searches
   useEffect(() => {
@@ -91,7 +91,7 @@ export const CommandBar = () => {
       const supabase = createClient();
       await supabase.from("search_analytics").insert({
         query: query.trim(),
-        user_id: user?.id || null,
+        user_id: user?.id || null, // Clerk user ID
       });
     } catch (error) {
       console.error("Failed to log search:", error);

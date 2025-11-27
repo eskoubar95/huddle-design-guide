@@ -75,10 +75,35 @@ export async function checkRateLimit(req: NextRequest): Promise<{
   };
 }
 
+// Overload for handlers without params
 export function rateLimitMiddleware(
   handler: (req: NextRequest) => Promise<Response>
+): (req: NextRequest) => Promise<Response>;
+
+// Overload for handlers with params (Next.js 16 dynamic routes)
+export function rateLimitMiddleware<T extends Record<string, string | string[]>>(
+  handler: (
+    req: NextRequest,
+    context: { params: Promise<T> }
+  ) => Promise<Response>
+): (
+  req: NextRequest,
+  context: { params: Promise<T> }
+) => Promise<Response>;
+
+// Implementation
+export function rateLimitMiddleware(
+  handler:
+    | ((req: NextRequest) => Promise<Response>)
+    | ((
+        req: NextRequest,
+        context: { params: Promise<Record<string, string | string[]>> }
+      ) => Promise<Response>)
 ) {
-  return async (req: NextRequest): Promise<Response> => {
+  return async (
+    req: NextRequest,
+    context?: { params: Promise<Record<string, string | string[]>> }
+  ): Promise<Response> => {
     const { allowed, remaining, resetAt } = await checkRateLimit(req);
 
     if (!allowed) {
@@ -101,7 +126,13 @@ export function rateLimitMiddleware(
       );
     }
 
-    const response = await handler(req);
+    const response = context
+      ? await (handler as (
+          req: NextRequest,
+          context: { params: Promise<Record<string, string | string[]>> }
+        ) => Promise<Response>)(req, context)
+      : await (handler as (req: NextRequest) => Promise<Response>)(req);
+
     response.headers.set("X-RateLimit-Remaining", remaining.toString());
     response.headers.set("X-RateLimit-Reset", resetAt.toString());
     return response;

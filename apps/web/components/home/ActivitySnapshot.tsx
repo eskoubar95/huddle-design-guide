@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shirt, Store, Gavel, Heart, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 
 export const ActivitySnapshot = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
   const [stats, setStats] = useState({
     jerseyCount: 0,
     forSaleCount: 0,
@@ -27,24 +27,24 @@ export const ActivitySnapshot = () => {
           supabase
             .from("jerseys")
             .select("id", { count: "exact", head: true })
-            .eq("owner_id", user.id),
+            .eq("owner_id", user?.id || ""),
           
           supabase
             .from("sale_listings")
             .select("id", { count: "exact", head: true })
-            .eq("seller_id", user.id)
+            .eq("seller_id", user?.id || "")
             .eq("status", "active"),
           
           supabase
             .from("auctions")
             .select("id", { count: "exact", head: true })
-            .eq("seller_id", user.id)
+            .eq("seller_id", user?.id || "")
             .eq("status", "active"),
           
           supabase
             .from("follows")
             .select("id", { count: "exact", head: true })
-            .eq("following_id", user.id),
+            .eq("following_id", user?.id || ""),
         ]);
 
         setStats({

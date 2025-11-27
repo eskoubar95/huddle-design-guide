@@ -4,7 +4,7 @@ import { Home, ShoppingBag, Shirt, Users, MessageSquare } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -20,7 +20,7 @@ const navItems = [
 export const BottomNav = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export const BottomNav = () => {
             participant_2_id,
             messages!inner(read, sender_id)
           `)
-          .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`);
+          .or(`participant_1_id.eq.${user?.id},participant_2_id.eq.${user?.id}`);
 
         if (error) {
           console.error("Error fetching unread count:", error);
@@ -51,7 +51,7 @@ export const BottomNav = () => {
         }
 
         const count = conversations?.reduce((acc, conv) => {
-          return acc + (conv.messages as Message[]).filter((m) => !m.read && m.sender_id !== user.id).length;
+          return acc + (conv.messages as Message[]).filter((m) => !m.read && m.sender_id !== user?.id).length;
         }, 0) || 0;
 
         setUnreadCount(count);

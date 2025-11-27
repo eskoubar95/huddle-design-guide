@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@clerk/nextjs";
+import { useJersey, useUpdateJersey, useDeleteJersey } from "@/lib/hooks/use-jerseys";
+import { useProfile } from "@/lib/hooks/use-profiles";
+import { useListings } from "@/lib/hooks/use-listings";
+import { useAuctions } from "@/lib/hooks/use-auctions";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
@@ -82,120 +85,85 @@ const JerseyDetail = () => {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
-  const jerseyId = params.id;
+  const { user } = useUser();
+  const jerseyId = params.id || "";
   
-  const [jersey, setJersey] = useState<Jersey | null>(null);
-  const [owner, setOwner] = useState<Owner | null>(null);
-  const [listing, setListing] = useState<Listing | null>(null);
-  const [auction, setAuction] = useState<Auction | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showAuctionModal, setShowAuctionModal] = useState(false);
   const [showBidModal, setShowBidModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  // Fetch jersey from API
+  const {
+    data: jersey,
+    isLoading: jerseyLoading,
+    error: jerseyError,
+    refetch: refetchJersey,
+  } = useJersey(jerseyId);
+
+  // Fetch owner profile
+  const { data: owner } = useProfile(jersey?.owner_id || "");
+  
+  const ownerData: Owner | null = owner
+    ? {
+        username: owner.username,
+        avatar_url: owner.avatar_url,
+      }
+    : null;
+
+  // Fetch sale listing (if exists)
+  // Note: We need to find listing by jersey_id, which current API doesn't support directly
+  // For now, we'll fetch all listings and filter client-side (not ideal, but works)
+  const { data: allListings } = useListings({ status: "active", limit: 1000 });
+  const listing = useMemo(() => {
+    if (!allListings?.items || !jerseyId) return null;
+    const found = allListings.items.find(
+      (l) => l.jersey_id === jerseyId && l.currency !== null
+    );
+    return found ? (found as unknown as Listing) : null;
+  }, [allListings, jerseyId]);
+
+  // Fetch auction (if exists)
+  const { data: allAuctions } = useAuctions({ status: "active", limit: 1000 });
+  const auction = useMemo(() => {
+    if (!allAuctions?.items || !jerseyId) return null;
+    const found = allAuctions.items.find(
+      (a) => a.jersey_id === jerseyId && a.currency !== null
+    );
+    return found ? (found as unknown as Auction) : null;
+  }, [allAuctions, jerseyId]);
+
+  const updateJerseyMutation = useUpdateJersey();
+  const deleteJerseyMutation = useDeleteJersey();
+
   const isOwner = user?.id === jersey?.owner_id;
+  const loading = jerseyLoading;
 
-  const fetchJerseyDetails = async () => {
-    if (!jerseyId) return;
+  // TODO: Likes, saves endpoints not implemented yet (HUD-17)
+  // For now, keep likes/saves using direct Supabase calls
+  useEffect(() => {
+    if (!jerseyId || !user) return;
 
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      
-      // Fetch jersey
-      const { data: jerseyData, error: jerseyError } = await supabase
-        .from("jerseys")
-        .select("*")
-        .eq("id", jerseyId)
-        .single();
+    const fetchLikesAndSaves = async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
 
-      // TODO: Update when database is ready (HUD-14)
-      if (jerseyError) {
-        if (jerseyError.code === "PGRST116") {
-          // Jersey not found - redirect to 404
-          router.push("/not-found");
-          return;
+        // Fetch likes count
+        const { count, error: likesError } = await supabase
+          .from("likes")
+          .select("*", { count: "exact", head: true })
+          .eq("jersey_id", jerseyId);
+
+        if (likesError && likesError.code !== "PGRST205") {
+          console.error("Error fetching likes count:", likesError);
         }
-        if (jerseyError.code === "PGRST205") {
-          console.warn("Jerseys table not found - redirecting to 404");
-          router.push("/not-found");
-          return;
-        }
-        throw jerseyError;
-      }
-      
-      setJersey(jerseyData);
+        setLikesCount(count || 0);
 
-      // Fetch owner profile
-      const { data: ownerData, error: ownerError } = await supabase
-        .from("profiles")
-        .select("username, avatar_url")
-        .eq("id", jerseyData.owner_id)
-        .single();
-
-      // TODO: Update when database is ready (HUD-14)
-      if (ownerError && ownerError.code !== "PGRST205") {
-        console.error("Error fetching owner:", ownerError);
-      }
-      setOwner(ownerData || null);
-
-      // Fetch sale listing if exists
-      const { data: saleData, error: saleError } = await supabase
-        .from("sale_listings")
-        .select("*")
-        .eq("jersey_id", jerseyId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      // TODO: Update when database is ready (HUD-14)
-      if (saleError && saleError.code !== "PGRST205") {
-        console.error("Error fetching sale listing:", saleError);
-      }
-      // Only set listing if currency is not null (required for display)
-      if (saleData && saleData.currency !== null) {
-        setListing(saleData as Listing);
-      } else {
-        setListing(null);
-      }
-
-      // Fetch auction if exists
-      const { data: auctionData, error: auctionError } = await supabase
-        .from("auctions")
-        .select("*")
-        .eq("jersey_id", jerseyId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      // TODO: Update when database is ready (HUD-14)
-      if (auctionError && auctionError.code !== "PGRST205") {
-        console.error("Error fetching auction:", auctionError);
-      }
-      // Only set auction if currency is not null (required for display)
-      if (auctionData && auctionData.currency !== null) {
-        setAuction(auctionData as Auction);
-      } else {
-        setAuction(null);
-      }
-
-      // Fetch likes count
-      const { count, error: likesError } = await supabase
-        .from("likes")
-        .select("*", { count: "exact", head: true })
-        .eq("jersey_id", jerseyId);
-
-      // TODO: Update when database is ready (HUD-14)
-      if (likesError && likesError.code !== "PGRST205") {
-        console.error("Error fetching likes count:", likesError);
-      }
-      setLikesCount(count || 0);
-
-      if (user) {
         // Check if user liked
         const { data: likeData, error: likeCheckError } = await supabase
           .from("likes")
@@ -204,7 +172,6 @@ const JerseyDetail = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        // TODO: Update when database is ready (HUD-14)
         if (likeCheckError && likeCheckError.code !== "PGRST205") {
           console.error("Error checking like status:", likeCheckError);
         }
@@ -218,82 +185,48 @@ const JerseyDetail = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        // TODO: Update when database is ready (HUD-14)
         if (saveCheckError && saveCheckError.code !== "PGRST205") {
           console.error("Error checking save status:", saveCheckError);
         }
         setIsSaved(!!saveData);
+      } catch (error) {
+        console.error("Error fetching likes/saves:", error);
       }
-    } catch (error) {
-      console.error("Error fetching jersey:", error);
-      // Sentry error capture (if configured)
-      // *Sentry.captureException(error, { tags: { page: "jersey-detail", jerseyId } });
-      toast({
-        title: "Error",
-        description: "Failed to load jersey details",
-        variant: "destructive",
-      });
-      router.push("/not-found");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (jerseyId) {
-      fetchJerseyDetails();
-    }
-  }, [jerseyId]);
-
-  // Real-time subscription for auction updates
-  useEffect(() => {
-    if (!jerseyId || !auction) return;
-
-    const supabase = createClient();
-    const auctionChannel = supabase
-      .channel(`auction-${auction.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "auctions",
-          filter: `id=eq.${auction.id}`,
-        },
-        (payload) => {
-          // Auction updated via real-time subscription
-          fetchJerseyDetails();
-        }
-      )
-      .subscribe();
-
-    const bidsChannel = supabase
-      .channel(`bids-${auction.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "bids",
-          filter: `auction_id=eq.${auction.id}`,
-        },
-        (payload) => {
-          // New bid placed via real-time subscription
-          fetchJerseyDetails();
-          toast({
-            title: "New Bid!",
-            description: `A new bid of €${(payload.new as { amount?: number }).amount || "N/A"} was placed`,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(auctionChannel);
-      supabase.removeChannel(bidsChannel);
     };
-  }, [jerseyId, auction?.id, toast]);
 
+    fetchLikesAndSaves();
+  }, [jerseyId, user?.id]);
+
+  // Handle jersey errors
+  useEffect(() => {
+    if (jerseyError) {
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => {
+        toast({
+          title: "Error",
+          description: "Failed to load jersey details",
+          variant: "destructive",
+        });
+        router.push("/not-found");
+      }, 0);
+    }
+  }, [jerseyError, toast, router]);
+
+  // Polling for auction updates (replaces real-time subscriptions)
+  useEffect(() => {
+    if (!auction?.id) return;
+
+    const interval = setInterval(() => {
+      refetchJersey();
+      // Refetch auctions to get updated bid
+      // Note: This will trigger useMemo to recalculate auction
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [auction?.id, refetchJersey]);
+
+  // TODO: Likes endpoints not implemented yet (HUD-17)
+  // For now, keep likes using direct Supabase calls
   const handleLike = async () => {
     if (!user) {
       router.push("/auth");
@@ -301,6 +234,7 @@ const JerseyDetail = () => {
     }
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       if (isLiked) {
         await supabase.from("likes").delete().eq("jersey_id", jerseyId).eq("user_id", user.id);
@@ -320,6 +254,8 @@ const JerseyDetail = () => {
     }
   };
 
+  // TODO: Saves endpoints not implemented yet (HUD-17)
+  // For now, keep saves using direct Supabase calls
   const handleSave = async () => {
     if (!user) {
       router.push("/auth");
@@ -327,6 +263,7 @@ const JerseyDetail = () => {
     }
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       if (isSaved) {
         await supabase.from("saved_jerseys").delete().eq("jersey_id", jerseyId).eq("user_id", user.id);
@@ -360,18 +297,17 @@ const JerseyDetail = () => {
     if (!jersey) return;
 
     try {
-      const supabase = createClient();
       const newVisibility = jersey.visibility === "public" ? "private" : "public";
-      await supabase
-        .from("jerseys")
-        .update({ visibility: newVisibility })
-        .eq("id", jersey.id);
+      await updateJerseyMutation.mutateAsync({
+        id: jersey.id,
+        data: { visibility: newVisibility },
+      });
 
-      setJersey({ ...jersey, visibility: newVisibility });
       toast({
         title: "Visibility Updated",
         description: `Jersey is now ${newVisibility}`,
       });
+      refetchJersey(); // Refresh jersey data
     } catch (error) {
       console.error("Error updating visibility:", error);
       toast({
@@ -384,8 +320,7 @@ const JerseyDetail = () => {
 
   const handleDelete = async () => {
     try {
-      const supabase = createClient();
-      await supabase.from("jerseys").delete().eq("id", jerseyId);
+      await deleteJerseyMutation.mutateAsync(jerseyId);
       toast({
         title: "Jersey Deleted",
         description: "Your jersey has been deleted",
@@ -408,6 +343,8 @@ const JerseyDetail = () => {
     });
   };
 
+  // TODO: Conversations endpoints not implemented yet (HUD-17)
+  // For now, keep conversations using direct Supabase calls
   const handleMessageSeller = async () => {
     if (!user) {
       toast({
@@ -421,6 +358,7 @@ const JerseyDetail = () => {
     if (!jersey) return;
 
     try {
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       // Check if conversation already exists
       const { data: existingConversations, error: fetchError } = await supabase
@@ -583,11 +521,11 @@ const JerseyDetail = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar className="w-12 h-12">
-                  <AvatarImage src={owner?.avatar_url || undefined} />
-                  <AvatarFallback>{owner?.username.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarImage src={ownerData?.avatar_url || undefined} />
+                  <AvatarFallback>{ownerData?.username.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold">{owner?.username}</p>
+                  <p className="font-semibold">{ownerData?.username}</p>
                   <p className="text-sm text-muted-foreground">Owner</p>
                 </div>
               </div>
@@ -727,7 +665,7 @@ const JerseyDetail = () => {
                 </p>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm text-muted-foreground">Ends in</span>
-                  <CountdownTimer endsAt={auction.ends_at} onExpire={() => fetchJerseyDetails()} />
+                  <CountdownTimer endsAt={auction.ends_at} onExpire={() => refetchJersey()} />
                 </div>
                 {!isOwner && (
                   <Button className="w-full" onClick={() => setShowBidModal(true)}>
@@ -805,7 +743,7 @@ const JerseyDetail = () => {
           isOpen={showSaleModal}
           onClose={() => {
             setShowSaleModal(false);
-            fetchJerseyDetails();
+            refetchJersey();
           }}
         />
       )}
@@ -816,7 +754,7 @@ const JerseyDetail = () => {
           isOpen={showAuctionModal}
           onClose={() => {
             setShowAuctionModal(false);
-            fetchJerseyDetails();
+            refetchJersey();
           }}
         />
       )}
@@ -829,7 +767,7 @@ const JerseyDetail = () => {
           isOpen={showBidModal}
           onClose={() => {
             setShowBidModal(false);
-            fetchJerseyDetails();
+            refetchJersey();
           }}
         />
       )}

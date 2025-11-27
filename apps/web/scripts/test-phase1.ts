@@ -10,6 +10,9 @@
  * 5. Middleware protection
  */
 
+// Make this file a module to allow top-level await
+export {};
+
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
 
 interface TestResult {
@@ -21,7 +24,7 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
-async function test(name: string, fn: () => Promise<void>): Promise<void> {
+async function runTest(name: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
     results.push({ name, passed: true });
@@ -44,7 +47,7 @@ async function fetchJson(url: string, options?: RequestInit) {
 }
 
 // Test 1: Health Check Endpoint
-await test("Health Check Endpoint", async () => {
+await runTest("Health Check Endpoint", async () => {
   const { response, data } = await fetchJson(`${BASE_URL}/api/v1/health`);
   
   if (response.status !== 200 && response.status !== 503) {
@@ -65,7 +68,7 @@ await test("Health Check Endpoint", async () => {
 });
 
 // Test 2: Error Handling - Unauthorized Request
-await test("Error Handling - Unauthorized Request", async () => {
+await runTest("Error Handling - Unauthorized Request", async () => {
   // Create a test endpoint that requires auth
   // We'll test by trying to access a protected endpoint without token
   const { response, data } = await fetchJson(`${BASE_URL}/api/v1/health`, {
@@ -84,7 +87,7 @@ await test("Error Handling - Unauthorized Request", async () => {
 });
 
 // Test 3: Error Format Consistency
-await test("Error Format Consistency", async () => {
+await runTest("Error Format Consistency", async () => {
   // Test that errors follow the format: { error: { code, message, details? } }
   const { response, data } = await fetchJson(`${BASE_URL}/api/v1/nonexistent`);
   
@@ -102,7 +105,7 @@ await test("Error Format Consistency", async () => {
 });
 
 // Test 4: Rate Limiting Headers
-await test("Rate Limiting Headers", async () => {
+await runTest("Rate Limiting Headers", async () => {
   const { response } = await fetchJson(`${BASE_URL}/api/v1/health`);
   
   // Check for rate limit headers (may not be present on first request)
@@ -119,7 +122,7 @@ await test("Rate Limiting Headers", async () => {
 });
 
 // Test 5: Middleware Protection (should redirect to /auth)
-await test("Middleware Protection - Redirect to /auth", async () => {
+await runTest("Middleware Protection - Redirect to /auth", async () => {
   // Try to access a protected route without authentication
   const response = await fetch(`${BASE_URL}/dashboard`, {
     redirect: "manual", // Don't follow redirects automatically
@@ -139,7 +142,7 @@ await test("Middleware Protection - Redirect to /auth", async () => {
 });
 
 // Test 6: Public Routes Accessible
-await test("Public Routes Accessible", async () => {
+await runTest("Public Routes Accessible", async () => {
   const { response } = await fetchJson(`${BASE_URL}/`);
   
   if (response.status >= 500) {
@@ -148,7 +151,7 @@ await test("Public Routes Accessible", async () => {
 });
 
 // Test 7: Auth Page Accessible
-await test("Auth Page Accessible", async () => {
+await runTest("Auth Page Accessible", async () => {
   const { response } = await fetchJson(`${BASE_URL}/auth`);
   
   if (response.status >= 500) {

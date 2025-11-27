@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, User } from "lucide-react";
@@ -43,7 +43,7 @@ const getTimeAgo = (dateString: string) => {
 };
 
 export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -186,7 +186,7 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
       const supabase = createClient();
       const { error } = await supabase.from("comments").insert({
         post_id: postId,
-        user_id: user.id,
+        user_id: user?.id || "",
         content: newComment.trim(),
       });
 

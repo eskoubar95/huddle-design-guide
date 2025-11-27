@@ -6,8 +6,8 @@ import { Plus, SlidersHorizontal, ShoppingCart, Gavel, Eye, EyeOff } from "lucid
 import { UploadJersey } from "@/components/jersey/UploadJersey";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
-import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@clerk/nextjs";
+import { useJerseys, useUpdateJersey } from "@/lib/hooks/use-jerseys";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -35,76 +35,49 @@ interface Jersey {
 }
 
 const Wardrobe = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [activeFilter, setActiveFilter] = useState("All");
-  const [jerseys, setJerseys] = useState<Jersey[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchJerseys();
-    }
-  }, [user]);
-
-  const fetchJerseys = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("jerseys")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
-
-      // TODO: Update when database is ready (HUD-14)
-      // Handle database table not found gracefully
-      if (error) {
-        if (error.code === "PGRST205") {
-          console.warn("Jerseys table not found - using empty state");
-          setJerseys([]);
-          setLoading(false);
-          return;
+  // Fetch jerseys using API hook
+  const {
+    data: jerseysData,
+    isLoading: loading,
+    error: jerseysError,
+    refetch: refetchJerseys,
+  } = useJerseys(
+    user?.id
+      ? {
+          ownerId: user.id,
+          visibility: "all", // Get all jerseys for owner
         }
-        throw error;
-      }
-      
-      setJerseys(data || []);
-    } catch (error) {
-      console.error("Error fetching jerseys:", error);
-      // Sentry error capture (if configured)
-      // *Sentry.captureException(error, { tags: { page: "wardrobe" } });
+      : undefined
+  );
+
+  const updateJersey = useUpdateJersey();
+
+  const jerseys = jerseysData?.items || [];
+
+  // Handle errors
+  useEffect(() => {
+    if (jerseysError) {
       toast({
         title: "Error",
         description: "Failed to load jerseys",
         variant: "destructive",
       });
-      setJerseys([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [jerseysError, toast]);
 
   const handleToggleVisibility = async (jerseyId: string, currentVisibility: string) => {
     try {
-      const supabase = createClient();
       const newVisibility = currentVisibility === "public" ? "private" : "public";
-      const { error } = await supabase
-        .from("jerseys")
-        .update({ visibility: newVisibility })
-        .eq("id", jerseyId);
-
-      if (error) throw error;
-
-      setJerseys(
-        jerseys.map((j) =>
-          j.id === jerseyId ? { ...j, visibility: newVisibility } : j
-        )
-      );
+      await updateJersey.mutateAsync({
+        id: jerseyId,
+        data: { visibility: newVisibility },
+      });
 
       toast({
         title: "Visibility Updated",
@@ -138,7 +111,7 @@ const Wardrobe = () => {
       <UploadJersey
         isOpen={uploadOpen}
         onClose={() => setUploadOpen(false)}
-        onSuccess={fetchJerseys}
+        onSuccess={() => refetchJerseys()}
       />
       <div className="min-h-screen">
         {/* Header */}

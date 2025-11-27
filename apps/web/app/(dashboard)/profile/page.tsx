@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { EditProfile } from "@/components/profile/EditProfile";
 import { Settings, Share2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@clerk/nextjs";
+import { useProfile } from "@/lib/hooks/use-profiles";
+import { useJerseys } from "@/lib/hooks/use-jerseys";
+import { useListings } from "@/lib/hooks/use-listings";
+import { useAuctions } from "@/lib/hooks/use-auctions";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -24,115 +27,77 @@ interface Stats {
 }
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [stats, setStats] = useState<Stats>({ totalJerseys: 0, forSale: 0, activeAuctions: 0 });
-  const [loading, setLoading] = useState(true);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchStats();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
+  // Fetch profile from API
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    error: profileError,
+    refetch: refetchProfile,
+  } = useProfile(user?.id || "");
 
-  const fetchProfile = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      // TODO: Update when database is ready (HUD-14)
-      // Handle database table not found gracefully
-      if (error) {
-        if (error.code === "PGRST205") {
-          console.warn("Profiles table not found - using empty state");
-          setProfile(null);
-          setLoading(false);
-          return;
+  // Fetch stats from API (count from listings/auctions/jerseys)
+  const { data: jerseysData } = useJerseys(
+    user?.id
+      ? {
+          ownerId: user.id,
+          visibility: "all",
         }
-        throw error;
+      : undefined
+  );
+
+  const { data: listingsData } = useListings(
+    user?.id
+      ? {
+          status: "active",
+          limit: 1000, // Get all for count
+        }
+      : undefined
+  );
+
+  const { data: auctionsData } = useAuctions(
+    user?.id
+      ? {
+          status: "active",
+          limit: 1000, // Get all for count
+        }
+      : undefined
+  );
+
+  // Calculate stats
+  const stats: Stats = {
+    totalJerseys: jerseysData?.items.length || 0,
+    forSale: listingsData?.items.filter((l) => l.seller_id === user?.id).length || 0,
+    activeAuctions: auctionsData?.items.filter((a) => a.seller_id === user?.id).length || 0,
+  };
+
+  const loading = profileLoading;
+  const profileData: ProfileData | null = profile
+    ? {
+        username: profile.username,
+        bio: profile.bio,
+        country: profile.country,
+        avatar_url: profile.avatar_url,
       }
-      
-      setProfile(data);
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      // Sentry error capture (if configured)
-      // *Sentry.captureException(error, { tags: { page: "profile" } });
+    : null;
+
+  // Handle errors
+  useEffect(() => {
+    if (profileError) {
       toast({
         title: "Error",
         description: "Failed to load profile data",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const fetchStats = async () => {
-    if (!user) return;
-
-    try {
-      const supabase = createClient();
-      
-      // Fetch sale listings count
-      const { count: salesCount, error: salesError } = await supabase
-        .from("sale_listings")
-        .select("*", { count: "exact", head: true })
-        .eq("seller_id", user.id)
-        .eq("status", "active");
-
-      // TODO: Update when database is ready (HUD-14)
-      if (salesError && salesError.code !== "PGRST205") {
-        console.error("Error fetching sales count:", salesError);
-      }
-
-      // Fetch auctions count
-      const { count: auctionsCount, error: auctionsError } = await supabase
-        .from("auctions")
-        .select("*", { count: "exact", head: true })
-        .eq("seller_id", user.id)
-        .eq("status", "active");
-
-      // TODO: Update when database is ready (HUD-14)
-      if (auctionsError && auctionsError.code !== "PGRST205") {
-        console.error("Error fetching auctions count:", auctionsError);
-      }
-
-      // Fetch jerseys count
-      const { count: jerseysCount, error: jerseysError } = await supabase
-        .from("jerseys")
-        .select("*", { count: "exact", head: true })
-        .eq("owner_id", user.id);
-
-      // TODO: Update when database is ready (HUD-14)
-      if (jerseysError && jerseysError.code !== "PGRST205") {
-        console.error("Error fetching jerseys count:", jerseysError);
-      }
-
-      setStats({
-        totalJerseys: jerseysCount || 0,
-        forSale: salesCount || 0,
-        activeAuctions: auctionsCount || 0,
-      });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
+  }, [profileError, toast]);
 
   const handleShare = () => {
-    if (profile) {
+    if (profileData) {
       navigator.clipboard.writeText(window.location.href);
       toast({
         title: "Link Copied!",
@@ -153,7 +118,7 @@ const Profile = () => {
             country: profile.country || undefined,
             avatar_url: profile.avatar_url || undefined,
           }}
-          onUpdate={fetchProfile}
+          onUpdate={() => refetchProfile()}
         />
       )}
       <div className="min-h-screen">

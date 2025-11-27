@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Heart, UserPlus, MessageSquare, Gavel, DollarSign, Eye, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -56,7 +56,7 @@ const getTimeAgo = (dateString: string) => {
 };
 
 const Notifications = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -71,7 +71,7 @@ const Notifications = () => {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", user?.id || "")
         .order("created_at", { ascending: false });
 
       // TODO: Update when database is ready (HUD-14)
@@ -117,7 +117,7 @@ const Notifications = () => {
             event: "*",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${user.id}`,
+            filter: `user_id=eq.${user?.id || ""}`,
           },
           () => {
             fetchNotifications();
