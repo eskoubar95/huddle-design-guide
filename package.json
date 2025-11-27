@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=web",
     "dev:legacy": "npm run dev --workspace=legacy-frontend",
+    "dev:medusa": "npm run dev --workspace=medusa",
     "build:legacy": "npm run build --workspace=legacy-frontend",
     "lint": "npm run lint --workspaces",
     "typecheck": "npm run typecheck --workspaces",
