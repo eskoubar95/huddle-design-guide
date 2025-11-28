@@ -9,46 +9,53 @@ Denne guide beskriver, hvordan frontend til Huddle skal bygges og videreudvikles
 - `05-API_Design.md` (API-kontrakter)  
 - `06-Backend_Guide.md` (backend‑arkitektur)
 
-Vigtigt: Vi har allerede en **Lovable‑genereret React/Vite frontend** i `src/` + Supabase‑integration. Denne fungerer som:
+**✅ Migration Status:** Frontend migration fra Vite til Next.js er **færdig** (2025-11-27). Legacy frontend i `src/` er fjernet efter backup. Denne guide reflekterer nu Next.js App Router arkitekturen.
 
-- v0/MVP UI og **design playground**, hvor flows og komponenter allerede er skitseret.  
-- Reference for design, komponenter og interaktioner, når vi senere bevæger os mod monorepo + Next.js.
-
-Guiden tager højde for **aktuelt setup (Vite + React i `src/`)** og peger samtidig frem mod den ønskede arkitektur (Next.js App Router).
+**Nuværende struktur:**
+- Next.js 15 + React 19 App Router i `apps/web/`
+- Alle pages migreret til `apps/web/app/`
+- Alle komponenter migreret til `apps/web/components/`
+- API routes i `apps/web/app/api/v1/`
+- Supabase integration (client + server) i `apps/web/lib/supabase/`
 
 ---
 
 ## 2. Project Setup & Environment
 
-### 2.1 Aktuel frontend stack (Lovable)
+### 2.1 Aktuel frontend stack (Next.js)
 
-I dag ligger frontenden i:
+Frontenden ligger nu i:
 
-- `src/` – React + TypeScript SPA (Vite)  
-  - `src/App.tsx`, `src/main.tsx`  
-  - `src/pages/` – skærme (Home, Marketplace, JerseyDetail, Profile osv.)  
-  - `src/components/` – UI‑komponenter, inkl. shadcn/Radix‑baserede elementer i `components/ui/`  
-  - `src/integrations/supabase/` – Supabase client + typer  
-  - `src/types/` – domænetyper (`Jersey`, `Post`, `User`, `Notification` m.fl.)
+- `apps/web/` – Next.js 15 + React 19 App Router  
+  - `apps/web/app/` – Pages (App Router struktur)
+    - `(dashboard)/` – Dashboard routes (Home, Wardrobe, Marketplace, etc.)
+    - `(auth)/` – Auth routes
+    - `api/v1/` – Backend API routes
+  - `apps/web/components/` – Komponenter
+    - `ui/` – shadcn/Radix UI komponenter (49 komponenter)
+    - `jersey/`, `marketplace/`, `community/`, `profile/` – Domain komponenter
+    - `layout/` – Layout komponenter (Sidebar, BottomNav, CommandBar)
+  - `apps/web/lib/` – Utilities
+    - `supabase/` – Supabase client (browser) og server clients
+    - `hooks/` – Custom hooks
+    - `utils.ts` – Utility funktioner
 
-Dette er udgangspunktet for frontend‑guiden.
+**Legacy frontend:** Legacy Vite frontend i `src/` er fjernet efter migration (backed up i git branch `backup/legacy-frontend-2025-11-27`).
 
-### 2.2 Framework setup (Vite/React nu, Next.js senere)
+### 2.2 Framework setup (Next.js)
 
-**Nuværende setup (Vite):**
+**Nuværende setup (Next.js):**
 
-- `npm install` / `pnpm install`  
-- `npm run dev` for at køre frontenden på lokal dev‑port (typisk `5173`).  
-- Vite config + TS config er allerede på plads (Lovable standard).
+- `npm install` / `pnpm install` (root level)  
+- `npm run dev` starter Next.js app på `localhost:3000`  
+- Next.js 15 med App Router
+- React 19 features
+- TypeScript konfigureret med path aliases (`@/`)
 
-**Fremtidig retning (Next.js):**
-
-- Når backend/monorepo er klar (jf. `06-Backend_Guide.md`), vil vi:
-  - Oprette en Next.js app (fx i `apps/web/`).  
-  - Flytte/portere komponenter og sider fra `src/` til Next’s `app/` struktur.  
-  - Genbruge styles, Tailwind config, shadcn‑komponenter og domænetyper.
-
-Guiden fokuserer primært på **hvordan UI’et skal bygges og struktureres**, uafhængigt af om det kører på Vite i dag eller Next i morgen.
+**Struktur:**
+- Monorepo med workspaces (`apps/*`, `packages/*`)
+- Next.js app i `apps/web/`
+- Shared packages i `packages/` (types, configs)
 
 ### 2.3 Nødvendige packages
 
@@ -346,42 +353,69 @@ Implementere UI til de flows, der skaber værdi:
 
 ## 5. Code Organization
 
-### 5.1 Mappe-struktur (current Vite + fremtidig Next)
+### 5.1 Mappe-struktur (Next.js App Router)
 
-**Nuværende (`src/`):**
+**Nuværende struktur (`apps/web/`):**
 
 ```text
-src/
-  main.tsx
-  App.tsx
-  pages/
-    Home.tsx
-    Marketplace.tsx
-    JerseyDetail.tsx
-    Profile.tsx
-    ...
+apps/web/
+  app/
+    (dashboard)/
+      layout.tsx          # Dashboard layout (Sidebar + CommandBar)
+      page.tsx            # Home page
+      wardrobe/
+        page.tsx
+      marketplace/
+        page.tsx
+      jersey/
+        [id]/
+          page.tsx        # Dynamic route
+      profile/
+        page.tsx
+        [username]/
+          page.tsx        # Dynamic route
+      community/
+        page.tsx
+      messages/
+        page.tsx
+        [id]/
+          page.tsx
+      notifications/
+        page.tsx
+      settings/
+        page.tsx
+    (auth)/
+      auth/
+        page.tsx
+    api/
+      v1/                 # Backend API routes
+        jerseys/
+        listings/
+        auctions/
+        ...
+    layout.tsx            # Root layout (providers)
+    globals.css           # Global styles
   components/
-    ui/          # shadcn/Radix komponenter
-    home/        # dashboard widgets
-    ...
-  integrations/
+    ui/                   # 49 shadcn/Radix UI komponenter
+    jersey/               # Jersey domain komponenter
+    marketplace/          # Marketplace domain komponenter
+    community/            # Community domain komponenter
+    profile/              # Profile domain komponenter
+    layout/               # Layout komponenter
+    home/                 # Home page komponenter
+  lib/
     supabase/
-      client.ts
-      types.ts
-  contexts/
-    AuthContext.tsx
-  hooks/
-    use-mobile.tsx
-    use-toast.ts
-  types/
-    index.ts     # Jersey, Post, User, Notification osv.
+      client.ts           # Browser Supabase client
+      server.ts           # Server Supabase client
+    hooks/                # Custom hooks
+    utils.ts              # Utility funktioner
 ```
 
-**Når vi flytter til Next.js (apps/web):**
-
-- `src/pages` → `app/(routes)/...` (Next routes)  
-- `src/components` → `app/components` eller `components/` i root af app.  
-- `integrations/supabase` og `types` kan flyttes næsten uændret.
+**Migration Notes:**
+- ✅ Alle pages migreret fra `src/pages/` til `app/(routes)/...`
+- ✅ Alle komponenter migreret fra `src/components/` til `components/`
+- ✅ Supabase integration migreret til `lib/supabase/` (client + server)
+- ✅ Types kan bruges fra `packages/types/` eller lokalt i `lib/`
 
 ### 5.2 Komponentorganisation
 
@@ -461,12 +495,29 @@ src/
 
 ## 7. Afslutning
 
-Denne frontend‑guide binder produktbrief, PRD, tech stack, database og API‑design sammen til en praktisk plan for UI‑udvikling:
+Denne frontend‑guide binder produktbrief, PRD, tech stack, database og API‑design sammen til en praktisk plan for UI‑udvikling.
 
-- På kort sigt: viderebyg på den eksisterende Lovable‑frontend i `src/` med bedre struktur, flows og API‑integration.  
-- På længere sigt: portér UI’et til en Next.js‑baseret monorepo‑struktur, genbrugende de samme domænekomponenter, typer og UX‑mønstre.
+**✅ Migration Complete:** Frontend er nu migreret til Next.js 15 + React 19 App Router struktur. Alle pages, komponenter og API routes er implementeret og fungerer korrekt.
+
+**Nuværende Status:**
+- ✅ Next.js App Router struktur på plads
+- ✅ Alle pages migreret og fungerer
+- ✅ Alle komponenter migreret
+- ✅ API routes implementeret
+- ✅ Supabase integration (client + server)
+- ✅ Legacy frontend fjernet (backed up i git branch)
+
+**Næste Skridt:**
+- Performance optimizations (Server Components hvor muligt)
+- Image optimization (Next.js Image component)
+- Testing og quality improvements
 
 Hvis du arbejder fasevist (layout → auth → core features → advanced features → tests), vil du relativt hurtigt have en frontend, der matcher Huddles ambition: et moderne, mørkt, sportsligt univers for fodboldtrøje‑samlere, som føles både intuitivt og professionelt.
+
+---
+
+**Opdateret:** 2025-11-27  
+**Migration Status:** ✅ Complete (HUD-13)
 
 
 

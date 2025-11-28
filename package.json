@@ -5,17 +5,13 @@
   "type": "module",
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "src"
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
-    "dev:legacy": "npm run dev --workspace=legacy-frontend",
     "dev:medusa": "npm run dev --workspace=medusa",
-    "build:legacy": "npm run build --workspace=legacy-frontend",
     "lint": "npm run lint --workspaces",
-    "typecheck": "npm run typecheck --workspaces",
-    "preview:legacy": "npm run preview --workspace=legacy-frontend"
+    "typecheck": "npm run typecheck --workspaces"
   },
   "devDependencies": {
     "lightningcss": "^1.30.2",

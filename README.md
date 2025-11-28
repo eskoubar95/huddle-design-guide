@@ -56,12 +56,15 @@ npm run dev
 
 This project is built with:
 
-- **Frontend**: Vite, TypeScript, React, shadcn-ui, Tailwind CSS
-- **Backend**: Lovable Cloud (Supabase)
-- **Database**: PostgreSQL with Row Level Security (RLS)
+- **Frontend**: Next.js 15, React 19, TypeScript, shadcn-ui, Tailwind CSS
+- **Backend**: Next.js API Routes (in `apps/web/app/api/v1/`)
+- **Database**: PostgreSQL with Row Level Security (RLS) via Supabase
 - **Real-time**: Supabase Realtime for live auctions and messaging
-- **Authentication**: Supabase Auth
+- **Authentication**: Clerk (with Supabase integration)
 - **Storage**: Supabase Storage for jersey images
+- **Monorepo**: npm workspaces (`apps/*`, `packages/*`)
+
+**Note:** Legacy Vite frontend has been migrated to Next.js (completed 2025-11-27). See `.project/08-Migration_Plan.md` for details.
 
 ## Recent Updates (November 25, 2025)
 
