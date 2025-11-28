@@ -57,6 +57,21 @@
 - **Description:** Your app's public URL (for emails, webhooks, etc.)
 - **Example:** `http://localhost:3000` (dev) or `https://huddle.design` (prod)
 
+### `MEDUSA_API_URL`
+- **Type:** String
+- **Required:** No (defaults to `http://localhost:9000`)
+- **Description:** Medusa backend API URL
+- **Example:** `http://localhost:9000` (dev) or `https://medusa.huddle.design` (prod)
+
+### `MEDUSA_ADMIN_TOKEN`
+- **Type:** String
+- **Required:** No (optional - kun til customer update operations)
+- **Description:** Medusa **Secret API key** for Admin API authentication (NOT publishable key)
+- **Note:** Customer creation bruger Supabase database function i stedet for Medusa API (se `create_medusa_customer` function)
+- **Security:** ⚠️ Server-side only, never commit to git
+- **Where to find:** Medusa Admin Dashboard → Settings → Developer → Secret API Keys
+- **Note:** Use **Secret API key** (not Publishable key). Secret keys are for Admin API, publishable keys are for Store API.
+
 ## Environment Files
 
 - **`.env.example`** - Template file (committed to git)

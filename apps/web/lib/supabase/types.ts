@@ -483,6 +483,7 @@ export type Database = {
           country: string | null
           created_at: string | null
           id: string
+          medusa_customer_id: string | null
           updated_at: string | null
           username: string
         }
@@ -492,11 +493,13 @@ export type Database = {
           country?: string | null
           created_at?: string | null
           id: string
+          medusa_customer_id?: string | null
           updated_at?: string | null
           username: string
         }
         Update: {
           avatar_url?: string | null
+          medusa_customer_id?: string | null
           bio?: string | null
           country?: string | null
           created_at?: string | null

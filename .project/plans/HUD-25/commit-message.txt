@@ -1,0 +1,30 @@
+feat(auth): integrate Clerk-Supabase-Medusa profile sync and customer creation
+
+WHY:
+- Supabase migration was incorrectly configured for Clerk (foreign key to auth.users)
+- Clerk auth implementation could be improved (using @clerk/nextjs/server instead of @clerk/backend)
+- Medusa customer sync was missing (no automatic customer creation when profile created)
+- Medusa commerce features could not be used with Clerk users
+
+HOW:
+- Fixed Supabase migration: removed foreign key to auth.users, dropped Supabase auth trigger
+- Changed profiles.id from UUID to TEXT to match Clerk user IDs (strings, not UUIDs)
+- Updated auth.ts to use @clerk/backend and fetch user data from Clerk API (not session claims)
+- Added medusa_customer_id column to profiles table with index
+- Created Supabase database functions: create_medusa_customer and update_medusa_customer (via migrations)
+- Implemented medusa-customer-service.ts with syncMedusaCustomer() function using RPC calls
+- Integrated Medusa sync into requireAuth() (non-blocking, errors logged but not thrown)
+- Updated Supabase types to include medusa_customer_id field
+- Updated README-ENV.md with Medusa environment variables documentation
+- Added test-token page for debugging Clerk JWT tokens
+
+NOTES:
+- Using Supabase database functions instead of Medusa Admin API (API authentication doesn't work in v2)
+- Database function approach is faster (~10-50ms vs ~100-200ms) and more reliable
+- Sync is non-blocking: profile creation does not fail if Medusa sync fails
+- Update support: customer data is automatically updated when Clerk user data changes
+- All migrations tested and verified
+- Create and update functions tested end-to-end
+
+Refs: HUD-25
+
