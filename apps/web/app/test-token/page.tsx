@@ -7,7 +7,7 @@ export default function TestTokenPage() {
   const { getToken, isSignedIn, userId } = useAuth();
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<any>(null);
+  const [testResult, setTestResult] = useState<{ status?: number; data?: unknown; error?: string } | null>(null);
 
   useEffect(() => {
     if (isSignedIn) {

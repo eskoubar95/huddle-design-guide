@@ -1,4 +1,4 @@
-import { createClerkClient } from "@clerk/backend";
+import { createClerkClient, type User } from "@clerk/backend";
 import { createServiceClient } from "@/lib/supabase/server";
 
 const clerk = createClerkClient({
@@ -63,7 +63,7 @@ export async function syncMedusaCustomer(clerkUserId: string): Promise<string | 
  * Vi bruger database function fordi Medusa API authentication ikke virker
  * Functionen opretter customer i medusa.customer tabel med SECURITY DEFINER
  */
-async function createMedusaCustomer(clerkUser: any): Promise<{ id: string }> {
+async function createMedusaCustomer(clerkUser: User): Promise<{ id: string }> {
   const email = clerkUser.emailAddresses[0]?.emailAddress;
   if (!email) {
     throw new Error("Clerk user must have email");
@@ -102,7 +102,7 @@ async function createMedusaCustomer(clerkUser: any): Promise<{ id: string }> {
  * Vi bruger database function fordi Medusa API authentication ikke virker
  * Functionen opdaterer customer i medusa.customer tabel med SECURITY DEFINER
  */
-async function updateMedusaCustomer(customerId: string, clerkUser: any): Promise<void> {
+async function updateMedusaCustomer(customerId: string, clerkUser: User): Promise<void> {
   const email = clerkUser.emailAddresses[0]?.emailAddress;
   if (!email) {
     // Skip hvis ingen email (kan ikke opdatere uden email)
