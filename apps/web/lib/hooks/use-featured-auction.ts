@@ -7,8 +7,9 @@ export function useFeaturedAuction() {
   const featuredAuctionId = process.env.NEXT_PUBLIC_FEATURED_AUCTION_ID;
 
   // Always call hooks (React rules) - use conditional logic inside
+  // useAuction has enabled: !!id, so empty string will disable the query
   const { data: auction, isLoading: auctionLoading, error: auctionError } = useAuction(
-    featuredAuctionId || undefined
+    featuredAuctionId || ""
   );
   const { auctions, isLoading: marketplaceLoading } = useMarketplaceAuctions({});
 
