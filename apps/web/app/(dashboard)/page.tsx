@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Bell, History, LayoutDashboard, User, Settings, LogOut } from "lucide-react";
+import { Search, Bell, LayoutDashboard, User, Settings, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { HeroCarousel } from "@/components/dashboard/hero/HeroCarousel";
 import { ActivitySnapshot } from "@/components/home/ActivitySnapshot";
@@ -19,7 +19,6 @@ import {
   DropdownMenuItem, 
   DropdownMenuLabel, 
   DropdownMenuSeparator, 
-  DropdownMenuShortcut, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 
