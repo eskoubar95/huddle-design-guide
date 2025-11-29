@@ -1,0 +1,211 @@
+'use client'
+
+import { useRouter } from "next/navigation";
+import { Star, Tag, Calendar, Shield, Trophy, Medal } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { HeroSlideData } from "@/lib/hooks/use-hero-slides";
+import { HeroNavigation } from "../HeroNavigation";
+import { cn } from "@/lib/utils";
+
+interface JerseySlideProps {
+  slide?: HeroSlideData;
+  slidesCount?: number;
+  currentSlide?: number;
+  onPrev?: () => void;
+  onNext?: () => void;
+  onGoTo?: (index: number) => void;
+}
+
+const getCardTier = (condition: number = 10) => {
+  if (condition >= 8) return 'gold';
+  if (condition >= 6) return 'silver';
+  return 'bronze';
+};
+
+const tierStyles = {
+  gold: {
+    borderColor: 'border-yellow-400/50',
+    gradientBorder: 'from-yellow-400 via-yellow-500/50 to-transparent',
+    iconColor: 'text-yellow-400',
+    badgeBg: 'bg-yellow-400/10 border-yellow-400/20',
+    icon: Trophy
+  },
+  silver: {
+    borderColor: 'border-gray-300/50',
+    gradientBorder: 'from-gray-300 via-gray-400/50 to-transparent',
+    iconColor: 'text-gray-300',
+    badgeBg: 'bg-gray-300/10 border-gray-300/20',
+    icon: Shield
+  },
+  bronze: {
+    borderColor: 'border-amber-700/50',
+    gradientBorder: 'from-amber-600 via-amber-700/50 to-transparent',
+    iconColor: 'text-amber-700',
+    badgeBg: 'bg-amber-700/10 border-amber-700/20',
+    icon: Medal
+  }
+};
+
+export const JerseySlide = ({ 
+  slide, 
+  slidesCount = 0, 
+  currentSlide = 0,
+  onPrev = () => {},
+  onNext = () => {},
+  onGoTo = () => {}
+}: JerseySlideProps) => {
+  const router = useRouter();
+  
+  const jersey = slide?.data as any;
+
+  if (!jersey) {
+    return null; 
+  }
+
+  const condition = jersey.condition || 9;
+  const tier = getCardTier(condition);
+  const styles = tierStyles[tier];
+  const TierIcon = styles.icon;
+
+  return (
+    <div className="relative h-full w-full flex items-center justify-between p-4 md:p-8 lg:p-8 2xl:p-12">
+      {/* Left Content */}
+      <div className="flex flex-col justify-between h-full z-10 max-w-lg w-full md:w-1/2 lg:w-auto">
+        {/* Top Left - Title */}
+        <div>
+          <h2 className="text-lg md:text-xl lg:text-2xl font-mono text-white font-bold tracking-widest uppercase mb-1">
+             Recommended
+          </h2>
+          <h2 className="text-3xl md:text-4xl lg:text-4xl 2xl:text-6xl font-black text-white uppercase tracking-tight leading-none">
+            {jersey.club}
+          </h2>
+        </div>
+
+        {/* Central Left - Glass Card Details */}
+        <div className="w-full max-w-[280px] lg:max-w-[300px] my-auto">
+          <div className="rounded-2xl bg-background/20 backdrop-blur-md border border-white/10 p-4 space-y-3 shadow-xl">
+             
+             {/* Season */}
+             <div className="flex items-center justify-between border-b border-white/10 pb-2">
+               <div className="flex items-center gap-3">
+                 <div className="p-1.5 rounded-lg bg-white/10">
+                   <Calendar className="w-4 h-4 text-white" />
+                 </div>
+                 <span className="text-sm font-medium text-white/80">Season</span>
+               </div>
+               <span className="text-base lg:text-lg font-bold text-white">{jersey.season}</span>
+             </div>
+             
+             {/* Type */}
+             <div className="flex items-center justify-between border-b border-white/10 pb-2">
+               <div className="flex items-center gap-3">
+                 <div className="p-1.5 rounded-lg bg-white/10">
+                   <Tag className="w-4 h-4 text-white" />
+                 </div>
+                 <span className="text-sm font-medium text-white/80">Type</span>
+               </div>
+               <span className="text-base lg:text-lg font-bold text-white">{jersey.jersey_type}</span>
+             </div>
+
+             {/* Price (if listed) */}
+             {jersey.listing && (
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-3">
+                   <div className="p-1.5 rounded-lg bg-success/20">
+                     <Star className="w-4 h-4 text-success" />
+                   </div>
+                   <span className="text-sm font-medium text-white/80">Price</span>
+                 </div>
+                 <span className="text-lg lg:text-xl font-black text-success">
+                   {jersey.listing.currency} {jersey.listing.price.toLocaleString()}
+                 </span>
+               </div>
+             )}
+          </div>
+        </div>
+
+        {/* Bottom Left - CTA */}
+        <div>
+          <div className="mb-4">
+            {/* Navigation directly under the card */}
+              <HeroNavigation 
+                slidesCount={slidesCount} 
+                currentSlide={currentSlide}
+                onPrev={onPrev}
+                onNext={onNext}
+                onGoTo={onGoTo}
+              />
+          </div>
+          <Button
+            onClick={() => router.push(`/jersey/${jersey.id}`)}
+            variant="secondary"
+            className="font-semibold bg-white text-black hover:bg-white/90 border-none shadow-lg w-full md:w-auto"
+          >
+            View Jersey
+          </Button>
+        </div>
+      </div>
+
+      {/* Right Side - Collector Card */}
+      <div className="hidden md:flex h-full w-1/2 items-center justify-center z-10 pl-4 lg:pl-0">
+        <div className="relative w-full max-w-[260px] lg:max-w-[320px] aspect-[3/4]">
+          {/* Gradient Border Wrapper */}
+          <div 
+            className={cn(
+              "absolute inset-0 rounded-2xl p-[2px] bg-gradient-to-b",
+              styles.gradientBorder
+            )}
+            style={{
+              // Clip top-right corner for "Notch" effect
+              clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)"
+            }}
+          >
+            {/* Inner Card Content */}
+            <div 
+              className="relative w-full h-full bg-card rounded-[14px] overflow-hidden"
+              style={{
+                clipPath: "polygon(0 0, calc(100% - 19px) 0, 100% 19px, 100% 100%, 0 100%)"
+              }}
+            >
+              {/* Full Size Image */}
+              <img
+                src={jersey.images?.[0] || '/JW_FCK_1.jpg'}
+                alt={`${jersey.club} ${jersey.season}`}
+                className="w-full h-full object-cover"
+              />
+
+              {/* Top Left Tier Icon */}
+              <div className="absolute top-4 left-4 z-20">
+                 <div className={cn("p-2 rounded-xl backdrop-blur-md border shadow-lg", styles.badgeBg)}>
+                   <TierIcon className={cn("w-5 h-5", styles.iconColor)} />
+                 </div>
+              </div>
+
+              {/* Bottom Fade & Meta Data */}
+              <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/60 to-transparent flex flex-col justify-end p-4 lg:p-6 z-10">
+                
+                {/* Small Club Name */}
+                <p className="text-white/60 text-[10px] lg:text-xs font-bold uppercase tracking-widest mb-3 text-center">
+                  {jersey.club}
+                </p>
+                
+                {/* Meta Badges */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <div className="px-2 py-1 rounded bg-white/10 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white uppercase tracking-wide whitespace-nowrap">
+                    {jersey.season}
+                  </div>
+                  <div className="px-2 py-1 rounded bg-white/10 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white uppercase tracking-wide whitespace-nowrap">
+                    {jersey.jersey_type}
+                  </div>
+                  <div className={cn("px-2 py-1 rounded backdrop-blur-sm border text-[10px] font-bold uppercase tracking-wide whitespace-nowrap", styles.badgeBg, styles.iconColor, styles.borderColor)}>
+                    Cond {condition}/10
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
