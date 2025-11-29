@@ -16,5 +16,8 @@
   "devDependencies": {
     "lightningcss": "^1.30.2",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "embla-carousel-fade": "^8.6.0"
   }
 }
