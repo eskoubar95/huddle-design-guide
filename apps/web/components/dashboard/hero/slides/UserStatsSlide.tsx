@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useUserStats } from "@/lib/hooks/use-user-stats";
 import { useUser } from "@clerk/nextjs";
 import { HeroNavigation } from "../HeroNavigation";
-import { HeroSlideData } from "@/lib/hooks/use-hero-slides";
+// HeroSlideData import removed - not used
 
 interface UserStatsSlideProps {
   slidesCount?: number;
@@ -38,7 +38,7 @@ export const UserStatsSlide = ({
       {/* Top Left - Title */}
       <div className="z-10">
         <h2 className="text-xl md:text-2xl font-mono text-white font-bold tracking-widest uppercase">
-           {username}'s
+           {username}&apos;s
         </h2>
         <h2 className="text-3xl md:text-4xl lg:text-4xl 2xl:text-6xl font-black text-white uppercase tracking-tight leading-none">
           Wardrobe

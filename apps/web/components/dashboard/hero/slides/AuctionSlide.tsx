@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from "next/navigation";
-import { Gavel, ArrowRight } from "lucide-react";
+// Icons removed - not used in this component
 import { Button } from "@/components/ui/button";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
 import { useFeaturedAuction } from "@/lib/hooks/use-featured-auction";

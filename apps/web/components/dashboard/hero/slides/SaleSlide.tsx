@@ -26,7 +26,24 @@ export const SaleSlide = ({
 }: SaleSlideProps) => {
   const router = useRouter();
   
-  const jersey = slide?.data as any;
+  // Type-safe jersey data
+  interface JerseyData {
+    id: string;
+    club: string;
+    season: string;
+    jersey_type: string;
+    condition?: number;
+    images?: string[];
+    listing: {
+      id: string;
+      currency: string;
+      price: number;
+      status: string;
+      type: string;
+    };
+  }
+  
+  const jersey = slide?.data as JerseyData | undefined;
 
   if (!jersey || !jersey.listing) {
     return null; 

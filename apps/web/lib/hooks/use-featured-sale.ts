@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+// import { createClient } from "@/lib/supabase/client"; // Will be used when implementing real queries
 
 export function useFeaturedSale() {
   // 1. Try to get ID from env var
@@ -10,9 +10,8 @@ export function useFeaturedSale() {
   return useQuery({
     queryKey: ["featured-sale", featuredListingId],
     queryFn: async () => {
-      const supabase = createClient();
-
       // TEST DATA FOR VISUALIZATION
+      // Note: createClient() will be used when implementing real Supabase queries
       // In production, we would check supabase first.
       // For now, we return this immediately to verify the UI.
       

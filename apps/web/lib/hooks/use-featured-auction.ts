@@ -6,7 +6,13 @@ import { useMarketplaceAuctions } from "./use-marketplace";
 export function useFeaturedAuction() {
   const featuredAuctionId = process.env.NEXT_PUBLIC_FEATURED_AUCTION_ID;
 
-  // If no env var, don't fetch
+  // Always call hooks (React rules) - use conditional logic inside
+  const { data: auction, isLoading: auctionLoading, error: auctionError } = useAuction(
+    featuredAuctionId || undefined
+  );
+  const { auctions, isLoading: marketplaceLoading } = useMarketplaceAuctions({});
+
+  // If no env var, return early
   if (!featuredAuctionId) {
     return {
       data: null,
@@ -15,16 +21,6 @@ export function useFeaturedAuction() {
     };
   }
 
-  // Fetch auction details
-  const { data: auction, isLoading, error } = useAuction(featuredAuctionId);
-
-  // Fetch marketplace auctions to get jersey data
-  // We use the existing hook logic but filters are empty. 
-  // Note: This is slightly inefficient as it fetches multiple auctions/jerseys just to find one.
-  // Ideally, we would have a useAuctionWithJersey(id) hook.
-  // But for now, reusing existing hooks is fine as per plan.
-  const { auctions } = useMarketplaceAuctions({});
-
   // Join auction with jersey data
   const auctionWithJersey = auction && auctions
     ? auctions.find((a) => a.auction_id === auction.id)
@@ -32,8 +28,8 @@ export function useFeaturedAuction() {
 
   return {
     data: auctionWithJersey || null,
-    isLoading,
-    error,
+    isLoading: auctionLoading || marketplaceLoading,
+    error: auctionError,
   };
 }
 
