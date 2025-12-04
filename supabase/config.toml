@@ -2,3 +2,15 @@ project_id = "trbyclravrmmhxplocsr"
 
 [functions.close-auctions]
 verify_jwt = false
+
+[functions.backfill-metadata]
+verify_jwt = false
+
+[functions.auto-link-metadata]
+verify_jwt = false
+
+[functions.match-jersey-metadata]
+verify_jwt = false
+
+[functions.generate-webp-image]
+verify_jwt = false

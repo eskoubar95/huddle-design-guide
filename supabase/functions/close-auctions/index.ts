@@ -1,3 +1,4 @@
+// @ts-nocheck - Deno runtime (TypeScript doesn't understand Deno types)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
