@@ -120,7 +120,7 @@ export const MarketplaceForYou = () => {
           </div>
           <button
             onClick={handleNavigateToMarketplace}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group focus:outline-none focus:ring-2 focus:ring-primary rounded"
             aria-label="View all trending jerseys"
           >
             <span>View all</span>
@@ -170,7 +170,7 @@ export const MarketplaceForYou = () => {
             </div>
             <button
               onClick={handleNavigateToMarketplace}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group focus:outline-none focus:ring-2 focus:ring-primary rounded"
               aria-label="View all ending soon auctions"
             >
               <span>View all</span>

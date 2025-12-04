@@ -111,7 +111,7 @@ export const CommunityPreview = () => {
         </div>
         <button
           onClick={handleNavigateToCommunity}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group focus:outline-none focus:ring-2 focus:ring-primary rounded"
           aria-label="Open community feed"
         >
           <span>Open feed</span>
@@ -136,7 +136,7 @@ export const CommunityPreview = () => {
               <button
                 key={post.id}
                 onClick={handleNavigateToCommunity}
-                className="group relative overflow-hidden rounded-xl bg-card border border-border hover:border-primary/30 transition-all hover:shadow-card focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                className="group relative overflow-hidden rounded-xl bg-card border border-border hover:border-primary/30 transition-all hover:shadow-card focus:outline-none focus:ring-2 focus:ring-primary"
                 aria-label={`View post by ${post.profiles.username}`}
               >
                 {/* Jersey image or placeholder */}

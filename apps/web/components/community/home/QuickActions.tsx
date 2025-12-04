@@ -58,7 +58,7 @@ export const QuickActions = () => {
           <button
             key={action.title}
             onClick={action.onClick}
-            className="group relative overflow-hidden p-8 rounded-3xl bg-card border-2 border-border hover:border-primary/40 transition-all hover:shadow-neon hover:-translate-y-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            className="group relative overflow-hidden p-8 rounded-3xl bg-card border-2 border-border hover:border-primary/40 transition-all hover:shadow-neon hover:-translate-y-2 focus:outline-none focus:ring-2 focus:ring-primary"
             aria-label={`${action.title}: ${action.description}`}
           >
             {/* Animated neon gradient background */}

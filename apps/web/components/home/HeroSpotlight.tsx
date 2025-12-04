@@ -23,7 +23,7 @@ export const HeroSpotlight = () => {
       <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-success/15 via-transparent to-transparent blur-3xl" />
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1/2 bg-gradient-to-t from-accent/10 via-transparent to-transparent blur-3xl" />
 
-      <div className="relative p-8 md:p-16">
+      <div className="relative p-12 md:p-20 min-h-[500px] flex flex-col justify-center">
         <div className="flex items-start justify-between mb-8">
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/30 backdrop-blur-sm mb-6 shadow-glow">

@@ -240,7 +240,7 @@ export const CreatePost = ({ open, onOpenChange, onPostCreated }: CreatePostProp
                       setSelectedJerseyId(jersey.id);
                       setShowJerseySelector(false);
                     }}
-                    className="relative aspect-[2/3] rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    className="relative aspect-[2/3] rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label={`Select ${jersey.club} ${jersey.season} ${jersey.jersey_type} jersey`}
                   >
                     <img
