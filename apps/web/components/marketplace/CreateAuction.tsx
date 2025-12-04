@@ -295,7 +295,7 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
                     key={d.hours}
                     onClick={() => setDuration(d.hours as 24 | 48 | 72 | 168)}
                     className={cn(
-                      "p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                      "p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary",
                       duration === d.hours
                         ? "border-primary bg-secondary"
                         : "border-border hover:border-muted"
@@ -354,7 +354,7 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
                     setShippingFreeInCountry(false);
                   }}
                   className={cn(
-                    "w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                    "w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary",
                     shippingCostBuyer
                       ? "border-primary bg-secondary"
                       : "border-border hover:border-muted"
@@ -375,7 +375,7 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
                     setShippingFreeInCountry(false);
                   }}
                   className={cn(
-                    "w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                    "w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary",
                     shippingCostSeller
                       ? "border-primary bg-secondary"
                       : "border-border hover:border-muted"
@@ -396,7 +396,7 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
                     setShippingFreeInCountry(true);
                   }}
                   className={cn(
-                    "w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                    "w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary",
                     shippingFreeInCountry
                       ? "border-primary bg-secondary"
                       : "border-border hover:border-muted"
