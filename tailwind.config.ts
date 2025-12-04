@@ -14,7 +14,11 @@ export default {
     },
     extend: {
       colors: {
-        border: "hsl(var(--border))",
+        border: {
+          DEFAULT: "hsl(var(--border))",
+          light: "hsl(var(--border-light))",
+          dark: "hsl(var(--border-dark))",
+        },
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -23,27 +27,44 @@ export default {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
           glow: "hsl(var(--primary-glow))",
+          dark: "hsl(var(--primary-dark))",
+          light: "hsl(var(--primary-light))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+          dark: "hsl(var(--secondary-dark))",
+          light: "hsl(var(--secondary-light))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          dark: "hsl(var(--destructive-dark))",
+          light: "hsl(var(--destructive-light))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
+          dark: "hsl(var(--muted-dark))",
+          light: "hsl(var(--muted-light))",
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
           glow: "hsl(var(--accent-glow))",
+          dark: "hsl(var(--accent-dark))",
+          light: "hsl(var(--accent-light))",
+        },
+        hype: {
+          blue: "hsl(var(--accent))", // Alias for accent
+          pink: "hsl(var(--hype-pink))",
+          yellow: "hsl(var(--hype-yellow))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          dark: "hsl(var(--success-dark))",
+          light: "hsl(var(--success-light))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
