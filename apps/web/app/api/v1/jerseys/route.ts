@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { rateLimitMiddleware } from "@/lib/api/rate-limit";
-import { handleApiError } from "@/lib/api/errors";
+import { handleApiError, ApiError } from "@/lib/api/errors";
 import { paginatedResponse, createdResponse } from "@/lib/api/responses";
 import { requireAuth, optionalAuth } from "@/lib/auth";
 import { JerseyService } from "@/lib/services/jersey-service";
@@ -13,14 +13,43 @@ const handler = async (req: NextRequest) => {
       const auth = await optionalAuth(req);
       const searchParams = req.nextUrl.searchParams;
 
-      const query = jerseyListQuerySchema.parse({
-        limit: searchParams.get("limit"),
-        cursor: searchParams.get("cursor"),
-        ownerId: searchParams.get("ownerId"),
-        visibility: searchParams.get("visibility"),
-        club: searchParams.get("club"),
-        season: searchParams.get("season"),
-      });
+      // Parse query params with better error handling
+      let query;
+      try {
+        // Build query object - only include defined params
+        const queryData: Record<string, unknown> = {};
+        
+        const limit = searchParams.get("limit");
+        if (limit !== null) queryData.limit = limit;
+        
+        const cursor = searchParams.get("cursor");
+        if (cursor !== null) queryData.cursor = cursor;
+        
+        const ownerId = searchParams.get("ownerId");
+        if (ownerId !== null) queryData.ownerId = ownerId;
+        
+        const visibility = searchParams.get("visibility");
+        if (visibility !== null) queryData.visibility = visibility;
+        
+        const club = searchParams.get("club");
+        if (club !== null) queryData.club = club;
+        
+        const season = searchParams.get("season");
+        if (season !== null) queryData.season = season;
+        
+        query = jerseyListQuerySchema.parse(queryData);
+      } catch (error) {
+        // Log validation errors for debugging with full details
+        console.error("[JERSEYS API] Query validation error:", error);
+        if (error instanceof Error && 'issues' in error) {
+          console.error("[JERSEYS API] Validation issues:", (error as any).issues);
+        }
+        throw new ApiError(
+          "VALIDATION_ERROR", 
+          error instanceof Error ? error.message : "Invalid query parameters", 
+          400
+        );
+      }
 
       const service = new JerseyService();
       const result = await service.listJerseys(query, auth?.userId);

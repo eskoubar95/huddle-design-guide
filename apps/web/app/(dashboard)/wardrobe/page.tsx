@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, SlidersHorizontal, ShoppingCart, Gavel, Eye, EyeOff } from "lucide-react";
+import { Plus, SlidersHorizontal, Eye, EyeOff } from "lucide-react";
 import { UploadJersey } from "@/components/jersey/UploadJersey";
+import { EditJersey } from "@/components/jersey/EditJersey";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@clerk/nextjs";
@@ -11,6 +12,8 @@ import { useJerseys, useUpdateJersey } from "@/lib/hooks/use-jerseys";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { getImageUrls } from "@/lib/utils/image";
+import type { JerseyDTO } from "@/lib/services/jersey-service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,28 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface Jersey {
-  id: string;
-  owner_id: string;
-  club: string;
-  season: string;
-  jersey_type: string;
-  player_name?: string | null;
-  player_number?: string | null;
-  competition_badges?: string[] | null;
-  condition_rating?: number | null;
-  notes?: string | null;
-  visibility: string;
-  images: string[];
-  created_at: string;
-}
-
 const Wardrobe = () => {
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [activeFilter, setActiveFilter] = useState("All");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [editingJersey, setEditingJersey] = useState<JerseyDTO | null>(null);
 
   // Fetch jerseys using API hook
   const {
@@ -63,9 +51,15 @@ const Wardrobe = () => {
   // Handle errors
   useEffect(() => {
     if (jerseysError) {
+      const errorMessage = jerseysError instanceof Error 
+        ? jerseysError.message 
+        : "Failed to load jerseys";
+      
+      console.error("[Wardrobe] Error loading jerseys:", jerseysError);
+      
       toast({
         title: "Error",
-        description: "Failed to load jerseys",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -113,9 +107,20 @@ const Wardrobe = () => {
         onClose={() => setUploadOpen(false)}
         onSuccess={() => refetchJerseys()}
       />
+      {editingJersey && (
+        <EditJersey
+          jersey={editingJersey}
+          isOpen={!!editingJersey}
+          onClose={() => setEditingJersey(null)}
+          onSuccess={() => {
+            setEditingJersey(null);
+            refetchJerseys();
+          }}
+        />
+      )}
       <div className="min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+        {/* Page Header with Filters */}
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -197,109 +202,84 @@ const Wardrobe = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredJerseys.map((jersey) => (
-                  <div
-                    key={jersey.id}
-                    className="group relative rounded-xl overflow-hidden transition-all cursor-pointer bg-card hover:bg-card-hover shadow-card hover:shadow-elevated border border-border/50 hover:border-primary/30"
-                  >
-                    {/* Jersey Image */}
-                    <div
-                      className="relative aspect-[3/4] overflow-hidden bg-secondary"
-                      onClick={() => router.push(`/jersey/${jersey.id}`)}
-                    >
-                      <img
-                        src={jersey.images[0] || "/placeholder.svg"}
-                        alt={`${jersey.club} ${jersey.season}`}
-                        className="w-full h-full object-cover transition-all group-hover:scale-105"
-                      />
+                {filteredJerseys.map((jersey) => {
+                  // Get image URLs with fallback
+                  const firstImage = jersey.imageVariants?.[0] || jersey.images?.[0];
+                  const imageUrls = firstImage ? getImageUrls(firstImage.originalUrl || firstImage) : { primary: "/placeholder.svg", fallback: "/placeholder.svg" };
+                  
+                  // Get metadata with fallback
+                  const clubName = jersey.metadata?.club?.name || jersey.club;
+                  const seasonLabel = jersey.metadata?.season?.label || jersey.season;
+                  const jerseyType = jersey.jersey_type;
+                  const playerName = jersey.metadata?.player?.full_name || jersey.player_name;
+                  const playerNumber = jersey.metadata?.player?.current_shirt_number?.toString() || jersey.player_number;
 
-                      {/* Condition badge */}
-                      {jersey.condition_rating && (
-                        <div className="absolute top-2 left-2">
-                          <Badge variant="secondary" className="backdrop-blur-sm bg-background/60">
-                            {jersey.condition_rating}/10
+                  return (
+                    <div
+                      key={jersey.id}
+                      className="group relative rounded-xl overflow-hidden transition-all cursor-pointer bg-card hover:bg-card-hover shadow-card hover:shadow-elevated border border-border/50 hover:border-primary/30"
+                    >
+                      {/* Jersey Image */}
+                      <div
+                        className="relative aspect-[3/4] overflow-hidden bg-secondary"
+                        onClick={() => router.push(`/wardrobe/${jersey.id}`)}
+                      >
+                        <img
+                          src={imageUrls.primary}
+                          alt={`${clubName} ${seasonLabel}`}
+                          className="w-full h-full object-cover transition-all group-hover:scale-105"
+                          onError={(e) => {
+                            // Fallback to original if webp fails
+                            const target = e.target as HTMLImageElement;
+                            if (target.src !== imageUrls.fallback) {
+                              target.src = imageUrls.fallback;
+                            }
+                          }}
+                        />
+
+                        {/* Condition badge */}
+                        {jersey.condition_rating && (
+                          <div className="absolute top-2 left-2">
+                            <Badge variant="secondary" className="backdrop-blur-sm bg-background/60">
+                              {jersey.condition_rating}/10
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Visibility badge */}
+                        <div className="absolute top-2 right-2">
+                          <Badge
+                            variant={jersey.visibility === "public" ? "default" : "outline"}
+                            className="backdrop-blur-sm"
+                          >
+                            {jersey.visibility === "public" ? (
+                              <Eye className="w-3 h-3" />
+                            ) : (
+                              <EyeOff className="w-3 h-3" />
+                            )}
                           </Badge>
                         </div>
-                      )}
-
-                      {/* Visibility badge */}
-                      <div className="absolute top-2 right-2">
-                        <Badge
-                          variant={jersey.visibility === "public" ? "default" : "outline"}
-                          className="backdrop-blur-sm"
-                        >
-                          {jersey.visibility === "public" ? (
-                            <Eye className="w-3 h-3" />
-                          ) : (
-                            <EyeOff className="w-3 h-3" />
-                          )}
-                        </Badge>
                       </div>
 
-                      {/* Quick Actions - Show on hover */}
-                      <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="flex-1 backdrop-blur-md bg-background/90 hover:bg-background"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/jersey/${jersey.id}`);
-                            // This will open the CreateSaleListing modal on the detail page
-                          }}
-                        >
-                          <ShoppingCart className="w-3 h-3 mr-1" />
-                          Sell
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="flex-1 backdrop-blur-md bg-background/90 hover:bg-background"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/jersey/${jersey.id}`);
-                            // This will open the CreateAuction modal on the detail page
-                          }}
-                        >
-                          <Gavel className="w-3 h-3 mr-1" />
-                          Auction
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="backdrop-blur-md bg-background/90 hover:bg-background h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleVisibility(jersey.id, jersey.visibility);
-                          }}
-                        >
-                          {jersey.visibility === "public" ? (
-                            <EyeOff className="w-3 h-3" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div
-                      className="p-3 space-y-1"
-                      onClick={() => router.push(`/jersey/${jersey.id}`)}
-                    >
-                      <h3 className="font-bold text-sm truncate">{jersey.club}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {jersey.season} • {jersey.jersey_type}
-                      </p>
-                      {jersey.player_name && (
-                        <p className="text-xs text-primary font-medium truncate">
-                          {jersey.player_name}
-                          {jersey.player_number && ` #${jersey.player_number}`}
+                      {/* Info */}
+                      <div
+                        className="p-3 space-y-1"
+                        onClick={() => router.push(`/wardrobe/${jersey.id}`)}
+                      >
+                        <h3 className="font-bold text-sm truncate">{clubName}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {seasonLabel} • {jerseyType}
                         </p>
-                      )}
+                        {playerName && (
+                          <p className="text-xs text-primary font-medium truncate">
+                            {playerName}
+                            {playerNumber && ` #${playerNumber}`}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

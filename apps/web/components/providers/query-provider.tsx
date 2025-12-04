@@ -29,6 +29,22 @@ function QueryClientProviderWrapper({
   );
 }
 
+/**
+ * Redirect to auth page when token is expired or invalid
+ * Only runs on client-side
+ */
+function redirectToAuth(currentPath?: string): void {
+  if (typeof window === "undefined") return;
+
+  const authUrl = new URL("/auth", window.location.origin);
+  if (currentPath) {
+    authUrl.searchParams.set("redirect_url", currentPath);
+  } else {
+    authUrl.searchParams.set("redirect_url", window.location.pathname);
+  }
+  window.location.href = authUrl.toString();
+}
+
 export function QueryProvider({ children }: QueryProviderProps) {
   // Use useState to create QueryClient once per component instance
   // This prevents creating new client on every render (Next.js App Router requirement)
@@ -39,6 +55,50 @@ export function QueryProvider({ children }: QueryProviderProps) {
           queries: {
             staleTime: 60 * 1000, // 1 minute
             refetchOnWindowFocus: false,
+            retry: (failureCount, error) => {
+              // Don't retry on 401 errors - redirect to auth instead
+              if (error && typeof error === 'object' && 'statusCode' in error) {
+                const statusCode = (error as { statusCode?: number }).statusCode;
+                if (statusCode === 401) {
+                  redirectToAuth();
+                  return false;
+                }
+              }
+              // Retry other errors up to 3 times
+              return failureCount < 3;
+            },
+            onError: (error) => {
+              // Handle 401 errors globally
+              if (error && typeof error === 'object' && 'statusCode' in error) {
+                const statusCode = (error as { statusCode?: number }).statusCode;
+                if (statusCode === 401) {
+                  redirectToAuth();
+                }
+              }
+            },
+          },
+          mutations: {
+            retry: (failureCount, error) => {
+              // Don't retry on 401 errors - redirect to auth instead
+              if (error && typeof error === 'object' && 'statusCode' in error) {
+                const statusCode = (error as { statusCode?: number }).statusCode;
+                if (statusCode === 401) {
+                  redirectToAuth();
+                  return false;
+                }
+              }
+              // Don't retry mutations by default
+              return false;
+            },
+            onError: (error) => {
+              // Handle 401 errors globally
+              if (error && typeof error === 'object' && 'statusCode' in error) {
+                const statusCode = (error as { statusCode?: number }).statusCode;
+                if (statusCode === 401) {
+                  redirectToAuth();
+                }
+              }
+            },
           },
         },
       })

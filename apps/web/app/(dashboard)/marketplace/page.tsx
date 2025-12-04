@@ -147,8 +147,8 @@ const Marketplace = () => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+        {/* Page Header */}
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold">Marketplace</h1>
@@ -282,7 +282,7 @@ const Marketplace = () => {
                       <div
                         key={sale.listing_id}
                         className="group relative rounded-xl overflow-hidden transition-all cursor-pointer bg-card hover:bg-card-hover shadow-card hover:shadow-elevated border border-border/50 hover:border-primary/30"
-                        onClick={() => router.push(`/jersey/${sale.id}`)}
+                        onClick={() => router.push(`/wardrobe/${sale.id}`)}
                       >
                         {/* Jersey Image */}
                         <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
@@ -374,7 +374,7 @@ const Marketplace = () => {
                     <div
                       key={auction.auction_id}
                       className="bg-card rounded-lg border border-border overflow-hidden hover:border-primary transition-colors cursor-pointer"
-                      onClick={() => router.push(`/jersey/${auction.id}`)}
+                      onClick={() => router.push(`/wardrobe/${auction.id}`)}
                     >
                       <div className="aspect-[3/4] bg-secondary relative">
                         <img
