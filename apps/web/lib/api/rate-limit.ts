@@ -126,12 +126,25 @@ export function rateLimitMiddleware(
       );
     }
 
-    const response = context
-      ? await (handler as (
-          req: NextRequest,
-          context: { params: Promise<Record<string, string | string[]>> }
-        ) => Promise<Response>)(req, context)
-      : await (handler as (req: NextRequest) => Promise<Response>)(req);
+    let response: Response;
+    try {
+      response = context
+        ? await (handler as (
+            req: NextRequest,
+            context: { params: Promise<Record<string, string | string[]>> }
+          ) => Promise<Response>)(req, context)
+        : await (handler as (req: NextRequest) => Promise<Response>)(req);
+    } catch (error) {
+      // If handler throws, check if it's an auth error and stop rate limit tracking
+      if (error && typeof error === "object" && "statusCode" in error) {
+        const statusCode = (error as { statusCode?: number }).statusCode;
+        if (statusCode === 401) {
+          // Don't spam logs for auth errors - they're expected
+          throw error;
+        }
+      }
+      throw error;
+    }
 
     response.headers.set("X-RateLimit-Remaining", remaining.toString());
     response.headers.set("X-RateLimit-Reset", resetAt.toString());

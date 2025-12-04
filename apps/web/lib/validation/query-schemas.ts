@@ -10,7 +10,7 @@ export const paginationSchema = z.object({
 });
 
 export const jerseyListQuerySchema = paginationSchema.extend({
-  ownerId: z.string().uuid().optional(),
+  ownerId: z.string().optional(), // Changed from .uuid() to allow Clerk user IDs (TEXT)
   visibility: z.enum(["public", "private", "all"]).optional(),
   club: z.string().optional(),
   season: z.string().optional(),

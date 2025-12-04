@@ -25,7 +25,16 @@ export function handleApiError(
   req?: { url?: string; method?: string }
 ): Response {
   if (error instanceof ApiError) {
-    return Response.json(error.toJSON(), { status: error.statusCode });
+    // Add WWW-Authenticate header for 401 errors
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (error.statusCode === 401) {
+      headers["WWW-Authenticate"] = 'Bearer realm="api", error="invalid_token"';
+    }
+
+    return Response.json(error.toJSON(), { 
+      status: error.statusCode,
+      headers,
+    });
   }
 
   // Capture unexpected errors with Sentry (per 24-observability_sentry.mdc)
