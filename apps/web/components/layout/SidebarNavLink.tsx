@@ -20,15 +20,18 @@ export const SidebarNavLink = ({ href, icon: Icon, label, badge }: SidebarNavLin
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+        "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 group relative overflow-hidden",
         isActive
-          ? "bg-secondary text-foreground border-l-2 border-primary"
-          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+          ? "bg-white/5 text-white shadow-sm" 
+          : "text-muted-foreground hover:text-white hover:bg-white/5"
       )}
       aria-current={isActive ? "page" : undefined}
       aria-label={badge !== undefined && badge > 0 ? `${label} (${badge} unread)` : label}
     >
-      <Icon className="w-5 h-5" aria-hidden="true" />
+      {isActive && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_10px_hsl(90_100%_50%_/_0.5)]"></span>
+      )}
+      <Icon className={cn("w-5 h-5 transition-colors", isActive ? "text-primary" : "group-hover:text-white")} aria-hidden="true" />
       <span>{label}</span>
       {badge !== undefined && badge > 0 && (
         <span

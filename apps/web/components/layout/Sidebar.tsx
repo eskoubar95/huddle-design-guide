@@ -9,10 +9,16 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export const Sidebar = () => {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering user-dependent content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -21,6 +27,8 @@ export const Sidebar = () => {
 
     const fetchUnreadCount = async () => {
       try {
+        if (!user?.id) return;
+
         const { data: conversations, error } = await supabase
           .from("conversations")
           .select(`
@@ -29,10 +37,11 @@ export const Sidebar = () => {
             participant_2_id,
             messages!inner(read, sender_id)
           `)
-          .or(`participant_1_id.eq.${user?.id},participant_2_id.eq.${user?.id}`);
+          .or(`participant_1_id.eq.${user.id},participant_2_id.eq.${user.id}`);
 
         if (error) {
           console.error("Error fetching unread count:", error);
+          setUnreadCount(0);
           return;
         }
 
@@ -42,12 +51,13 @@ export const Sidebar = () => {
         }
 
         const count = conversations?.reduce((acc, conv) => {
-          return acc + (conv.messages as Message[]).filter((m) => !m.read && m.sender_id !== user?.id).length;
+          return acc + (conv.messages as Message[]).filter((m) => !m.read && m.sender_id !== user.id).length;
         }, 0) || 0;
 
         setUnreadCount(count);
       } catch (error) {
         console.error("Error in fetchUnreadCount:", error);
+        setUnreadCount(0);
       }
     };
 
@@ -77,11 +87,10 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 bg-card border-r border-border z-50">
+    <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 bg-background/50 backdrop-blur-xl border-r border-white/5 z-50">
       {/* Logo */}
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-foreground">Huddle</h1>
-        <p className="text-xs text-muted-foreground mt-1">Jersey Collection</p>
+        <img src="/Primary Logo White SVG.svg" alt="Huddle" className="h-8 w-auto opacity-90" />
       </div>
 
       {/* Navigation */}
@@ -91,7 +100,7 @@ export const Sidebar = () => {
         <SidebarNavLink href="/wardrobe" icon={Shirt} label="Wardrobe" />
         <SidebarNavLink href="/community" icon={Users} label="Community" />
         <SidebarNavLink href="/profile" icon={User} label="Profile" />
-        <div className="pt-4 mt-4 border-t border-border">
+        <div className="pt-4 mt-4 border-t border-white/5">
           <SidebarNavLink href="/messages" icon={MessageSquare} label="Messages" badge={unreadCount} />
           <SidebarNavLink href="/notifications" icon={Bell} label="Notifications" />
           <SidebarNavLink href="/settings" icon={Settings} label="Settings" />
@@ -99,30 +108,41 @@ export const Sidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border space-y-2">
-        {user && (
-          <div className="text-xs text-muted-foreground mb-2">
-            Signed in as <span className="font-medium">{user.emailAddresses[0]?.emailAddress || user.username || "User"}</span>
+      <div className="p-4 border-t border-white/5 space-y-2">
+        {mounted && isLoaded && user && (
+          <div className="text-xs text-muted-foreground mb-2 px-2">
+            Signed in as <span className="font-medium text-foreground">{user.emailAddresses[0]?.emailAddress || user.username || "User"}</span>
           </div>
         )}
-        <Button
-          variant="outline"
-          onClick={handleAuthAction}
-          className="w-full justify-start gap-2"
-        >
-          {user ? (
-            <>
-              <LogOut className="w-4 h-4" />
-              Log Out
-            </>
-          ) : (
-            <>
-              <LogIn className="w-4 h-4" />
-              Log In
-            </>
-          )}
-        </Button>
-        <p className="text-xs text-muted-foreground">© 2024 Huddle</p>
+        {mounted && isLoaded ? (
+          <Button
+            variant="ghost"
+            onClick={handleAuthAction}
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground hover:bg-white/5"
+          >
+            {user ? (
+              <>
+                <LogOut className="w-4 h-4" />
+                Log Out
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4" />
+                Log In
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground hover:bg-white/5"
+            disabled
+          >
+            <LogIn className="w-4 h-4" />
+            Log In
+          </Button>
+        )}
+        <p className="text-[10px] text-muted-foreground text-center pt-2 opacity-50">© 2024 Huddle</p>
       </div>
     </aside>
   );
