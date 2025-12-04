@@ -1,0 +1,38 @@
+feat(dashboard): implement dynamic hero carousel with multiple slide types
+
+WHY:
+- HeroSpotlight was static and didn't show user-relevant or admin-controlled content
+- Need dynamic carousel that displays different slide types based on user data and admin control
+- Inspired by Sorare's approach with shifting rectangles and dynamic content
+
+HOW:
+- Created HeroCarousel component with Embla Carousel and Fade animation plugin
+- Implemented 6 slide types:
+  * UserStatsSlide - Shows user's wardrobe stats (jerseys, for sale, auctions)
+  * UploadEncouragementSlide - Encourages users with empty wardrobe to upload
+  * AuctionSlide - Featured auction with countdown timer (env var controlled)
+  * JerseySlide - Recommended jersey from followed users (Collector Card design)
+  * SaleSlide - Featured sale listing (env var controlled)
+  * WelcomeSlide - Fallback slide when no data available
+- Added HeroNavigation component (arrows + dots) with fade transitions
+- Created data fetching hooks:
+  * useHeroSlides - Aggregates and prioritizes all slides
+  * useUserStats - Fetches user wardrobe statistics
+  * useFeaturedAuction - Fetches featured auction (placeholder)
+  * useFeaturedSale - Fetches featured sale (placeholder)
+  * useRecommendedJersey - Recommendation algorithm (placeholder)
+- Integrated fade animation (no slide-out, smooth fade transitions)
+- Responsive design from mobile (500px height) to 27"+ screens
+- Replaced HeroSpotlight with HeroCarousel in dashboard page
+- Added embla-carousel-fade dependency
+
+NOTES:
+- Frontend implementation complete and fully functional
+- Hooks currently use placeholder/test data for visualization
+- Backend integration pending (see HUD-26 for hook implementation)
+- Test images added: Gemini_Generated_Image_ql6m56ql6m56ql6m.png, JW_FCK_1.jpg, hero-slide-bg-2.jpg
+- Collector Card design with tier system (Gold/Silver/Bronze) based on condition
+- Navigation stays visible during transitions for better UX
+
+Refs: HUD-22
+

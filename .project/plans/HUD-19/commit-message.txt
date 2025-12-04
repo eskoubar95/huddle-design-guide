@@ -1,0 +1,29 @@
+fix(auth): implement email verification flow and SSO buttons
+
+WHY:
+- Users could not complete sign up after receiving verification email
+- No UI existed to input 6-digit verification code
+- Users were not created in Clerk Dashboard until email verified
+- SSO buttons were missing from custom auth page
+
+HOW:
+- Added verification state management (isVerifying, verificationCode, isResending, resendCooldown)
+- Implemented verification code input UI using InputOTP component
+- Added handleVerification() to process code via attemptEmailAddressVerification()
+- Added handleResendCode() with 60s cooldown and loading states
+- Improved error handling with specific messages for invalid/expired codes
+- Added accessibility improvements (ARIA labels, keyboard navigation)
+- Implemented SSO buttons (Google, Facebook, Discord) for login and sign up
+- Created SSO callback route (/auth/sso-callback) using AuthenticateWithRedirectCallback
+- Configured ClerkProvider with signInUrl/signUpUrl to use custom auth page
+- Added Clerk CAPTCHA element to remove console warnings
+- Added Sentry error capture for production monitoring
+
+NOTES:
+- SSO providers bypass email verification (pre-verified)
+- Email verification is required only for email/password sign up
+- Redirect to dashboard after successful verification (ready for onboarding integration)
+- All automated and manual tests passed
+
+Refs: HUD-19
+
