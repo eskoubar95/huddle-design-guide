@@ -36,7 +36,7 @@ export const JerseyCard = ({
   const router = useRouter();
 
   const handleClick = () => {
-    router.push(`/jersey/${id}`);
+    router.push(`/wardrobe/${id}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -57,7 +57,7 @@ export const JerseyCard = ({
         "group relative rounded-xl overflow-hidden transition-smooth cursor-pointer",
         "bg-card hover:bg-card-hover shadow-card hover:shadow-elevated",
         "border border-border/50 hover:border-primary/30",
-        "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+        "focus:outline-none focus:ring-2 focus:ring-primary",
         className
       )}
     >
@@ -81,7 +81,7 @@ export const JerseyCard = ({
             className={cn(
               "p-1.5 rounded-full backdrop-blur-sm transition-smooth",
               "bg-background/40 hover:bg-background/60",
-              "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+              "focus:outline-none focus:ring-2 focus:ring-primary",
               isLiked && "text-destructive"
             )}
             onClick={(e) => {
@@ -96,7 +96,7 @@ export const JerseyCard = ({
             className={cn(
               "p-1.5 rounded-full backdrop-blur-sm transition-smooth",
               "bg-background/40 hover:bg-background/60",
-              "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+              "focus:outline-none focus:ring-2 focus:ring-primary",
               isSaved && "text-accent"
             )}
             onClick={(e) => {

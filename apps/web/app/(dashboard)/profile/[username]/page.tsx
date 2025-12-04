@@ -261,7 +261,7 @@ const UserProfile = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+      <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-4xl mx-auto px-4 lg:px-8 py-4">
           <button
             onClick={() => router.back()}
@@ -412,7 +412,7 @@ const UserProfile = () => {
                     {post.jersey_id && (
                       <div
                         className="px-4 pb-4 cursor-pointer"
-                        onClick={() => router.push(`/jersey/${post.jersey_id}`)}
+                        onClick={() => router.push(`/wardrobe/${post.jersey_id}`)}
                       >
                         <div className="bg-secondary/50 rounded-lg p-3 flex gap-3 hover:bg-secondary/70 transition-colors">
                           <div className="w-16 h-24 rounded bg-secondary flex items-center justify-center text-xs text-muted-foreground">

@@ -182,7 +182,7 @@ const Community = () => {
     <ProtectedRoute>
       <div className="min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
             <h1 className="text-2xl font-bold mb-4">Community</h1>
             
@@ -278,7 +278,7 @@ const Community = () => {
                     {post.jersey_id && (
                       <div
                         className="px-4 pb-3 cursor-pointer"
-                        onClick={() => router.push(`/jersey/${post.jersey_id}`)}
+                        onClick={() => router.push(`/wardrobe/${post.jersey_id}`)}
                       >
                         <div className="bg-secondary/50 rounded-lg p-3 flex gap-3 hover:bg-secondary/70 transition-colors">
                           <div className="w-20 h-28 rounded bg-secondary flex items-center justify-center text-xs text-muted-foreground">

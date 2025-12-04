@@ -581,7 +581,7 @@ const Chat = () => {
     <ProtectedRoute>
       <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="max-w-3xl mx-auto px-4 lg:px-8 py-3">
             <div className="flex items-center gap-3">
               <button
@@ -620,7 +620,7 @@ const Chat = () => {
                 <img
                   src={conversation.jerseys.images[0]}
                   alt=""
-                  onClick={() => router.push(`/jersey/${conversation.jerseys!.id}`)}
+                  onClick={() => router.push(`/wardrobe/${conversation.jerseys!.id}`)}
                   className="w-10 h-14 rounded object-cover cursor-pointer"
                 />
               )}
