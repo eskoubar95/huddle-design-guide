@@ -1,14 +1,13 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
 import { useApiRequest } from "@/lib/api/client";
-import type { JerseyCreateInput } from "@/lib/validation/jersey-schemas";
-import type { Database } from "@/lib/supabase/types";
-
-type Jersey = Database["public"]["Tables"]["jerseys"]["Row"];
+import type { JerseyCreateInput, JerseyUpdateInput } from "@/lib/validation/jersey-schemas";
+import type { JerseyDTO } from "@/lib/services/jersey-service";
 
 interface JerseyListResponse {
-  items: Jersey[];
+  items: JerseyDTO[];
   nextCursor: string | null;
 }
 
@@ -20,6 +19,7 @@ export function useJerseys(params?: {
   limit?: number;
   cursor?: string;
 }) {
+  const { isLoaded } = useAuth();
   const apiRequest = useApiRequest();
 
   const queryParams = new URLSearchParams();
@@ -30,13 +30,18 @@ export function useJerseys(params?: {
   if (params?.limit) queryParams.set("limit", params.limit.toString());
   if (params?.cursor) queryParams.set("cursor", params.cursor);
 
+  // If ownerId is set, we need auth to be loaded (for authorization check)
+  // If no ownerId, we can query public jerseys without auth
+  const needsAuth = !!params?.ownerId;
+  const enabled = needsAuth ? isLoaded : true;
+
   return useQuery({
     queryKey: ["jerseys", params],
     queryFn: () =>
       apiRequest<JerseyListResponse>(
         `/jerseys${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
       ),
-    enabled: true,
+    enabled,
   });
 }
 
@@ -45,7 +50,7 @@ export function useJersey(id: string) {
 
   return useQuery({
     queryKey: ["jersey", id],
-    queryFn: () => apiRequest<Jersey>(`/jerseys/${id}`),
+    queryFn: () => apiRequest<JerseyDTO>(`/jerseys/${id}`),
     enabled: !!id,
   });
 }
@@ -56,7 +61,7 @@ export function useCreateJersey() {
 
   return useMutation({
     mutationFn: (data: JerseyCreateInput) =>
-      apiRequest<Jersey>("/jerseys", {
+      apiRequest<JerseyDTO>("/jerseys", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -71,8 +76,8 @@ export function useUpdateJersey() {
   const apiRequest = useApiRequest();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<JerseyCreateInput> }) =>
-      apiRequest<Jersey>(`/jerseys/${id}`, {
+    mutationFn: ({ id, data }: { id: string; data: JerseyUpdateInput }) =>
+      apiRequest<JerseyDTO>(`/jerseys/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),

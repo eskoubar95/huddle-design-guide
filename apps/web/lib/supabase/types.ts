@@ -211,9 +211,57 @@ export type Database = {
         }
         Relationships: []
       }
+      jersey_images: {
+        Row: {
+          id: string
+          jersey_id: string
+          image_url: string
+          image_url_webp: string | null
+          storage_path: string
+          view_type: string | null
+          sort_order: number
+          image_embedding: unknown | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          jersey_id: string
+          image_url: string
+          image_url_webp?: string | null
+          storage_path: string
+          view_type?: string | null
+          sort_order?: number
+          image_embedding?: unknown | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          jersey_id?: string
+          image_url?: string
+          image_url_webp?: string | null
+          storage_path?: string
+          view_type?: string | null
+          sort_order?: number
+          image_embedding?: unknown | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jersey_images_jersey_id_fkey"
+            columns: ["jersey_id"]
+            isOneToOne: false
+            referencedRelation: "jerseys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jerseys: {
         Row: {
           club: string
+          club_id: string | null
           competition_badges: string[] | null
           condition_rating: number | null
           created_at: string
@@ -222,14 +270,17 @@ export type Database = {
           jersey_type: string
           notes: string | null
           owner_id: string
+          player_id: string | null
           player_name: string | null
           player_number: string | null
           season: string
+          season_id: string | null
           updated_at: string
           visibility: string
         }
         Insert: {
           club: string
+          club_id?: string | null
           competition_badges?: string[] | null
           condition_rating?: number | null
           created_at?: string
@@ -238,14 +289,17 @@ export type Database = {
           jersey_type: string
           notes?: string | null
           owner_id: string
+          player_id?: string | null
           player_name?: string | null
           player_number?: string | null
           season: string
+          season_id?: string | null
           updated_at?: string
           visibility?: string
         }
         Update: {
           club?: string
+          club_id?: string | null
           competition_badges?: string[] | null
           condition_rating?: number | null
           created_at?: string
@@ -254,9 +308,11 @@ export type Database = {
           jersey_type?: string
           notes?: string | null
           owner_id?: string
+          player_id?: string | null
           player_name?: string | null
           player_number?: string | null
           season?: string
+          season_id?: string | null
           updated_at?: string
           visibility?: string
         }
@@ -499,11 +555,11 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
-          medusa_customer_id?: string | null
           bio?: string | null
           country?: string | null
           created_at?: string | null
           id?: string
+          medusa_customer_id?: string | null
           updated_at?: string | null
           username?: string
         }
@@ -671,7 +727,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_medusa_customer: {
+        Args: { p_email: string; p_first_name?: string; p_last_name?: string }
+        Returns: string
+      }
+      update_medusa_customer: {
+        Args: {
+          p_customer_id: string
+          p_email: string
+          p_first_name?: string
+          p_last_name?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
