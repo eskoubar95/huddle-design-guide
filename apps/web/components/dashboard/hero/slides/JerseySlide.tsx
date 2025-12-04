@@ -151,7 +151,7 @@ export const JerseySlide = ({
               />
           </div>
           <Button
-            onClick={() => router.push(`/jersey/${jersey.id}`)}
+            onClick={() => router.push(`/wardrobe/${jersey.id}`)}
             variant="secondary"
             className="font-semibold bg-white text-black hover:bg-white/90 border-none shadow-lg w-full md:w-auto"
           >
