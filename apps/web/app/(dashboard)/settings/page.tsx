@@ -18,7 +18,7 @@ const Settings = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+      <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
           <h1 className="text-2xl font-bold">Settings</h1>
         </div>
