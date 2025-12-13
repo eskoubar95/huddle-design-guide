@@ -44,11 +44,38 @@ const AuthContent = () => {
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  /**
+   * Check profile completeness and redirect to onboarding if incomplete
+   * Returns the final redirect URL (either /profile/complete or original redirectUrl)
+   */
+  const handlePostAuthRedirect = async (originalRedirectUrl: string): Promise<string> => {
+    try {
+      const response = await fetch("/api/v1/profile/completeness");
+      if (response.ok) {
+        const data = await response.json();
+        // Redirect to onboarding if profile is incomplete or missing default shipping address
+        if (!data.isProfileComplete || !data.hasDefaultShippingAddress) {
+          const onboardingUrl = new URL("/profile/complete", window.location.origin);
+          onboardingUrl.searchParams.set("redirect_url", originalRedirectUrl);
+          return onboardingUrl.toString();
+        }
+      }
+    } catch (error) {
+      // If completeness check fails, just proceed to original redirect
+      console.error("Failed to check profile completeness:", error);
+    }
+    return originalRedirectUrl;
+  };
+
   // Redirect if already logged in
   useEffect(() => {
     if (isLoaded && user) {
-      const redirectUrl = searchParams.get("redirect_url") || "/";
-      router.push(redirectUrl);
+      const redirectToCompleteness = async () => {
+        const originalRedirectUrl = searchParams.get("redirect_url") || "/";
+        const finalRedirectUrl = await handlePostAuthRedirect(originalRedirectUrl);
+        router.push(finalRedirectUrl);
+      };
+      redirectToCompleteness();
     }
   }, [user, isLoaded, router, searchParams]);
 
@@ -84,8 +111,9 @@ const AuthContent = () => {
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         toast.success("Welcome back!");
-        const redirectUrl = searchParams.get("redirect_url") || "/";
-        router.push(redirectUrl);
+        const originalRedirectUrl = searchParams.get("redirect_url") || "/";
+        const finalRedirectUrl = await handlePostAuthRedirect(originalRedirectUrl);
+        router.push(finalRedirectUrl);
       } else {
         // Handle multi-step authentication (e.g., MFA, email verification)
         toast.error("Additional authentication required");
@@ -137,8 +165,9 @@ const AuthContent = () => {
       if (result.status === 'complete') {
         await setActiveSignUp({ session: result.createdSessionId });
         toast.success("Account created successfully!");
-        const redirectUrl = searchParams.get("redirect_url") || "/";
-        router.push(redirectUrl);
+        const originalRedirectUrl = searchParams.get("redirect_url") || "/";
+        const finalRedirectUrl = await handlePostAuthRedirect(originalRedirectUrl);
+        router.push(finalRedirectUrl);
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -186,9 +215,10 @@ const AuthContent = () => {
         await setActiveSignUp({ session: result.createdSessionId });
         toast.success("Email verified! Account created successfully.");
         
-        // Redirect to dashboard (onboarding flow kommer senere)
-        const redirectUrl = searchParams.get("redirect_url") || "/";
-        router.push(redirectUrl);
+        // Check profile completeness and redirect to onboarding if needed
+        const originalRedirectUrl = searchParams.get("redirect_url") || "/";
+        const finalRedirectUrl = await handlePostAuthRedirect(originalRedirectUrl);
+        router.push(finalRedirectUrl);
       } else {
         // Should not happen, but handle just in case
         toast.error("Verification incomplete. Please try again.");

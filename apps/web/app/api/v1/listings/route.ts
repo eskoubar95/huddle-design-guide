@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { rateLimitMiddleware } from "@/lib/api/rate-limit";
 import { handleApiError } from "@/lib/api/errors";
 import { paginatedResponse, createdResponse } from "@/lib/api/responses";
-import { requireAuth, optionalAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
+import { requireSellerVerification } from "@/lib/middleware/profile-validation";
 import { ListingService } from "@/lib/services/listing-service";
 import { listingListQuerySchema } from "@/lib/validation/query-schemas";
 import { saleListingCreateSchema } from "@/lib/validation/listing-schemas";
@@ -10,7 +11,7 @@ import { saleListingCreateSchema } from "@/lib/validation/listing-schemas";
 const handler = async (req: NextRequest) => {
   try {
     if (req.method === "GET") {
-      const auth = await optionalAuth(req);
+      await optionalAuth(req);
       const searchParams = req.nextUrl.searchParams;
 
       const query = listingListQuerySchema.parse({
@@ -31,7 +32,8 @@ const handler = async (req: NextRequest) => {
     }
 
     if (req.method === "POST") {
-      const { userId } = await requireAuth(req);
+      // Verify seller has complete profile + verified identity
+      const { userId } = await requireSellerVerification(req);
       const body = await req.json();
 
       const input = saleListingCreateSchema.parse(body);
