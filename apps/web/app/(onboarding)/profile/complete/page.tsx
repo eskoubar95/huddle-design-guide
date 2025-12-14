@@ -59,7 +59,8 @@ export default function ProfileCompletePage() {
         isDefault: true,
       },
     },
-    mode: "onBlur",
+    mode: "onSubmit",
+    reValidateMode: "onSubmit",
   });
 
   const {
@@ -73,6 +74,7 @@ export default function ProfileCompletePage() {
   } = useProfileCompletionSteps({
     formWatch: form.watch,
     formGetValues: form.getValues,
+    formTrigger: form.trigger,
   });
 
   const handleClose = () => {

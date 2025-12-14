@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { UseFormWatch, UseFormGetValues } from "react-hook-form";
+import { UseFormWatch, UseFormGetValues, UseFormTrigger } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
 
@@ -8,6 +8,7 @@ type Step = "personal-info" | "shipping-address" | "summary";
 interface UseProfileCompletionStepsParams {
   formWatch: UseFormWatch<ProfileCompletionInput>;
   formGetValues: UseFormGetValues<ProfileCompletionInput>;
+  formTrigger: UseFormTrigger<ProfileCompletionInput>;
 }
 
 interface UseProfileCompletionStepsReturn {
@@ -15,7 +16,7 @@ interface UseProfileCompletionStepsReturn {
   stepNumber: number;
   totalSteps: number;
   canProceed: boolean;
-  goNext: () => void;
+  goNext: () => Promise<void>;
   goBack: () => void;
   goToStep: (step: Step) => void;
   reset: () => void;
@@ -26,6 +27,7 @@ const STEPS: Step[] = ["personal-info", "shipping-address", "summary"];
 export function useProfileCompletionSteps({
   formWatch,
   formGetValues,
+  formTrigger,
 }: UseProfileCompletionStepsParams): UseProfileCompletionStepsReturn {
   const [currentStep, setCurrentStep] = useState<Step>("personal-info");
 
@@ -82,20 +84,16 @@ export function useProfileCompletionSteps({
     shippingPhone,
   ]);
 
-  const goNext = useCallback(() => {
+  const goNext = useCallback(async () => {
     const currentIndex = STEPS.indexOf(currentStep);
 
     // Validate current step before proceeding
     if (currentStep === "personal-info") {
-      const values = formGetValues();
-      if (
-        !values.firstName?.trim() ||
-        !values.lastName?.trim() ||
-        !values.phone?.trim()
-      ) {
+      const isValid = await formTrigger(["firstName", "lastName", "phone"]);
+      if (!isValid) {
         toast({
           title: "Required Fields",
-          description: "Please fill in all personal information fields",
+          description: "Please fill in all personal information fields correctly",
           variant: "destructive",
         });
         return;
@@ -103,18 +101,11 @@ export function useProfileCompletionSteps({
     }
 
     if (currentStep === "shipping-address") {
-      const values = formGetValues();
-      if (
-        !values.shippingAddress.fullName?.trim() ||
-        !values.shippingAddress.street?.trim() ||
-        !values.shippingAddress.city?.trim() ||
-        !values.shippingAddress.postalCode?.trim() ||
-        !values.shippingAddress.country?.trim() ||
-        !values.shippingAddress.phone?.trim()
-      ) {
+      const isValid = await formTrigger(["shippingAddress"]);
+      if (!isValid) {
         toast({
           title: "Required Fields",
-          description: "Please fill in all shipping address fields",
+          description: "Please fill in all shipping address fields correctly",
           variant: "destructive",
         });
         return;
@@ -124,7 +115,7 @@ export function useProfileCompletionSteps({
     if (currentIndex < STEPS.length - 1) {
       setCurrentStep(STEPS[currentIndex + 1]);
     }
-  }, [currentStep, formGetValues]);
+  }, [currentStep, formTrigger]);
 
   const goBack = useCallback(() => {
     const currentIndex = STEPS.indexOf(currentStep);
