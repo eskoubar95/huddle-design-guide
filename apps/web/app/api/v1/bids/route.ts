@@ -2,14 +2,15 @@ import { NextRequest } from "next/server";
 import { rateLimitMiddleware } from "@/lib/api/rate-limit";
 import { handleApiError } from "@/lib/api/errors";
 import { createdResponse } from "@/lib/api/responses";
-import { requireAuth } from "@/lib/auth";
+import { requireBuyerProfile } from "@/lib/middleware/profile-validation";
 import { BidService } from "@/lib/services/bid-service";
 import { bidCreateSchema } from "@/lib/validation/auction-schemas";
 
 const handler = async (req: NextRequest) => {
   try {
     if (req.method === "POST") {
-      const { userId } = await requireAuth(req);
+      // Verify buyer has complete profile
+      const { userId } = await requireBuyerProfile(req);
       const body = await req.json();
 
       const input = bidCreateSchema.parse(body);
