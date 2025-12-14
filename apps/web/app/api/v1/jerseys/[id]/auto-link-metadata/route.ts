@@ -25,6 +25,14 @@ const handler = async (
     // Get jersey to check ownership
     const jersey = await jerseyService.getJersey(jerseyId, authResult.userId);
 
+    // Enforce ownership before invoking Edge Function (runs with service-role key)
+    if (jersey.owner_id !== authResult.userId) {
+      return Response.json(
+        { error: 'You can only auto-link metadata for your own jerseys' },
+        { status: 403 }
+      );
+    }
+
     // Auto-link metadata via Edge Function (better for database operations)
     try {
       await autoLinkMetadataViaEdgeFunction({
