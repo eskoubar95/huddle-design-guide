@@ -1,17 +1,28 @@
 'use client'
 
-import { UseFormRegister, FieldErrors } from "react-hook-form";
+import { UseFormRegister, FieldErrors, Control, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
+import { detectUserCountry } from "@/lib/utils/detect-country";
+import { useState, useEffect } from "react";
 
 interface PersonalInfoStepProps {
   register: UseFormRegister<ProfileCompletionInput>;
+  control: Control<ProfileCompletionInput>;
   errors: FieldErrors<ProfileCompletionInput>;
 }
 
-export function PersonalInfoStep({ register, errors }: PersonalInfoStepProps) {
+export function PersonalInfoStep({ register, control, errors }: PersonalInfoStepProps) {
+  const [defaultCountry, setDefaultCountry] = useState<any>("DK");
+
+  useEffect(() => {
+    const detected = detectUserCountry();
+    setDefaultCountry(detected);
+  }, []);
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       <Card>
@@ -62,18 +73,23 @@ export function PersonalInfoStep({ register, errors }: PersonalInfoStepProps) {
             <Label htmlFor="phone">
               Phone Number <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="phone"
-              type="tel"
-              {...register("phone")}
-              placeholder="+1 (555) 123-4567"
-              aria-invalid={errors.phone ? "true" : "false"}
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  {...field}
+                  defaultCountry={defaultCountry}
+                  placeholder="Enter phone number"
+                  international
+                />
+              )}
             />
             {errors.phone && (
               <p className="text-sm text-destructive">{errors.phone.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              Include country code for international numbers
+              We&apos;ll use this for order updates and support
             </p>
           </div>
         </CardContent>

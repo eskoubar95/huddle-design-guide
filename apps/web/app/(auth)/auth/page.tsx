@@ -51,6 +51,13 @@ const AuthContent = () => {
    */
   const handlePostAuthRedirect = async (originalRedirectUrl: string): Promise<string> => {
     try {
+      // Check if user has already seen onboarding
+      const hasSeenOnboarding = localStorage.getItem("huddle_onboarding_seen");
+      if (hasSeenOnboarding === "true") {
+        // User has skipped before, don't redirect to onboarding again
+        return originalRedirectUrl;
+      }
+
       const token = await getToken();
       if (!token) {
         console.warn("No auth token available for completeness check");

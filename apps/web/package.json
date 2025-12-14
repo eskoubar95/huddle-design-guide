@@ -64,6 +64,7 @@
     "react-dom": "^18.3.1",
     "react-easy-crop": "^5.5.5",
     "react-hook-form": "^7.66.1",
+    "react-phone-number-input": "^3.4.14",
     "react-photoswipe-gallery": "^4.0.0",
     "react-resizable-panels": "^2.1.9",
     "recharts": "^2.15.4",

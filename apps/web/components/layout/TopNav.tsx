@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import { Search, Bell, LayoutDashboard, User, Settings, LogOut, ChevronLeft, Share2, Save } from "lucide-react";
+import { Search, Bell, LayoutDashboard, User, Settings, LogOut, ChevronLeft, Share2, Save, AlertCircle } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -38,6 +38,33 @@ export const TopNav = () => {
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
+
+  // Check profile completeness
+  useEffect(() => {
+    const checkProfileCompleteness = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const response = await fetch("/api/v1/profile/completeness", {
+          headers: {
+            Authorization: `Bearer ${await (window as any).__clerk?.session?.getToken()}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setIsProfileIncomplete(!data.isProfileComplete || !data.hasDefaultShippingAddress);
+        }
+      } catch (error) {
+        console.error("Failed to check profile completeness:", error);
+      }
+    };
+
+    if (mounted && user) {
+      checkProfileCompleteness();
+    }
+  }, [mounted, user]);
 
   // Prevent hydration mismatch by only rendering DropdownMenus after mount
   // This pattern is required for SSR hydration safety in Next.js
@@ -225,6 +252,24 @@ export const TopNav = () => {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
+                
+                {/* Profile Incomplete Warning */}
+                {isProfileIncomplete && (
+                  <>
+                    <DropdownMenuItem 
+                      className="focus:bg-yellow-500/10 focus:text-yellow-500 cursor-pointer text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10" 
+                      onClick={() => router.push("/profile/complete")}
+                    >
+                      <AlertCircle className="mr-2 h-4 w-4" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">Complete Profile</span>
+                        <span className="text-xs text-muted-foreground">Unlock all marketplace features</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                  </>
+                )}
+                
                 <DropdownMenuGroup>
                   <DropdownMenuItem className="focus:bg-white/10 focus:text-white cursor-pointer" onClick={() => router.push("/")}>
                     <LayoutDashboard className="mr-2 h-4 w-4" />

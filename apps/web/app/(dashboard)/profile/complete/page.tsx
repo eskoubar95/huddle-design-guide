@@ -36,6 +36,13 @@ export default function ProfileCompletePage() {
     return "/profile";
   })();
 
+  const handleSkip = () => {
+    // Mark that user has seen onboarding
+    localStorage.setItem("huddle_onboarding_seen", "true");
+    toast.info("You can complete your profile anytime from Settings");
+    router.push(redirectUrl);
+  };
+
   const form = useForm<ProfileCompletionInput>({
     resolver: zodResolver(profileCompletionSchema),
     defaultValues: {
@@ -129,6 +136,7 @@ export default function ProfileCompletePage() {
           {currentStep === "personal-info" && (
             <PersonalInfoStep
               register={form.register}
+              control={form.control}
               errors={form.formState.errors}
             />
           )}
@@ -156,6 +164,7 @@ export default function ProfileCompletePage() {
           onNext={goNext}
           onSubmit={handleSubmit}
           onClose={handleClose}
+          onSkip={handleSkip}
         />
       </div>
     </ProtectedRoute>
