@@ -59,7 +59,7 @@ export default function ProfileCompletePage() {
         isDefault: true,
       },
     },
-    mode: "onChange",
+    mode: "onBlur",
   });
 
   const {
@@ -122,51 +122,49 @@ export default function ProfileCompletePage() {
   };
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen flex flex-col bg-background">
-        <ProfileCompletionHeader onClose={handleClose} />
+    <div className="min-h-screen flex flex-col bg-background">
+      <ProfileCompletionHeader onClose={handleClose} />
 
-        <ProfileCompletionProgress
-          currentStep={stepNumber}
-          totalSteps={totalSteps}
-          stepLabels={STEP_LABELS}
-        />
+      <ProfileCompletionProgress
+        currentStep={stepNumber}
+        totalSteps={totalSteps}
+        stepLabels={STEP_LABELS}
+      />
 
-        <main className="flex-1 pb-20">
-          {currentStep === "personal-info" && (
-            <PersonalInfoStep
-              register={form.register}
-              control={form.control}
-              errors={form.formState.errors}
-            />
-          )}
+      <main className="flex-1 pb-20">
+        {currentStep === "personal-info" && (
+          <PersonalInfoStep
+            register={form.register}
+            control={form.control}
+            errors={form.formState.errors}
+          />
+        )}
 
-          {currentStep === "shipping-address" && (
-            <ShippingAddressStep
-              register={form.register}
-              control={form.control}
-              watch={form.watch}
-              errors={form.formState.errors}
-            />
-          )}
+        {currentStep === "shipping-address" && (
+          <ShippingAddressStep
+            register={form.register}
+            control={form.control}
+            watch={form.watch}
+            errors={form.formState.errors}
+          />
+        )}
 
-          {currentStep === "summary" && (
-            <SummaryStep getValues={form.getValues} />
-          )}
-        </main>
+        {currentStep === "summary" && (
+          <SummaryStep getValues={form.getValues} />
+        )}
+      </main>
 
-        <ProfileCompletionFooter
-          stepNumber={stepNumber}
-          totalSteps={totalSteps}
-          canProceed={canProceed}
-          isSubmitting={isSubmitting}
-          onBack={goBack}
-          onNext={goNext}
-          onSubmit={handleSubmit}
-          onClose={handleClose}
-          onSkip={handleSkip}
-        />
-      </div>
-    </ProtectedRoute>
+      <ProfileCompletionFooter
+        stepNumber={stepNumber}
+        totalSteps={totalSteps}
+        canProceed={canProceed}
+        isSubmitting={isSubmitting}
+        onBack={goBack}
+        onNext={goNext}
+        onSubmit={handleSubmit}
+        onClose={handleClose}
+        onSkip={handleSkip}
+      />
+    </div>
   );
 }

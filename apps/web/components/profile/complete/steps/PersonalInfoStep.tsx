@@ -4,7 +4,6 @@ import { UseFormRegister, FieldErrors, Control, Controller } from "react-hook-fo
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
 import { detectUserCountry } from "@/lib/utils/detect-country";
 import { useState, useEffect } from "react";
@@ -27,14 +26,15 @@ export function PersonalInfoStep({ register, control, errors }: PersonalInfoStep
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold tracking-tight">Personal Information</h2>
+          <p className="text-sm text-muted-foreground">
             We need your personal details to ensure secure transactions
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </p>
+        </div>
+        
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">
@@ -94,8 +94,8 @@ export function PersonalInfoStep({ register, control, errors }: PersonalInfoStep
               We&apos;ll use this for order updates and support
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
