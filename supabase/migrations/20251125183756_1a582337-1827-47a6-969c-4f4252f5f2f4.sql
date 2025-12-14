@@ -9,14 +9,38 @@ GRANT USAGE ON SCHEMA cron TO postgres;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cron TO postgres;
 
 -- Schedule the close-auctions function to run every minute
+-- Note: The anon key should be set via: ALTER DATABASE postgres SET app.anon_key = 'your-anon-key';
+-- Get key from: Supabase Dashboard → Settings → API → anon/public key
 SELECT cron.schedule(
   'close-expired-auctions',
   '* * * * *',
   $$
-  SELECT net.http_post(
-    url:='https://qhwfvtzibpwqouzidooe.supabase.co/functions/v1/close-auctions',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFod2Z2dHppYnB3cW91emlkb29lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwOTA2NzcsImV4cCI6MjA3OTY2NjY3N30.0rC3O4VWEGOMGwUl7CdOcAs7cwBRFL4F52UqVr1Cob4"}'::jsonb,
-    body:='{}'::jsonb
-  ) as request_id;
+  DECLARE
+    anon_key TEXT;
+    headers_json JSONB;
+  BEGIN
+    -- Get anon key from database setting (set via ALTER DATABASE command)
+    -- If not set, the function will still work if verify_jwt=false in config.toml
+    anon_key := current_setting('app.anon_key', true);
+    
+    -- Build headers JSON
+    IF anon_key IS NOT NULL AND anon_key != '' THEN
+      headers_json := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || anon_key
+      );
+    ELSE
+      -- If no key set, still call (function has verify_jwt=false)
+      headers_json := jsonb_build_object('Content-Type', 'application/json');
+    END IF;
+    
+    RETURN (
+      SELECT net.http_post(
+        url:='https://qhwfvtzibpwqouzidooe.supabase.co/functions/v1/close-auctions',
+        headers:=headers_json,
+        body:='{}'::jsonb
+      ) as request_id
+    );
+  END;
   $$
 );
