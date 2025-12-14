@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from "react";
-import { UseFormRegister, FieldErrors, Control, Controller, UseFormWatch } from "react-hook-form";
+import { useState } from "react";
+import { UseFormRegister, FieldErrors, Control, Controller, UseFormWatch, type UseFormSetValue } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -20,18 +20,21 @@ import {
 } from "@/components/ui/popover";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AddressAutocomplete, type AddressComponents } from "@/components/ui/address-autocomplete";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
+
+interface Country {
+  iso_2: string;
+  display_name: string;
+}
 
 interface ShippingAddressStepProps {
   register: UseFormRegister<ProfileCompletionInput>;
   control: Control<ProfileCompletionInput>;
   watch: UseFormWatch<ProfileCompletionInput>;
   errors: FieldErrors<ProfileCompletionInput>;
-}
-
-interface Country {
-  iso_2: string;
-  display_name: string;
+  countries: Country[];
+  setValue: UseFormSetValue<ProfileCompletionInput>;
 }
 
 export function ShippingAddressStep({
@@ -39,33 +42,12 @@ export function ShippingAddressStep({
   control,
   watch,
   errors,
+  countries,
+  setValue,
 }: ShippingAddressStepProps) {
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const selectedCountry = watch("shippingAddress.country");
-
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch("/api/v1/countries");
-        if (!response.ok) {
-          throw new Error("Failed to fetch countries");
-        }
-        const data = await response.json();
-        setCountries(data.countries || []);
-      } catch (error) {
-        console.error("Error fetching countries:", error);
-        // Fallback to empty array on error
-        setCountries([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCountries();
-  }, []);
+  const streetValue = watch("shippingAddress.street");
 
   const selectedCountryName = countries.find(
     (c) => c.iso_2 === selectedCountry
@@ -75,25 +57,34 @@ export function ShippingAddressStep({
     <div className="max-w-2xl mx-auto px-4 py-6">
       <div className="space-y-6">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="street">
-              Street Address <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="street"
-              {...register("shippingAddress.street")}
-              placeholder="123 Main St, Apt 4B"
-              autoComplete="shipping street-address"
-              aria-invalid={
-                errors.shippingAddress?.street ? "true" : "false"
-              }
-            />
-            {errors.shippingAddress?.street && (
-              <p className="text-sm text-destructive">
-                {errors.shippingAddress.street.message}
-              </p>
+          {/* Address Autocomplete - auto-fills all address fields */}
+          <Controller
+            name="shippingAddress.street"
+            control={control}
+            render={({ field }) => (
+              <AddressAutocomplete
+                value={field.value || ""}
+                onChange={(address) => {
+                  // Update all address fields when user selects an address
+                  setValue("shippingAddress.street", address.street);
+                  setValue("shippingAddress.city", address.city);
+                  setValue("shippingAddress.postalCode", address.postalCode);
+                  if (address.state) {
+                    setValue("shippingAddress.state", address.state);
+                  }
+                  setValue("shippingAddress.country", address.country);
+                  field.onChange(address.street);
+                }}
+                onInputChange={(value) => {
+                  field.onChange(value);
+                }}
+                label="Street Address"
+                placeholder="Start typing your address..."
+                country={selectedCountry}
+                error={errors.shippingAddress?.street?.message}
+              />
             )}
-          </div>
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -170,11 +161,8 @@ export function ShippingAddressStep({
                       role="combobox"
                       aria-expanded={isOpen}
                       className="w-full justify-between"
-                      disabled={isLoading}
                     >
-                      {isLoading
-                        ? "Loading countries..."
-                        : selectedCountryName}
+                      {selectedCountryName}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>

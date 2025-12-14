@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useProfileCompletionSteps } from "@/hooks/use-profile-completion-steps";
+import { useCountries } from "@/hooks/use-countries";
 import { ProfileCompletionHeader } from "@/components/profile/complete/ProfileCompletionHeader";
 import { ProfileCompletionFooter } from "@/components/profile/complete/ProfileCompletionFooter";
 import { PersonalInfoStep } from "@/components/profile/complete/steps/PersonalInfoStep";
@@ -71,6 +72,9 @@ export default function ProfileCompletePage() {
     formWatch: form.watch,
     formGetValues: form.getValues,
   });
+
+  // Preload countries early so they're ready when user reaches step 2
+  const { data: countries = [] } = useCountries();
 
   // Sync personal info to shipping address when moving to step 2
   useEffect(() => {
@@ -172,6 +176,8 @@ export default function ProfileCompletePage() {
             control={form.control}
             watch={form.watch}
             errors={form.formState.errors}
+            countries={countries}
+            setValue={form.setValue}
           />
         )}
 
