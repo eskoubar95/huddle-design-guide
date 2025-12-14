@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
+import { useSignIn, useSignUp, useUser, useAuth } from "@clerk/nextjs";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ const AuthContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp();
   
@@ -50,7 +51,18 @@ const AuthContent = () => {
    */
   const handlePostAuthRedirect = async (originalRedirectUrl: string): Promise<string> => {
     try {
-      const response = await fetch("/api/v1/profile/completeness");
+      const token = await getToken();
+      if (!token) {
+        console.warn("No auth token available for completeness check");
+        return originalRedirectUrl;
+      }
+      
+      const response = await fetch("/api/v1/profile/completeness", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
       if (response.ok) {
         const data = await response.json();
         // Redirect to onboarding if profile is incomplete or missing default shipping address
