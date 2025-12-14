@@ -67,15 +67,6 @@ export function QueryProvider({ children }: QueryProviderProps) {
               // Retry other errors up to 3 times
               return failureCount < 3;
             },
-            onError: (error) => {
-              // Handle 401 errors globally
-              if (error && typeof error === 'object' && 'statusCode' in error) {
-                const statusCode = (error as { statusCode?: number }).statusCode;
-                if (statusCode === 401) {
-                  redirectToAuth();
-                }
-              }
-            },
           },
           mutations: {
             retry: (failureCount, error) => {
@@ -89,15 +80,6 @@ export function QueryProvider({ children }: QueryProviderProps) {
               }
               // Don't retry mutations by default
               return false;
-            },
-            onError: (error) => {
-              // Handle 401 errors globally
-              if (error && typeof error === 'object' && 'statusCode' in error) {
-                const statusCode = (error as { statusCode?: number }).statusCode;
-                if (statusCode === 401) {
-                  redirectToAuth();
-                }
-              }
             },
           },
         },

@@ -5,7 +5,7 @@ import { Gallery, Item } from "react-photoswipe-gallery";
 import "photoswipe/dist/photoswipe.css";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { getImageUrls } from "@/lib/utils/image";
+import { getImageUrls, getVariantUrl } from "@/lib/utils/image";
 
 interface JerseyImageGalleryProps {
   images: string[];
@@ -21,6 +21,7 @@ export function JerseyImageGallery({
   const [imageDimensions, setImageDimensions] = useState<
     Record<string, { width: number; height: number }>
   >({});
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 
   const getImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
     return new Promise((resolve) => {
@@ -57,30 +58,69 @@ export function JerseyImageGallery({
       <Gallery>
         <div className="relative aspect-[3/4] lg:aspect-auto lg:h-[calc(100vh-6rem)] bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
           {images.map((imageUrl, index) => {
+            // Try to extract storage_path from URL to derive gallery variant
+            // Format: {supabaseUrl}/storage/v1/object/public/jersey_images/{jerseyId}/{filename}
+            let galleryUrl = imageUrl;
+            let originalUrl = imageUrl;
+            
+            try {
+              // Check if URL contains storage path pattern
+              const storageMatch = imageUrl.match(/\/storage\/v1\/object\/public\/jersey_images\/(.+)$/);
+              if (storageMatch) {
+                const storagePath = storageMatch[1];
+                // Check if it's already a variant (ends with -vision.jpg, -gallery.webp, -card.webp)
+                const isVariant = /-(vision|gallery|card)\.(jpg|webp)$/.test(storagePath);
+                
+                if (!isVariant) {
+                  // Derive gallery variant URL from storage path
+                  galleryUrl = getVariantUrl(storagePath, 'gallery');
+                  // Original URL is the one passed in (which should be the original)
+                  originalUrl = imageUrl;
+                } else {
+                  // Already a variant, extract original path
+                  const originalPath = storagePath.replace(/-(vision|gallery|card)\.(jpg|webp)$/, '');
+                  const ext = originalPath.match(/\.([^.]+)$/)?.[1] || 'jpg';
+                  const originalStoragePath = `${originalPath}.${ext}`;
+                  originalUrl = `${supabaseUrl}/storage/v1/object/public/jersey_images/${originalStoragePath}`;
+                  galleryUrl = imageUrl; // Use current variant as gallery
+                }
+              } else {
+                // Legacy URL format, use getImageUrls for backward compatibility
+                const imageUrls = getImageUrls(imageUrl);
+                galleryUrl = imageUrls.primary;
+                originalUrl = imageUrls.fallback;
+              }
+            } catch (error) {
+              // Fallback to legacy behavior
+              console.warn('[JerseyImageGallery] Failed to derive variant URL, using legacy:', error);
             const imageUrls = getImageUrls(imageUrl);
+              galleryUrl = imageUrls.primary;
+              originalUrl = imageUrls.fallback;
+            }
+            
             const dimensions = imageDimensions[imageUrl] || { width: 1200, height: 1600 };
             return (
               <Item
                 key={index}
-                original={imageUrls.fallback}
-                thumbnail={imageUrls.primary}
+                original={originalUrl}
+                thumbnail={galleryUrl}
                 width={dimensions.width.toString()}
                 height={dimensions.height.toString()}
               >
                 {({ ref, open }) => (
                   <img
                     ref={ref}
-                    src={imageUrls.primary}
+                    src={galleryUrl}
                     alt={`Jersey image ${index + 1}`}
                     className={`w-full h-full object-cover cursor-pointer absolute inset-0 ${
                       index === currentIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
                     }`}
                     onClick={open}
                     onError={(e) => {
-                      // Fallback to original if webp fails
+                      // Fallback to original if gallery variant fails
                       const target = e.target as HTMLImageElement;
-                      if (target.src !== imageUrls.fallback) {
-                        target.src = imageUrls.fallback;
+                      if (target.src !== originalUrl) {
+                        target.src = originalUrl;
                       }
                     }}
                     onLoad={() => {

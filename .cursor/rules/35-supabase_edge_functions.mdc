@@ -1,0 +1,117 @@
+---
+title: Supabase Edge Functions
+description: Supabase Edge Functions patterns for Huddle — structure, auth, error handling, triggers, and best practices
+owner: backend@huddle
+severity: warn
+globs: "supabase/functions/**"
+last_review: 2025-01-15
+next_review: 2026-01-01
+---
+
+## Purpose
+- Standardize Supabase Edge Functions structure, authentication, error handling, and integration patterns for Huddle.
+- Edge Functions run on Deno runtime and handle async operations (image processing, metadata matching, background jobs).
+
+## Structure
+- Each function in `supabase/functions/{function-name}/index.ts`.
+- Shared utilities in `supabase/functions/_shared/`:
+  - `utils/auth.ts` - Clerk token verification
+  - `utils/errors.ts` - Standardized error handling
+  - `utils/db-connection.ts` - PostgreSQL connection helpers
+  - `utils/retry.ts` - Retry logic with exponential backoff
+  - `repositories/` - Data access layer
+  - `services/` - Business logic layer
+
+## Authentication
+- Use `verify_jwt = false` in `supabase/config.toml` for functions called by database triggers.
+- For user-facing functions: use `requireAuth()` from `_shared/utils/auth.ts` to verify Clerk tokens.
+- Clerk token passed via `X-Clerk-Token` header (not `Authorization` header, which is for Supabase anon key).
+- Use `@clerk/backend` via ESM import: `import('https://esm.sh/@clerk/backend@1.34.0')`.
+
+### Good
+```typescript
+import { requireAuth } from '../_shared/utils/auth.ts';
+
+Deno.serve(async (req: Request) => {
+  try {
+    const userId = await requireAuth(req);
+    // Use userId for operations
+  } catch (error) {
+    return handleEdgeFunctionError(error);
+  }
+});
+```
+
+### Bad
+```typescript
+// Trusting headers without verification
+const userId = req.headers.get('x-user-id'); // NEVER
+```
+
+## Error Handling
+- Use `EdgeFunctionError` class from `_shared/utils/errors.ts` for standardized error responses.
+- Wrap main handler with `handleEdgeFunctionError()` to catch unexpected errors.
+- Predefined errors: `Errors.MISSING_TOKEN`, `Errors.INVALID_TOKEN`, `Errors.JERSEY_NOT_FOUND`, etc.
+- Always return JSON error format: `{ error: { code, message, details? } }`.
+
+### Good
+```typescript
+import { EdgeFunctionError, handleEdgeFunctionError, Errors } from '../_shared/utils/errors.ts';
+
+Deno.serve(async (req: Request) => {
+  try {
+    if (!jerseyId) {
+      throw Errors.JERSEY_NOT_FOUND;
+    }
+    // ... operation
+  } catch (error) {
+    return handleEdgeFunctionError(error);
+  }
+});
+```
+
+## CORS Headers
+- Include CORS headers in all responses (from `_shared/utils/errors.ts`):
+  - `Access-Control-Allow-Origin: *`
+  - `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type, x-clerk-token`
+- Required for browser-based calls and database trigger invocations.
+
+## Database Triggers
+- Functions can be called automatically via PostgreSQL triggers using `pg_net` extension.
+- Set `verify_jwt = false` in `config.toml` for trigger-invoked functions.
+- Trigger calls Edge Function via HTTP POST without auth headers.
+- Example: `generate-webp-image` and `generate-image-variants` triggered on `jersey_image` insert.
+
+## Environment Variables
+- Set secrets via Supabase Dashboard → Edge Functions → Secrets.
+- Required secrets: `CLERK_SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (auto-set by Supabase).
+- Optional: `TRANSFERMARKT_API_URL`, `DB_PASSWORD` (for direct PostgreSQL connections).
+- Access via `Deno.env.get('KEY_NAME')`.
+
+## Database Connections
+- Use `getPostgresConnectionString()` from `_shared/utils/db-connection.ts` for direct PostgreSQL access.
+- Use Supabase client (via service role) for most operations: `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`.
+- Prefer Supabase client over raw PostgreSQL for type safety and RLS bypass.
+
+## Retry Logic
+- Use `retryWithBackoff()` from `_shared/utils/retry.ts` for network operations (downloads, uploads, API calls).
+- Exponential backoff: 1s, 2s, 4s, 8s (max 3-4 retries).
+- Critical for image processing and external API calls.
+
+## Function Types
+- **User-triggered**: Require auth, called from frontend/API routes (e.g., `upload-jersey-image`, `analyze-jersey-vision`).
+- **Trigger-invoked**: No auth, called by database triggers (e.g., `generate-webp-image`, `generate-image-variants`).
+- **Background jobs**: Scheduled or manual invocation (e.g., `close-auctions`, `backfill-metadata`).
+
+## Response Format
+- Success: `{ success: true, data?: {...}, message?: string }`
+- Error: `{ error: { code: string, message: string, details?: string | null } }`
+- Status codes: 200 (success), 201 (created), 400 (bad request), 401 (unauthorized), 404 (not found), 500 (internal error).
+
+## Testing
+- Test locally with `supabase functions serve`.
+- Use `supabase functions deploy` for production.
+- Include README.md in each function directory with purpose, usage, and examples.
+
+## DoD (Definition of Done)
+- Uses shared auth/error utilities; proper CORS headers; handles errors gracefully; includes README; tested locally.

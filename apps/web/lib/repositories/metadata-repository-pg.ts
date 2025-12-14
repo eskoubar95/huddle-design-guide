@@ -4,7 +4,7 @@
  * Used for seed scripts and admin operations that bypass PostgREST
  */
 
-import { query, getClient } from '../db/postgres-connection';
+import { query } from '../db/postgres-connection';
 import type {
   Competition,
   Season,

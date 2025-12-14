@@ -20,7 +20,7 @@ import { JerseyOwnerInfo } from "@/components/jersey/JerseyOwnerInfo";
 import { JerseyMetadata } from "@/components/jersey/JerseyMetadata";
 import { JerseyMarketplaceInfo } from "@/components/jersey/JerseyMarketplaceInfo";
 import { JerseyActions } from "@/components/jersey/JerseyActions";
-import type { JerseyDTO } from "@/lib/services/jersey-service";
+// Removed unused import: JerseyDTO
 import {
   AlertDialog,
   AlertDialogAction,
@@ -197,8 +197,6 @@ const JerseyDetail = () => {
     });
   };
 
-  // TODO: Conversations endpoints not implemented yet (HUD-17)
-  // For now, keep conversations using direct Supabase calls
   const handleMessageSeller = async () => {
     if (!user) {
       toast({
@@ -212,58 +210,31 @@ const JerseyDetail = () => {
     if (!jersey) return;
 
     try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      // Check if conversation already exists
-      const { data: existingConversations, error: fetchError } = await supabase
-        .from("conversations")
-        .select("id")
-        .or(`and(participant_1_id.eq.${user.id},participant_2_id.eq.${jersey.owner_id}),and(participant_1_id.eq.${jersey.owner_id},participant_2_id.eq.${user.id})`)
-        .eq("jersey_id", jersey.id)
-        .maybeSingle();
+      // Use secure API route instead of direct Supabase calls
+      const response = await fetch('/api/v1/conversations/find-or-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jerseyId: jersey.id,
+          otherUserId: jersey.owner_id,
+        }),
+      });
 
-      // TODO: Update when database is ready (HUD-14)
-      if (fetchError && fetchError.code !== "PGRST205") {
-        throw fetchError;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to create conversation');
       }
 
-      if (existingConversations) {
-        // Navigate to existing conversation
-        router.push(`/messages/${existingConversations.id}`);
-        return;
-      }
-
-      // Create new conversation
-      const { data: newConversation, error: createError } = await supabase
-        .from("conversations")
-        .insert({
-          participant_1_id: user.id,
-          participant_2_id: jersey.owner_id,
-          jersey_id: jersey.id,
-        })
-        .select()
-        .single();
-
-      // TODO: Update when database is ready (HUD-14)
-      if (createError && createError.code !== "PGRST205") {
-        throw createError;
-      }
-
-      if (newConversation) {
-        // Navigate to new conversation
-        router.push(`/messages/${newConversation.id}`);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to create conversation",
-          variant: "destructive",
-        });
-      }
+      const data = await response.json();
+      router.push(`/messages/${data.conversationId}`);
     } catch (error) {
       console.error("Error creating conversation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to start conversation";
       toast({
         title: "Error",
-        description: "Failed to start conversation",
+        description: errorMessage,
         variant: "destructive",
       });
     }

@@ -42,20 +42,27 @@ export class MatchService {
 
   /**
    * Match club by text input
-   * Strategy: Database lookup → Transfermarkt API fallback
+   * Strategy: Database lookup (multiple search terms) → Transfermarkt API fallback
    */
   async matchClub(clubText: string): Promise<MatchClubResult> {
     console.log(`[MATCH-SERVICE] Matching club "${clubText}"`)
 
-    const searchTerms = normalizeClubName(clubText)
+    // Generate all search term variations for database lookup
+    // This handles cases like "S.S. Lazio" → ["S.S. Lazio", "SS Lazio", "Lazio"]
+    const normalizedTerms = normalizeClubName(clubText)
+    const alternativeTerms = generateClubSearchTerms(clubText)
+    
+    // Combine and deduplicate search terms (alternatives first for better matching)
+    const searchTerms = [...new Set([...alternativeTerms, ...normalizedTerms])]
+    
     let matchedClub: { id: string; name: string } | null = null
 
-    // Try database lookup first
+    // Try database lookup first with all search term variations
     for (const term of searchTerms) {
       const dbClub = await this.repository.findClubByName(term)
       if (dbClub) {
         matchedClub = { id: dbClub.id, name: dbClub.name }
-        console.log(`[MATCH-SERVICE] Found club in database: ${matchedClub.name} (${matchedClub.id})`)
+        console.log(`[MATCH-SERVICE] Found club in database: ${matchedClub.name} (${matchedClub.id}) using term: "${term}"`)
         break
       }
     }

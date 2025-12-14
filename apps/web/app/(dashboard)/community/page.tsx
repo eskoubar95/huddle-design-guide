@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { CreatePost } from "@/components/community/CreatePost";
 import { PostComments } from "@/components/community/PostComments";
@@ -8,32 +8,11 @@ import { Heart, MessageSquare, Share2, User, Plus, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { useUser } from "@clerk/nextjs";
 import { usePosts } from "@/lib/hooks/use-posts";
-import { useJerseys } from "@/lib/hooks/use-jerseys";
+// Removed unused import: useJerseys
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-interface Post {
-  id: string;
-  user_id: string;
-  content: string | null;
-  jersey_id: string | null;
-  created_at: string;
-  profiles: {
-    username: string;
-    avatar_url: string | null;
-    country: string | null;
-  };
-  jerseys?: {
-    id: string;
-    club: string;
-    season: string;
-    jersey_type: string;
-    images: string[];
-    competition_badges: string[] | null;
-  } | null;
-  post_likes: { user_id: string }[];
-  comments: { id: string }[];
-}
+// Removed unused interface: Post
 
 const getTimeAgo = (dateString: string) => {
   const date = new Date(dateString);
@@ -56,7 +35,7 @@ const Community = () => {
 
   // TODO: Follows endpoints not implemented yet (HUD-17)
   // For now, keep follows using direct Supabase calls
-  const fetchFollowing = async () => {
+  const fetchFollowing = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -77,7 +56,7 @@ const Community = () => {
       console.error("Error fetching following:", error);
       setFollowingUserIds([]);
     }
-  };
+  }, [user]);
 
   // Fetch posts from API
   const { data: postsData, isLoading: postsLoading, refetch: refetchPosts } = usePosts({
@@ -87,7 +66,9 @@ const Community = () => {
   });
 
   // Fetch profiles for posts
-  const userIds = useMemo(() => {
+  // Note: userIds is computed but not currently used - kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _userIds = useMemo(() => {
     if (!postsData?.items) return [];
     return [...new Set(postsData.items.map((p) => p.user_id))];
   }, [postsData]);
@@ -120,7 +101,7 @@ const Community = () => {
     if (user) {
       fetchFollowing();
     }
-  }, [user]);
+  }, [user, fetchFollowing]);
 
   // Polling for posts (replaces real-time subscriptions)
   useEffect(() => {

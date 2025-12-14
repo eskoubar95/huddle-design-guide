@@ -71,7 +71,7 @@ await runTest("Health Check Endpoint", async () => {
 await runTest("Error Handling - Unauthorized Request", async () => {
   // Create a test endpoint that requires auth
   // We'll test by trying to access a protected endpoint without token
-  const { response, data } = await fetchJson(`${BASE_URL}/api/v1/health`, {
+  const { data } = await fetchJson(`${BASE_URL}/api/v1/health`, {
     method: "POST", // Health endpoint only allows GET, so this should return 405 or error
   });
   

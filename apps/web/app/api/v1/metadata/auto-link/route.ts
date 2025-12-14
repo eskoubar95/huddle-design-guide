@@ -13,13 +13,16 @@ const autoLinkSchema = z.object({
 });
 
 const handler = async (req: NextRequest) => {
+  let requestBody: unknown = null;
+
   try {
     if (req.method !== 'POST') {
       return new Response(null, { status: 405 });
     }
 
-    const body = await req.json();
-    const input = autoLinkSchema.parse(body);
+    // Parse body once and reuse
+    requestBody = await req.json();
+    const input = autoLinkSchema.parse(requestBody);
 
     const autoLinkService = new MetadataAutoLinkService();
     const result = await autoLinkService.autoLink(input);
@@ -30,7 +33,7 @@ const handler = async (req: NextRequest) => {
       extra: {
         url: req.url,
         method: req.method,
-        body: await req.json().catch(() => null),
+        body: requestBody, // Use already parsed body instead of re-parsing
       },
       tags: { component: 'metadata-auto-link-api' },
     });

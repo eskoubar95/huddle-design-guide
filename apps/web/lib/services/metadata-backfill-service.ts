@@ -72,8 +72,8 @@ export class MetadataBackfillService {
 
       try {
         const primaryCountryCode = playerData.nationality && playerData.nationality.length > 0
-          ? mapCountryToIso2(playerData.nationality[0])
-          : null;
+          ? (mapCountryToIso2(playerData.nationality[0]) ?? undefined)
+          : undefined;
 
         // Upsert player (creates if doesn't exist)
         await this.metadataRepository.upsertPlayer({

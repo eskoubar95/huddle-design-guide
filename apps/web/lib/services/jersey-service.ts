@@ -3,7 +3,7 @@ import { jerseyCreateSchema, jerseyUpdateSchema } from "@/lib/validation/jersey-
 import { ApiError } from "@/lib/api/errors";
 import type { JerseyCreateInput, JerseyUpdateInput } from "@/lib/validation/jersey-schemas";
 import { createImageVariants, type ImageVariant } from "@/lib/utils/image";
-import { createServiceClient } from "@/lib/supabase/server";
+// Removed unused import: createServiceClient
 
 /**
  * Jersey DTO with image variants and metadata
@@ -48,7 +48,7 @@ export class JerseyService {
    * Note: Metadata fetching is deferred to frontend for performance
    * This method returns undefined - frontend will fetch metadata via API if needed
    */
-  private async fetchMetadata(jersey: JerseyWithRelations): Promise<JerseyDTO["metadata"]> {
+  private async fetchMetadata(_jersey: JerseyWithRelations): Promise<JerseyDTO["metadata"]> {
     // Return undefined - frontend will fetch metadata via API endpoints if needed
     // This avoids blocking server-side requests with metadata queries
     return undefined;
@@ -58,13 +58,14 @@ export class JerseyService {
    * Map repository data to DTO
    */
   private async mapToDTO(jersey: JerseyWithRelations): Promise<JerseyDTO> {
-    // Pass jersey_images with id to createImageVariants
+    // Pass jersey_images with id and storage_path to createImageVariants
     const imageVariants = createImageVariants(
       jersey.jersey_images?.map((img) => ({
         id: img.id,
         image_url: img.image_url,
         image_url_webp: img.image_url_webp,
-        sort_order: img.sort_order,
+        storage_path: img.storage_path,
+        sort_order: img.sort_order ?? 0, // Default to 0 if null
         view_type: img.view_type,
       }))
     );

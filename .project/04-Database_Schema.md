@@ -30,15 +30,22 @@ I v1 er Supabase‑schema’et “kongen” for frontend‑funktionalitet; Medus
 
 ## 3. Nuværende Supabase (public) schema – overblik
 
-Denne sektion opsummerer de vigtigste tabeller, som de er defineret i `supabase/migrations` og `src/integrations/supabase/types.ts`.
+Denne sektion opsummerer de vigtigste tabeller, som de er defineret i `supabase/migrations` og `apps/web/lib/supabase/types.ts`.
+
+**Vigtige ændringer siden oprindelig plan:**
+- `jerseys.owner_id` er nu TEXT (Clerk user IDs) i stedet for UUID
+- `jerseys.images[]` array er erstattet af `jersey_images` tabel
+- Vision AI kolonner tilføjet til `jerseys` (`vision_raw`, `vision_confidence`, `status`)
+- Metadata schema (`metadata.*`) tilføjet for fodboldreferencedata
 
 ### 3.1 Brugere & profiler
 
-- **`auth.users`** (Supabase/Clerk – ekstern)  
-  - Kilde for bruger‑id’er (UID) på tværs af systemet.
+- **`auth.users`** (Clerk – ekstern)  
+  - Kilde for bruger‑id'er (Clerk user IDs som TEXT) på tværs af systemet.  
+  - **Note:** Clerk bruges til authentication, ikke Supabase Auth.
 - **`profiles`**  
-  - 1–1 med `auth.users`.  
-  - Felter: `id`, `username`, `avatar_url`, `bio`, `country`, `created_at`, `updated_at`.  
+  - 1–1 med Clerk users (via `id` som TEXT).  
+  - Felter: `id` (TEXT - Clerk user ID), `username`, `avatar_url`, `bio`, `country`, `created_at`, `updated_at`.  
   - Bruges til offentlige Huddle‑profiler (username, avatar, land, bio).
 
 ### 3.2 Wardrobe & jerseys
@@ -46,11 +53,26 @@ Denne sektion opsummerer de vigtigste tabeller, som de er defineret i `supabase/
 - **`jerseys`**  
   - Digital garderobe.  
   - Centrale felter:  
-    - Ejer: `owner_id` (FK → `auth.users.id`)  
+    - Ejer: `owner_id` (TEXT → Clerk user ID, ikke UUID)  
     - Metadata: `club`, `season`, `jersey_type`, `player_name`, `player_number`, `competition_badges[]`, `condition_rating`, `notes`, `visibility`.  
-    - Assets: `images[]` (URLs til Supabase Storage).  
+    - Vision AI: `vision_raw` (JSONB), `vision_confidence` (FLOAT), `status` ('draft', 'published', 'archived').  
+    - Metadata links: `club_id`, `player_id`, `season_id` (FK → `metadata.*`, nullable).  
     - Timestamps: `created_at`, `updated_at`.  
-  - Indekser: `owner_id`, `visibility`, evt. på `club/season`.
+  - Indekser: `owner_id`, `visibility`, `status`, `vision_confidence`, evt. på `club/season`.  
+  - **Note:** `images[]` array er erstattet af `jersey_images` tabel (se nedenfor).
+
+- **`jersey_images`**  
+  - Normaliseret billedstorage (erstatter `jerseys.images[]` array).  
+  - Felter:  
+    - `jersey_id` (FK → `jerseys.id`, CASCADE delete).  
+    - `image_url` (TEXT), `storage_path` (TEXT for cleanup).  
+    - `view_type` ('front', 'back', 'detail', 'other' - fra Vision AI).  
+    - `sort_order` (INTEGER, default 0 - første = cover/thumbnail).  
+    - `image_embedding` (vector(3072) - OpenAI embedding for template matching).  
+    - `image_url_webp` (TEXT, nullable - WebP optimeret version).  
+    - Timestamps: `created_at`, `updated_at`.  
+  - Indekser: `jersey_id`, `(jersey_id, sort_order)`.  
+  - **Note:** Embedding index er ikke oprettet (pgvector dimension limit 2000 < 3072), similarity search bruger sequential scan.
 
 ### 3.3 Marketplace & auktioner (app‑lag)
 
@@ -106,39 +128,117 @@ Disse tabeller matcher de typer, der bruges i frontenden (`User`, `Post`, `Jerse
 
 ---
 
-## 4. MedusaJS schema & integration (plan)
+## 4. Metadata Schema (implementeret)
 
-MedusaJS har sit eget sæt tabeller (products, variants, orders, regions, shipping m.m.), som oprettes via Medusa’s migrations og typisk lever i et separat schema eller som egne tabeller i samme database.
+### 4.1 Oversigt
 
-### 4.1 Rollefordeling
+Et separat `metadata` schema indeholder normaliseret fodboldreferencedata fra Transfermarkt API. Dette gør det muligt at linke `public.jerseys` til officielle klubber, spillere og sæsoner via valgfrie foreign keys.
 
-- **Supabase public (nu):**
-  - Ejer wardrobe, social graph, messaging, notifications og første version af marketplace/auktioner (som defineret af Lovable).  
-  - Bruges til hurtig MVP og eksisterende frontend.
+**Schema:** `metadata.*`  
+**Kilde:** Transfermarkt API (via Edge Functions)  
+**Formål:** Smart autofill, metadata matching, analytics
 
-- **Medusa (senere):**
-  - Ejer commerce‑motoren:  
-    - `products`/`variants` bruges som **listings**, `orders` som transaktioner, `regions`/`shipping_profiles` til shipping‑regler.  
-  - Giver admin‑UI (Medusa Admin) til ops‑opgaver.
+### 4.2 Metadata Tabeller
 
-### 4.2 Mulige mappings (eksempel)
+- **`metadata.competitions`**  
+  - Turneringer (ligaer, cups). Felter: `id` (TEXT - Transfermarkt ID), `name`, `country`, `continent`, stats.
 
-- `jerseys` (Supabase) ↔ `products` (Medusa):
-  - Ét jersey‑record kan få en tilknyttet `medusa_product_id`.  
-  - Medusa styrer pris, stock/status, shipping‑regler.  
-  - Supabase styrer stadig billeder, social stats og wardrobe‑kontekst.
+- **`metadata.seasons`**  
+  - Sæsoner. Felter: `id` (UUID), `tm_season_id` (TEXT), `label` (fx "25/26"), `start_year`, `end_year`.  
+  - **Note:** `season_type` kolonne tilføjet senere ('league', 'cup', 'international').
 
-- `sale_listings` / `auctions` (Supabase) ↔ Medusa:
-  - På sigt kan vi lade `sale_listings` blive en tynd wrapper rundt om Medusa’s products/variants (kun view/relations).  
-  - Auktioner kan forblive i Supabase som “custom module” ovenpå Medusa‑products (Medusa er mere købs‑pipeline end auktionsmotor).
+- **`metadata.clubs`**  
+  - Fodboldklubber. Felter: `id` (TEXT - Transfermarkt ID), `name`, `official_name`, `slug`, `country`, `crest_url`, `colors[]`, stats.  
+  - **Note:** `primary_country_code` kolonne tilføjet til `metadata.players` for ISO-2 landekode.
 
-Vi planlægger **ikke** at redesigne alt fra dag ét, men at migrere ansvar gradvist over til Medusa, dér hvor det giver mening (price, orders, shipping).
+- **`metadata.club_seasons`**  
+  - Club X deltager i competition Y i season Z. Junction tabel.
+
+- **`metadata.players`**  
+  - Spillere. Felter: `id` (TEXT - Transfermarkt ID), `full_name`, `known_as`, `date_of_birth`, `nationalities[]`, `primary_country_code`, stats.
+
+- **`metadata.player_contracts`**  
+  - **Kritisk for matching:** Spiller X havde nummer Y for klub Z i sæson W.  
+  - Felter: `player_id`, `club_id`, `season_id`, `jersey_number`, `source`, dates.  
+  - Tillader flere rækker per (player, club, season) for nummerskift.
+
+- **`metadata.competition_seasons`**  
+  - Competition X kører i season Y. Junction tabel.
+
+- **`metadata.kit_templates`**  
+  - Template data for kit designs (fremtidig feature).
+
+### 4.3 Linking til public.jerseys
+
+`public.jerseys` har valgfrie foreign keys:
+- `club_id` (TEXT, FK → `metadata.clubs.id`, nullable)
+- `player_id` (TEXT, FK → `metadata.players.id`, nullable)
+- `season_id` (UUID, FK → `metadata.seasons.id`, nullable)
+
+**Princip:** Jerseys kan gemmes uden metadata FK'er. User text (`club`, `season`, `player_name`) forbliver primær sandhed.
+
+### 4.4 Permissions
+
+- Metadata schema: Read-only for authenticated users (SELECT)
+- Write access: Kun service role (for Edge Functions og seed scripts)
 
 ---
 
-## 5. Medusa Schema (implementeret)
+## 5. MedusaJS schema & integration (implementeret)
 
-### 5.1 Schema Oprettelse
+MedusaJS har sit eget sæt tabeller (products, variants, orders, regions, shipping m.m.), som oprettes via Medusa's migrations og lever i separat `medusa` schema.
+
+### 5.1 Rollefordeling
+
+- **Supabase public (nu):**
+  - Ejer wardrobe, social graph, messaging, notifications og første version af marketplace/auktioner.  
+  - `jersey_images` tabel for normaliseret billedstorage.
+  - Vision AI metadata i `jerseys` tabel.
+
+- **Metadata schema (implementeret):**
+  - Ejer fodboldreferencedata (clubs, players, seasons, competitions).  
+  - Bruges til smart autofill, metadata matching og analytics.  
+  - Populeres via Edge Functions og seed scripts.
+
+- **Medusa (implementeret):**
+  - Ejer commerce‑motoren:  
+    - `products`/`variants` bruges som **listings**, `orders` som transaktioner, `regions`/`shipping_profiles` til shipping‑regler.  
+  - Giver admin‑UI (Medusa Admin) til ops‑opgaver.  
+  - Schema isolation: Alle Medusa tabeller i `medusa.*` namespace.
+
+### 5.2 Integration Patterns (implementeret)
+
+**Cross-Schema References:**
+
+Huddle tabeller kan referere til Medusa tabeller via UUID felter (ikke foreign keys, da cross-schema FKs ikke altid understøttes):
+
+- `jerseys` (Supabase) ↔ `products` (Medusa):
+  - Ét jersey‑record kan få en tilknyttet `medusa_product_id` (UUID, nullable).  
+  - Medusa styrer pris, stock/status, shipping‑regler.  
+  - Supabase styrer billeder (via `jersey_images`), social stats og wardrobe‑kontekst.
+
+- `sale_listings` (Supabase) ↔ Medusa:
+  - `sale_listings` kan have `medusa_product_id` (UUID, nullable).  
+  - Sale listing er en wrapper omkring Medusa product.
+
+- Auktioner forbliver i Supabase som "custom module" (Medusa er mere købs‑pipeline end auktionsmotor).
+
+**API Integration Pattern:**
+
+Huddle Next.js API routes (`apps/web/app/api/v1/...`) kalder:
+1. Medusa API (`http://localhost:9000`) for commerce operations
+2. Supabase direkte for Huddle-specifikke data (jerseys, social graph, metadata)
+3. Kombinerer data fra begge kilder i API responses
+
+**Ikke Direkte SQL Joins:**
+
+Undgå direkte SQL joins på tværs af schemas. Brug API calls eller application-level joins i stedet.
+
+---
+
+## 6. Medusa Schema (implementeret)
+
+### 6.1 Schema Oprettelse
 
 `medusa` schema er oprettet i Supabase Postgres via migration `202511262142_create_medusa_schema.sql`.
 
@@ -151,7 +251,7 @@ Vi planlægger **ikke** at redesigne alt fra dag ét, men at migrere ansvar grad
 - `products`, `variants`, `orders`, `regions`, `shipping_profiles`, osv.
 - Se Medusa dokumentation for fuld liste
 
-### 5.2 Connection String Format
+### 6.2 Connection String Format
 
 Medusa konfigureres med:
 ```
@@ -163,7 +263,7 @@ DATABASE_SCHEMA=medusa
 
 Dette sikrer at alle Medusa queries og migrations automatisk bruger `medusa` schema.
 
-### 5.3 Integration Patterns (implementeret)
+### 6.3 Integration Patterns (implementeret)
 
 **Cross-Schema References:**
 
@@ -217,9 +317,9 @@ Undgå direkte SQL joins på tværs af schemas. Brug API calls eller application
 
 ---
 
-## 6. Migrations- og ændringsstrategi
+## 7. Migrations- og ændringsstrategi
 
-### 5.1 Supabase‑schema (public)
+### 7.1 Supabase‑schema (public)
 
 - Supabase migrations i `supabase/migrations` er **single source of truth** for app‑schemaet.  
 - Ændringer laves altid som **nye migrations** (ingen redigering af gamle).
@@ -228,7 +328,7 @@ Undgå direkte SQL joins på tværs af schemas. Brug API calls eller application
   - Hold migrations små og veldokumenterede (kort kommentar om HVORFOR, link til issue/PRD‑sektion).  
   - Når frontend‑typer (`src/types`, `supabase/types.ts`) justeres, skal DB‑schema og migrations følge med – og omvendt.
 
-### 5.2 Medusa‑schema
+### 7.2 Medusa‑schema
 
 - Medusa håndterer sine egne migrations (TypeORM‑lignende).  
 - Vi konfigurerer Medusa til at pege på samme database (Supabase Postgres), men egne tabeller/schema.  
@@ -236,7 +336,7 @@ Undgå direkte SQL joins på tværs af schemas. Brug API calls eller application
   - Brug Medusa’s CLI/migrationssystem.  
   - Sørg for, at relationer til Supabase‑tabeller (fx `jersey_id`) etableres via **enkle FK’er eller GUID‑felter**, ikke tætte cross‑schema afhængigheder.
 
-### 5.3 Udvikling foran backend (frontend‑first)
+### 7.3 Udvikling foran backend (frontend‑first)
 
 Da et af målene er at kunne bygge frontend hurtigt (Lovable/Cursor) før backend er helt færdig:
 
@@ -254,7 +354,32 @@ ORM i klassisk forstand (Prisma/Drizzle) er ikke strengt nødvendigt her, fordi:
 
 ---
 
-## 7. Fremtidige udvidelser
+## 8. Automatisering & Background Jobs
+
+### 8.1 Cleanup Functions
+
+- **`cleanup_abandoned_drafts()`**  
+  - Sletter draft jerseys ældre end 24 timer.  
+  - CASCADE delete fjerner automatisk `jersey_images` rækker.  
+  - Storage cleanup håndteres af `cleanup-jersey-storage` Edge Function.
+
+- **Scheduled via pg_cron:**  
+  - Kører dagligt kl. 2 AM UTC.  
+  - Job navn: `cleanup-abandoned-drafts`.
+
+### 8.2 Triggers
+
+- **`trigger_generate_webp_jersey_image`**  
+  - Fires efter INSERT på `jersey_images`.  
+  - Kalder `generate-webp-image` Edge Function for automatisk WebP generering.
+
+- **`auto_link_jersey_metadata_trigger`**  
+  - Fires efter INSERT/UPDATE på `jerseys`.  
+  - Kalder `auto-link-metadata` Edge Function for automatisk metadata matching.
+
+---
+
+## 9. Fremtidige udvidelser
 
 Når vi bevæger os mod Fase 2+ i PRD’et (ratings, collections, trade mode, price history osv.), bør vi:
 

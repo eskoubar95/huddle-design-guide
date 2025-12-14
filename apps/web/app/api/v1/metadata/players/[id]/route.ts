@@ -10,13 +10,16 @@ interface Player {
   current_shirt_number?: number | null;
 }
 
-const handler = async (req: NextRequest, { params }: { params: { id: string } }) => {
+const handler = async (
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) => {
   try {
     if (req.method !== 'GET') {
       return new Response(null, { status: 405 });
     }
 
-    const playerId = params.id;
+    const { id: playerId } = await context.params;
 
     const players = await query<Player>(
       `
@@ -34,8 +37,9 @@ const handler = async (req: NextRequest, { params }: { params: { id: string } })
 
     return Response.json({ player: players[0] });
   } catch (error) {
+    const { id: playerId } = await context.params;
     Sentry.captureException(error, {
-      extra: { url: req.url, playerId: params.id },
+      extra: { url: req.url, playerId },
       tags: { component: 'metadata-players-api' },
     });
     return handleApiError(error, req);

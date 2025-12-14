@@ -52,7 +52,7 @@ export function AuthSessionMonitor() {
 
         // Token is valid - reset expired toast flag
         hasShownExpiredToastRef.current = false;
-      } catch (error) {
+      } catch {
         // Token check failed
         if (!hasShownExpiredToastRef.current) {
           hasShownExpiredToastRef.current = true;

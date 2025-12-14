@@ -145,7 +145,7 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [open, postId]);
+  }, [open, postId, fetchComments]);
 
   const handleSubmit = async () => {
     if (!user) {

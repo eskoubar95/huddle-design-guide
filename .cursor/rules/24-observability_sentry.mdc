@@ -12,14 +12,14 @@ next_review: 2026-01-01
 - Unified error/perf monitoring without PII; consistent release and sourcemaps.
 
 ## Org & projects
-- SENTRY_ORG: `huddle` (or your org name)
+- SENTRY_ORG: `huddle-new` (configured in `next.config.ts`)
 - Prefer per-app projects: `web` (Next.js app), `medusa` (when added)
 
 ## Releases & sourcemaps (example)
 ```
 npx sentry-cli releases new "$GITHUB_SHA"
 npx sentry-cli releases set-commits "$GITHUB_SHA" --auto
-npx sentry-cli sourcemaps upload --org huddle --project web apps/web/.next/static --release "$GITHUB_SHA"
+npx sentry-cli sourcemaps upload --org huddle-new --project web apps/web/.next/static --release "$GITHUB_SHA"
 ```
 
 ## Privacy

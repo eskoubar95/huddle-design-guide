@@ -182,39 +182,40 @@ export function MetadataCombobox(props: MetadataComboboxProps) {
   const { value, onValueChange, placeholder, disabled, type } = props
   const [open, setOpen] = React.useState(false)
 
-  // Use appropriate search hook based on type
-  // Note: Hooks must be called unconditionally, so we use a pattern that works
-  let searchResult: ReturnType<typeof useClubSearch> | ReturnType<typeof usePlayerSearch> | ReturnType<typeof useSeasonSearch>
-  
-  if (type === 'club') {
-    searchResult = useClubSearch({
-      enabled: open,
-      debounceMs: 300,
-      staleTime: 30000,
-    })
-  } else if (type === 'player') {
-    searchResult = usePlayerSearch({
-      clubId: props.clubId,
-      seasonId: props.seasonId,
-      enabled: open && !!props.clubId,
-      debounceMs: 300,
-      staleTime: 30000,
-    })
-  } else {
-    searchResult = useSeasonSearch({
-      clubId: props.clubId,
-      enabled: open,
-      debounceMs: 300,
-      staleTime: 30000,
-    })
-  }
+  // Hooks must be called unconditionally - call all hooks but disable unused ones
+  const clubSearchResult = useClubSearch({
+    enabled: type === 'club' && open,
+    debounceMs: 300,
+    staleTime: 30000,
+  })
+
+  const playerSearchResult = usePlayerSearch({
+    clubId: type === 'player' ? props.clubId : '',
+    seasonId: type === 'player' ? props.seasonId : undefined,
+    enabled: type === 'player' && open && !!props.clubId,
+    debounceMs: 300,
+    staleTime: 30000,
+  })
+
+  const seasonSearchResult = useSeasonSearch({
+    clubId: type === 'season' ? props.clubId : undefined,
+    enabled: type === 'season' && open,
+    debounceMs: 300,
+    staleTime: 30000,
+  })
+
+  // Select the appropriate search result based on type
+  const searchResult = React.useMemo(() => {
+    if (type === 'club') return clubSearchResult
+    if (type === 'player') return playerSearchResult
+    return seasonSearchResult
+  }, [type, clubSearchResult, playerSearchResult, seasonSearchResult])
 
   const results = (searchResult.results || []) as MetadataItem[]
   const isLoading = searchResult.isLoading || false
   const isError = searchResult.isError || false
   const error = searchResult.error
-  const searchQuery = searchResult.query
-  const setSearchQuery = searchResult.setQuery
+  // Note: searchQuery and setSearchQuery are available via searchResult but not used directly
 
   // Fetch selected item by ID if not in results
   const fetchByIdQuery = useQuery({
@@ -264,13 +265,17 @@ export function MetadataCombobox(props: MetadataComboboxProps) {
   const handleSelect = (itemId: string) => {
     onValueChange(itemId === value ? undefined : itemId)
     setOpen(false)
-    searchResult.setQuery("")
+    if (type === 'club') clubSearchResult.setQuery("")
+    if (type === 'player') playerSearchResult.setQuery("")
+    if (type === 'season') seasonSearchResult.setQuery("")
   }
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation()
     onValueChange(undefined)
-    searchResult.setQuery("")
+    if (type === 'club') clubSearchResult.setQuery("")
+    if (type === 'player') playerSearchResult.setQuery("")
+    if (type === 'season') seasonSearchResult.setQuery("")
   }
 
   // Show warning if context is missing (for player/season)
@@ -344,7 +349,11 @@ export function MetadataCombobox(props: MetadataComboboxProps) {
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchResult.query}
-            onValueChange={searchResult.setQuery}
+            onValueChange={(value) => {
+              if (type === 'club') clubSearchResult.setQuery(value)
+              if (type === 'player') playerSearchResult.setQuery(value)
+              if (type === 'season') seasonSearchResult.setQuery(value)
+            }}
           />
           <CommandList>
             {/* Context warning for player */}

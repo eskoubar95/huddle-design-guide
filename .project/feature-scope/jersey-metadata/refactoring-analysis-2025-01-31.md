@@ -775,7 +775,7 @@ describe('MatchService', () => {
 ## 10. Related Analysis
 
 **Se også:**
-- [Database Structure Analysis](./metadata-structure-analysis-2025-01-12.md)
+- [Database Structure Analysis](./metadata-structure-analysis-2025-01-31.md)
 - [Implementation Playbook - Complete Guide](./metadata-implementation-playbook-2025-01-12.md) ⭐ **START HER**
 
 **For implementation:** Se [Implementation Playbook](./metadata-implementation-playbook-2025-01-12.md) for komplet guide der kombinerer refactoring, database-forbedringer, og integration patterns (AI Vision, Frontend Search, Data Retrieval).

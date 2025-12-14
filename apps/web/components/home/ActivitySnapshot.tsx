@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shirt, Store, Gavel, Heart, Users, TrendingUp } from "lucide-react";
+import { Shirt, Store, Gavel, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@clerk/nextjs";
 

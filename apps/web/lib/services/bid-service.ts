@@ -28,7 +28,9 @@ export class BidService {
     const currentBid = parseFloat(
       (auction.current_bid || auction.starting_bid).toString()
     );
-    const minBid = currentBid + 0.01; // Minimum increment
+    // Note: minBid is computed but not currently used - kept for potential future use
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _minBid = currentBid + 0.01; // Minimum increment
 
     if (amountNum <= currentBid) {
       throw new ApiError(

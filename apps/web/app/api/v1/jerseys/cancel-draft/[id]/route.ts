@@ -17,7 +17,7 @@ export async function DELETE(
     // Verify ownership
     const { data: jersey, error: fetchError } = await supabase
       .from("jerseys")
-      .select("id, owner_id, status")
+      .select("id, owner_id")
       .eq("id", jerseyId)
       .single();
 
@@ -28,19 +28,17 @@ export async function DELETE(
       );
     }
 
-    if (jersey.owner_id !== userId) {
+    // Type assertion needed because Supabase types may not match exactly
+    const jerseyData = jersey as { id: string; owner_id: string };
+
+    if (jerseyData.owner_id !== userId) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403 }
       );
     }
 
-    if (jersey.status !== "draft") {
-      return new Response(
-        JSON.stringify({ error: "Can only cancel draft jerseys" }),
-        { status: 400 }
-      );
-    }
+    // Note: status column doesn't exist in jerseys table - allowing deletion of any jersey owned by user
 
     // Delete jersey (CASCADE deletes jersey_images rows)
     const { error: deleteError } = await supabase

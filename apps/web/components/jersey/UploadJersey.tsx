@@ -19,9 +19,11 @@ import { useJerseyUploadSteps } from "@/hooks/use-jersey-upload-steps";
 import { UploadJerseyHeader } from "./upload/UploadJerseyHeader";
 import { UploadJerseyProgress } from "./upload/UploadJerseyProgress";
 import { UploadJerseyFooter } from "./upload/UploadJerseyFooter";
+import { UploadSubmitProgress } from "./upload/UploadSubmitProgress";
 import { AIVisionResultsDisplay } from "./upload/AIVisionResults";
 import { JerseyAnalysisLoading } from "./upload/JerseyAnalysisLoading";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 interface UploadJerseyProps {
   isOpen: boolean;
@@ -32,8 +34,10 @@ interface UploadJerseyProps {
 export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) => {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const router = useRouter();
   const updateJersey = useUpdateJersey();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [submitProgress, setSubmitProgress] = useState<'saving' | 'complete' | null>(null);
 
   // Custom hooks for separated concerns
   const draftJersey = useDraftJersey();
@@ -315,6 +319,7 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
       }
 
     setIsSubmitting(true);
+    setSubmitProgress('saving');
     draftJersey.markSubmitted();
 
     try {
@@ -331,6 +336,7 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
           variant: "destructive",
         });
         setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
 
@@ -348,13 +354,10 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
         },
       });
 
-      toast({
-        title: "Jersey Uploaded!",
-        description: "Your jersey has been added to your collection",
-      });
-
-      onSuccess?.();
-      onClose();
+      // Show completion state
+      setSubmitProgress('complete');
+      
+      // onSuccess will be called by UploadSubmitProgress after delay
     } catch (error) {
         console.error("Error uploading jersey:", error);
       const errorMessage =
@@ -364,8 +367,8 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
           description: errorMessage,
           variant: "destructive",
         });
-    } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
+        setSubmitProgress(null);
     }
   }, [
     imageUpload.images.length,
@@ -381,8 +384,25 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
     getToken,
   ]);
 
+  // Handle submit completion - redirect to wardrobe
+  const handleSubmitComplete = () => {
+    onSuccess?.();
+    onClose();
+    router.push('/wardrobe');
+  };
+
   // Early return AFTER all hooks are called
   if (!isOpen) return null;
+
+  // Show submit progress overlay when submitting
+  if (submitProgress) {
+    return (
+      <UploadSubmitProgress 
+        currentStep={submitProgress} 
+        onComplete={handleSubmitComplete}
+      />
+    );
+  }
 
   const renderStep = () => {
     // If analyzing with AI, show loading state
@@ -413,7 +433,7 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
         case 2:
           // Show MissingDataStep if AI found missing fields, otherwise show JerseyInfoStep
           const hasMissingFields = !!(visionAI.aiResults?.missingFields && visionAI.aiResults.missingFields.length > 0);
-          if (hasMissingFields) {
+          if (hasMissingFields && visionAI.aiResults) {
             return (
               <MissingDataStep
                 missingFields={visionAI.aiResults.missingFields || []}
@@ -493,12 +513,12 @@ export const UploadJersey = ({ isOpen, onClose, onSuccess }: UploadJerseyProps) 
             }
           />
 
-          {!visionAI.isAnalyzing && (
+          {!visionAI.isAnalyzing && !isSubmitting && (
             <UploadJerseyProgress
               currentStep={steps.currentStepNumber}
               totalSteps={steps.totalSteps}
               uploadProgress={100}
-              isSubmitting={isSubmitting}
+              isSubmitting={false}
             />
           )}
 

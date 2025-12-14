@@ -59,7 +59,9 @@ export const JerseyInfoStep = ({ clubId, seasonId, onClubIdChange, onSeasonIdCha
     staleTime: 300000, // Cache for 5 minutes
   });
 
-  const selectedSeason = seasonsData?.seasons?.find((s) => s.id === seasonId);
+  // Note: selectedSeason is computed but not currently used - kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _selectedSeason = seasonsData?.seasons?.find((s) => s.id === seasonId);
 
   // Fetch selected club name when clubId changes
   const { data: selectedClubData } = useQuery<{ clubs: Array<{ id: string; name: string }> }>({
@@ -104,7 +106,6 @@ export const JerseyInfoStep = ({ clubId, seasonId, onClubIdChange, onSeasonIdCha
     if (!clubId) {
       lastSetClubIdRef.current = undefined;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClub?.id, selectedClub?.name, clubId, showManualClub]);
 
   // Update season text field when seasonId changes

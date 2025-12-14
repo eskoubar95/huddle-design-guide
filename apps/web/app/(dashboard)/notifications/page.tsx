@@ -129,7 +129,7 @@ const Notifications = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   const handleMarkAllAsRead = async () => {
     if (!user) return;

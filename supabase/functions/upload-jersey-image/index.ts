@@ -1,10 +1,8 @@
 // @ts-nocheck - Deno runtime (TypeScript doesn't understand Deno types)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-clerk-token',
-}
+import { Errors, corsHeaders, handleEdgeFunctionError, EdgeFunctionError } from '../_shared/utils/errors.ts'
+import { retryWithBackoff } from '../_shared/utils/retry.ts'
+import { CleanupManager } from '../_shared/utils/cleanup.ts'
 
 /**
  * Verify Clerk JWT token and extract userId
@@ -89,22 +87,13 @@ Deno.serve(async (req) => {
     // Get Clerk token from custom header (Supabase anon key is in Authorization header)
     const clerkToken = req.headers.get('x-clerk-token')
     if (!clerkToken) {
-      return new Response(
-        JSON.stringify({ error: 'Missing Clerk token in X-Clerk-Token header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.MISSING_TOKEN.toResponse()
     }
 
     const { userId: verifiedUserId, error: verifyError } = await verifyClerkToken(clerkToken)
     
     if (!verifiedUserId) {
-      return new Response(
-        JSON.stringify({ 
-          error: verifyError || 'Invalid or expired token',
-          details: verifyError // Include details for debugging
-        }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.INVALID_TOKEN.toResponse()
     }
 
     // Use FormData for file uploads (not JSON)
@@ -123,35 +112,23 @@ Deno.serve(async (req) => {
 
     // Validate
     if (!jerseyId || !file || !userId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: jerseyId, file, or userId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.MISSING_FIELDS(['jerseyId', 'file', 'userId']).toResponse()
     }
 
     // Verify userId from token matches userId from form data
     if (verifiedUserId !== userId) {
-      return new Response(
-        JSON.stringify({ error: 'User ID mismatch: token user does not match request user' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.USER_MISMATCH.toResponse()
     }
 
     // Validate file type and size
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
-      return new Response(
-        JSON.stringify({ error: `Invalid file type: ${file.type}. Allowed: ${allowedTypes.join(', ')}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.INVALID_FILE_TYPE(allowedTypes).toResponse()
     }
 
     const maxSize = 10 * 1024 * 1024 // 10 MB
     if (file.size > maxSize) {
-      return new Response(
-        JSON.stringify({ error: `File too large: ${file.size} bytes. Max: ${maxSize} bytes` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.FILE_TOO_LARGE(maxSize).toResponse()
     }
 
     const supabase = createClient(
@@ -167,25 +144,24 @@ Deno.serve(async (req) => {
       .single()
 
     if (jerseyError || !jersey) {
-      return new Response(
-        JSON.stringify({ error: 'Jersey not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.JERSEY_NOT_FOUND.toResponse()
     }
 
     if (jersey.owner_id !== userId) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized: You do not own this jersey' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return new EdgeFunctionError(
+        'UNAUTHORIZED',
+        'Unauthorized: You do not own this jersey',
+        403
+      ).toResponse()
     }
 
     // Only allow uploads to draft jerseys (prevent accidental overwrites)
     if (jersey.status !== 'draft') {
-      return new Response(
-        JSON.stringify({ error: 'Can only upload images to draft jerseys' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return new EdgeFunctionError(
+        'INVALID_STATUS',
+        'Can only upload images to draft jerseys',
+        400
+      ).toResponse()
     }
 
     // Upload to Storage: {jersey_id}/{fileName}
@@ -198,7 +174,12 @@ Deno.serve(async (req) => {
     // The frontend resizes images to max 2000px before sending to this Edge Function
     const arrayBuffer = await file.arrayBuffer()
 
-    // Upload file directly (already resized by frontend if needed)
+    const cleanup = new CleanupManager()
+
+    // Upload file directly (already resized by frontend if needed) with retry
+    try {
+      await retryWithBackoff(
+        async () => {
     const { error: uploadError } = await supabase.storage
       .from('jersey_images')
       .upload(storagePath, arrayBuffer, {
@@ -209,16 +190,27 @@ Deno.serve(async (req) => {
     if (uploadError) {
       // Check for specific error types
       if (uploadError.message?.includes('already exists')) {
-        return new Response(
-          JSON.stringify({ error: 'File already exists. Please try again.' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+              throw Errors.FILE_ALREADY_EXISTS
       }
       if (uploadError.message?.includes('quota') || uploadError.message?.includes('space')) {
-        return new Response(
-          JSON.stringify({ error: 'Storage quota exceeded. Please contact support.' }),
-          { status: 507, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+              throw Errors.STORAGE_QUOTA_EXCEEDED
+            }
+            throw new Error(`Upload failed: ${uploadError.message}`)
+          }
+        },
+        {
+          maxRetries: 3,
+          initialDelay: 1000,
+        }
+      )
+
+      // Register cleanup task
+      cleanup.register(async () => {
+        await supabase.storage.from('jersey_images').remove([storagePath])
+      })
+    } catch (uploadError) {
+      if (uploadError instanceof EdgeFunctionError) {
+        return uploadError.toResponse()
       }
       throw uploadError
     }
@@ -228,8 +220,10 @@ Deno.serve(async (req) => {
       .from('jersey_images')
       .getPublicUrl(storagePath)
 
-    // Note: WebP generation is now handled by database trigger calling generate-webp-image Edge Function
-    // This makes upload faster and more reliable
+    // Note: Image variant generation (vision, gallery, card) is now handled by imgproxy on Railway.
+    // Database trigger calls generate-image-variants Edge Function which generates imgproxy URLs
+    // (no physical files created - variants are generated on-the-fly by imgproxy).
+    // Legacy WebP generation (generate-webp-image) can be deprecated once imgproxy is verified stable.
 
     // Determine sort_order: use provided value, or count existing images for this jersey
     // IMPORTANT: If sortOrder is provided, use it directly (frontend handles ordering)
@@ -253,7 +247,9 @@ Deno.serve(async (req) => {
     console.log(`Setting sort_order to ${finalSortOrder} for jersey ${jerseyId} (provided: ${sortOrder})`)
 
     // Create jersey_images row
-    // Note: image_url_webp will be set by database trigger calling generate-webp-image Edge Function
+    // Note: Variants (vision, gallery, card) will be generated via imgproxy URLs by database trigger
+    // calling generate-image-variants Edge Function. image_url_webp will be set to imgproxy gallery URL
+    // for backward compatibility (no physical files created).
     const insertData = {
       jersey_id: jerseyId,
       image_url: publicUrl, // Always store original URL
@@ -271,21 +267,20 @@ Deno.serve(async (req) => {
     if (insertError) {
       console.error('Database insert error:', insertError)
       // Cleanup uploaded file if DB insert fails
-      await supabase.storage
-        .from('jersey_images')
-        .remove([storagePath])
+      await cleanup.execute()
       
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to save image metadata',
-          details: insertError.message 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.PROCESSING_FAILED(
+        'save image metadata',
+        insertError.message
+      ).toResponse()
     }
 
-    // Note: WebP generation will happen asynchronously via database trigger
+    // Clear cleanup tasks on success
+    cleanup.clear()
+
+    // Note: Variant generation will happen asynchronously via database trigger
     // Frontend should handle image_url_webp being null initially
+    // Variant URLs can be derived from storage_path using helper functions
     return new Response(
       JSON.stringify({ 
         url: publicUrl,
@@ -296,11 +291,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Upload error:', error)
-    return new Response(
-      JSON.stringify({ error: error?.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    console.error('[UPLOAD-JERSEY-IMAGE] Unexpected error:', error)
+    return handleEdgeFunctionError(error)
   }
 })
 

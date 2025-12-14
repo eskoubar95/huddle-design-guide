@@ -70,7 +70,7 @@ export function useJerseyLikes(jerseyId: string): UseJerseyLikesResult {
     };
 
     fetchLikesAndSaves();
-  }, [jerseyId, user?.id]);
+  }, [jerseyId, user]);
 
   const handleLike = async () => {
     if (!user) {

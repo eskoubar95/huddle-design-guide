@@ -237,6 +237,6 @@ Target performance metrics:
 ## Related Documentation
 
 - [Implementation Playbook](./metadata-implementation-playbook-2025-01-12.md)
-- [Database Schema Documentation](../database/metadata-schema.md)
-- [API Documentation](../api/metadata-api.md)
+- [Structure Analysis](./metadata-structure-analysis-2025-01-31.md)
+- [Refactoring Analysis](./refactoring-analysis-2025-01-31.md)
 

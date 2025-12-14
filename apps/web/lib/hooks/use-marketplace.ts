@@ -6,24 +6,31 @@ import { useAuctions } from "./use-auctions";
 import { useJerseys } from "./use-jerseys";
 import type { Database } from "@/lib/supabase/types";
 
-type SaleListing = Database["public"]["Tables"]["sale_listings"]["Row"];
-type Auction = Database["public"]["Tables"]["auctions"]["Row"];
+// Removed unused types: SaleListing, Auction
+type _SaleListing = Database["public"]["Tables"]["sale_listings"]["Row"];
+type _Auction = Database["public"]["Tables"]["auctions"]["Row"];
 type Jersey = Database["public"]["Tables"]["jerseys"]["Row"];
 
-interface SaleListingWithJersey extends Jersey {
+interface SaleListingWithJersey extends Omit<Jersey, 'status' | 'vision_confidence' | 'vision_raw'> {
   listing_id: string;
   price: number;
-  currency: string;
-  negotiable: boolean;
+  currency: string | null;
+  negotiable: boolean | null;
+  status?: string | null;
+  vision_confidence?: number | null;
+  vision_raw?: unknown | null;
 }
 
-export interface AuctionWithJersey extends Jersey {
+export interface AuctionWithJersey extends Omit<Jersey, 'status' | 'vision_confidence' | 'vision_raw'> {
   auction_id: string;
   current_bid?: number;
   starting_bid: number;
   buy_now_price?: number;
-  currency: string;
+  currency: string | null;
   ends_at: string;
+  status?: string | null;
+  vision_confidence?: number | null;
+  vision_raw?: unknown | null;
 }
 
 /**
@@ -42,7 +49,9 @@ export function useMarketplaceSales(filters?: {
   });
 
   // Get unique jersey IDs from listings
-  const jerseyIds = useMemo(() => {
+  // Note: jerseyIds is computed but not currently used - kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _jerseyIds = useMemo(() => {
     if (!listingsData?.items) return [];
     return [...new Set(listingsData.items.map((l) => l.jersey_id))];
   }, [listingsData]);
@@ -53,12 +62,12 @@ export function useMarketplaceSales(filters?: {
   });
 
   // Join listings with jerseys
-  const sales = useMemo(() => {
+  const sales = useMemo((): SaleListingWithJersey[] => {
     if (!listingsData?.items || !jerseysData?.items) return [];
 
     const jerseysMap = new Map(jerseysData.items.map((j) => [j.id, j]));
 
-    const joined: SaleListingWithJersey[] = listingsData.items
+    const joined = listingsData.items
       .map((listing) => {
         const jersey = jerseysMap.get(listing.jersey_id);
         if (!jersey) return null;
@@ -69,9 +78,9 @@ export function useMarketplaceSales(filters?: {
           price: listing.price,
           currency: listing.currency,
           negotiable: listing.negotiable,
-        };
+        } as SaleListingWithJersey;
       })
-      .filter((item): item is SaleListingWithJersey => item !== null);
+      .filter((item) => item !== null) as SaleListingWithJersey[];
 
     // Apply filters
     return joined.filter((sale) => {
@@ -121,7 +130,9 @@ export function useMarketplaceAuctions(filters?: {
   });
 
   // Get unique jersey IDs from auctions
-  const jerseyIds = useMemo(() => {
+  // Note: jerseyIds is computed but not currently used - kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _jerseyIds = useMemo(() => {
     if (!auctionsData?.items) return [];
     return [...new Set(auctionsData.items.map((a) => a.jersey_id))];
   }, [auctionsData]);
@@ -132,12 +143,12 @@ export function useMarketplaceAuctions(filters?: {
   });
 
   // Join auctions with jerseys
-  const auctions = useMemo(() => {
+  const auctions = useMemo((): AuctionWithJersey[] => {
     if (!auctionsData?.items || !jerseysData?.items) return [];
 
     const jerseysMap = new Map(jerseysData.items.map((j) => [j.id, j]));
 
-    const joined: AuctionWithJersey[] = auctionsData.items
+    const joined = auctionsData.items
       .map((auction) => {
         const jersey = jerseysMap.get(auction.jersey_id);
         if (!jersey) return null;
@@ -152,8 +163,8 @@ export function useMarketplaceAuctions(filters?: {
           ends_at: auction.ends_at,
         } as AuctionWithJersey;
       })
-      .filter((item): item is AuctionWithJersey => item !== null)
-      .sort((a, b) => new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime()); // Sort by ends_at
+      .filter((item) => item !== null)
+      .sort((a, b) => new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime()) as AuctionWithJersey[]; // Sort by ends_at
 
     // Apply filters
     return joined.filter((auction) => {

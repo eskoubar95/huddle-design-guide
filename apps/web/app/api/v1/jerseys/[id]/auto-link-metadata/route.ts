@@ -7,26 +7,23 @@ import { autoLinkMetadataViaEdgeFunction } from '@/lib/services/metadata-backfil
 import { JerseyService } from '@/lib/services/jersey-service';
 import { requireAuth } from '@/lib/auth';
 
-const handler = async (req: NextRequest, { params }: { params: { id: string } }) => {
+const handler = async (
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) => {
   try {
     if (req.method !== 'POST') {
       return new Response(null, { status: 405 });
     }
 
+    const { id: jerseyId } = await context.params;
+
     // Authenticate user
     const authResult = await requireAuth(req);
-    if (!authResult.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const jerseyId = params.id;
     const jerseyService = new JerseyService();
 
     // Get jersey to check ownership
-    const jersey = await jerseyService.getJersey(jerseyId, authResult.user.id);
+    const jersey = await jerseyService.getJersey(jerseyId, authResult.userId);
 
     // Auto-link metadata via Edge Function (better for database operations)
     try {
@@ -63,7 +60,7 @@ const handler = async (req: NextRequest, { params }: { params: { id: string } })
             seasonId: linkResult.seasonId || undefined,
             playerId: linkResult.playerId || undefined,
           },
-          authResult.user.id
+          authResult.userId
         );
       }
 
@@ -76,11 +73,12 @@ const handler = async (req: NextRequest, { params }: { params: { id: string } })
       });
     }
   } catch (error) {
+    const { id: jerseyId } = await context.params;
     Sentry.captureException(error, {
       extra: {
         url: req.url,
         method: req.method,
-        jerseyId: params.id,
+        jerseyId,
       },
       tags: { component: 'jersey-auto-link-metadata-api' },
     });

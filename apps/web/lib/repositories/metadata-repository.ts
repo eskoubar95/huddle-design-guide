@@ -102,9 +102,19 @@ export class MetadataRepository {
     mean_market_value?: number;
   }): Promise<Competition> {
     const supabase = await createServiceClient();
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any
-    // @ts-ignore - metadata schema not yet in Database type, will be fixed after types regeneration
-    const { data: competition, error } = await (supabase as any)
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // Using unknown instead of any for better type safety
+    const { data: competition, error } = await (supabase as unknown as {
+      schema: (schema: string) => {
+        from: (table: string) => {
+          upsert: (data: unknown, options: { onConflict: string }) => {
+            select: () => {
+              single: () => Promise<{ data: Competition | null; error: unknown }>;
+            };
+          };
+        };
+      };
+    })
       .schema('metadata')
       .from('competitions')
       .upsert(data, { onConflict: 'id' })

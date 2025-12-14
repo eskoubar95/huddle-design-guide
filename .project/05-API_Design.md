@@ -65,7 +65,14 @@
 
 ## 2. Endpoints pr. featureområde
 
-> Nedenfor beskrives de vigtigste endpoints og mønstre. De kan udvides efter behov, men dækker alle core features i PRD’et (wardrobe, marketplace, auktioner, community, messaging).
+> Nedenfor beskrives de vigtigste endpoints og mønstre. De kan udvides efter behov, men dækker alle core features i PRD'et (wardrobe, marketplace, auktioner, community, messaging).
+
+**Vigtige ændringer siden oprindelig plan:**
+- Metadata endpoints tilføjet (`/api/v1/metadata/*`)
+- Jersey image upload endpoints (`/api/v1/jerseys/upload-image`, `/api/v1/jerseys/[id]/reorder-images`)
+- Vision AI integration (`/api/v1/jerseys/[id]/analyze-vision`)
+- Auto-link metadata (`/api/v1/jerseys/[id]/auto-link-metadata`)
+- Metadata search endpoints (`/api/v1/metadata/clubs/search`, `/api/v1/metadata/players/search`, etc.)
 
 ### 2.1 User & Profile
 
@@ -480,7 +487,97 @@
 
 ---
 
-### 2.10 Search
+### 2.10 Metadata Endpoints
+
+#### 2.10.1 GET `/api/v1/metadata/clubs`
+
+- **Purpose:** Liste klubber fra metadata schema.  
+- **Auth:** Valgfri.  
+- **Query:** `q` (søgetekst), `country`, `limit`, `cursor`.  
+- **Response 200:** Liste `Club` objekter fra `metadata.clubs`.
+
+#### 2.10.2 GET `/api/v1/metadata/clubs/search`
+
+- **Purpose:** Søg klubber (fuzzy matching).  
+- **Query:** `q` (påkrævet), `limit`.  
+- **Response 200:** Liste matchende klubber.
+
+#### 2.10.3 GET `/api/v1/metadata/players/search`
+
+- **Purpose:** Søg spillere.  
+- **Query:** `q` (påkrævet), `club_id`, `limit`.  
+- **Response 200:** Liste matchende spillere.
+
+#### 2.10.4 GET `/api/v1/metadata/seasons`
+
+- **Purpose:** Liste sæsoner.  
+- **Query:** `type` ('league', 'cup', 'international'), `limit`.  
+- **Response 200:** Liste `Season` objekter.
+
+#### 2.10.5 GET `/api/v1/metadata/seasons/search`
+
+- **Purpose:** Søg sæsoner.  
+- **Query:** `q` (påkrævet), `limit`.  
+- **Response 200:** Liste matchende sæsoner.
+
+#### 2.10.6 GET `/api/v1/metadata/competitions`
+
+- **Purpose:** Liste turneringer.  
+- **Query:** `country`, `limit`.  
+- **Response 200:** Liste `Competition` objekter.
+
+#### 2.10.7 GET `/api/v1/metadata/players/:id`
+
+- **Purpose:** Hent spiller detaljer.  
+- **Response 200:** `Player` objekt med contracts, stats.
+
+#### 2.10.8 POST `/api/v1/metadata/auto-link`
+
+- **Purpose:** Auto-link jersey til metadata (kalder Edge Function).  
+- **Auth:** Påkrævet.  
+- **Body:** `jerseyId` (UUID).  
+- **Response 200:** Opdateret jersey med metadata links.
+
+#### 2.10.9 POST `/api/v1/metadata/match-jersey`
+
+- **Purpose:** Match jersey metadata mod Transfermarkt (kalder Edge Function).  
+- **Auth:** Påkrævet.  
+- **Body:** `jerseyId` (UUID).  
+- **Response 200:** Match resultater.
+
+---
+
+### 2.11 Jersey Image Management
+
+#### 2.11.1 POST `/api/v1/jerseys/upload-image`
+
+- **Purpose:** Upload billede til jersey (opretter `jersey_images` række).  
+- **Auth:** Påkrævet; kun owner.  
+- **Body:** `jerseyId` (UUID), `file` (multipart/form-data), `viewType` (valgfri).  
+- **Response 201:** `JerseyImage` objekt med `id`, `image_url`, `storage_path`.
+
+#### 2.11.2 POST `/api/v1/jerseys/[id]/reorder-images`
+
+- **Purpose:** Reorder jersey billeder (opdaterer `sort_order`).  
+- **Auth:** Påkrævet; kun owner.  
+- **Body:** `imageIds` (UUID[] i ønsket rækkefølge).  
+- **Response 200:** Opdateret liste.
+
+#### 2.11.3 POST `/api/v1/jerseys/[id]/analyze-vision`
+
+- **Purpose:** Kald Vision AI for jersey analyse (kalder Edge Function).  
+- **Auth:** Påkrævet; kun owner.  
+- **Response 200:** Vision resultater (`vision_raw`, `vision_confidence`).
+
+#### 2.11.4 POST `/api/v1/jerseys/[id]/auto-link-metadata`
+
+- **Purpose:** Auto-link jersey metadata baseret på Vision AI eller manuel input.  
+- **Auth:** Påkrævet; kun owner.  
+- **Response 200:** Opdateret jersey med metadata links.
+
+---
+
+### 2.12 Search
 
 #### 2.10.1 GET `/api/v1/search`
 

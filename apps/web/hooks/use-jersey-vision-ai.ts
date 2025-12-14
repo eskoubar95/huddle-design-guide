@@ -279,7 +279,7 @@ export function useJerseyVisionAI(): UseJerseyVisionAIReturn {
           if (results.jerseyType) {
             const mappedJerseyType = mapKitTypeToJerseyType(results.jerseyType);
             if (mappedJerseyType) {
-              formSetValue("jerseyType", mappedJerseyType as any);
+              formSetValue("jerseyType", mappedJerseyType as Omit<JerseyCreateInput, "images">["jerseyType"]);
             }
           }
 
@@ -289,15 +289,46 @@ export function useJerseyVisionAI(): UseJerseyVisionAIReturn {
           }
         } else {
           // AI failed - continue with manual input
-          const errorText = await response.text().catch(() => "Unknown error");
+          // Try to parse as JSON first (new standardized format), fallback to text
+          let errorMessage = "AI analysis failed. Please fill in the information manually.";
+          try {
+            const errorData = await response.json();
+            console.log("[Vision AI] Error response data:", errorData);
+            
+            if (errorData.error) {
+              if (typeof errorData.error === "string") {
+                errorMessage = errorData.error;
+              } else if (errorData.error.message) {
+                errorMessage = errorData.error.message;
+                if (errorData.error.details) {
+                  errorMessage += `: ${errorData.error.details}`;
+                }
+              } else if (typeof errorData.error === "object") {
+                // Handle case where error is an object but has no message
+                errorMessage = JSON.stringify(errorData.error);
+              }
+            } else if (errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } catch (parseError) {
+            // Fallback to text if not JSON
+            try {
+              const errorText = await response.text();
+              errorMessage = errorText || errorMessage;
+            } catch (textError) {
+              // If both JSON and text parsing fail, use default message
+              console.warn("[Vision AI] Failed to parse error response:", parseError, textError);
+            }
+          }
+          
           console.error("[Vision AI] Analysis failed:", {
             status: response.status,
             statusText: response.statusText,
-            error: errorText,
+            error: errorMessage,
           });
           toast({
             title: "AI Analysis Unavailable",
-            description: "Please fill in the information manually",
+            description: errorMessage,
             variant: "default",
           });
         }

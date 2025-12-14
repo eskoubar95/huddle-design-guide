@@ -19,7 +19,8 @@ interface MissingDataStepProps {
   };
 }
 
-const FIELD_LABELS: Record<string, string> = {
+// Removed unused: FIELD_LABELS
+const _FIELD_LABELS: Record<string, string> = {
   club: 'Klub',
   season: 'Sæson',
   player: 'Spiller',
@@ -36,9 +37,10 @@ export const MissingDataStep = ({
   suggestions,
 }: MissingDataStepProps) => {
   const form = useFormContext();
-  const club = form.watch("club");
-  const season = form.watch("season");
-  const playerName = form.watch("playerName");
+  // Removed unused: club, season, playerName
+  // const club = form.watch("club");
+  // const season = form.watch("season");
+  // const playerName = form.watch("playerName");
 
   const isClubMissing = missingFields.includes('club');
   const isSeasonMissing = missingFields.includes('season');
@@ -50,7 +52,7 @@ export const MissingDataStep = ({
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Manglende information</AlertTitle>
         <AlertDescription>
-          AI'en kunne ikke finde alle nødvendige oplysninger automatisk. Udfyld venligst de manglende felter nedenfor.
+          AI&apos;en kunne ikke finde alle nødvendige oplysninger automatisk. Udfyld venligst de manglende felter nedenfor.
         </AlertDescription>
       </Alert>
 

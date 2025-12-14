@@ -290,7 +290,7 @@ export const PlayerPrintStep = ({ clubId, seasonId, playerId, onPlayerIdChange, 
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground px-1">
-                    We're fetching player data from Transfermarkt. This may take a few seconds.
+                    We&apos;re fetching player data from Transfermarkt. This may take a few seconds.
                   </p>
                   <Button
                     type="button"

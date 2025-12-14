@@ -30,7 +30,7 @@ if (!dsn) {
     environment: process.env.NODE_ENV || "development",
 
     // Never send PII (per 24-observability_sentry.mdc)
-    beforeSend(event, hint) {
+    beforeSend(event) {
       // Remove any potential PII from event
       if (event.user) {
         // Only include userId, not email or other PII

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Button } from "@/components/ui/button";
@@ -249,7 +249,7 @@ const Chat = () => {
     };
 
     loadChat();
-  }, [conversationId, user]);
+  }, [conversationId, user, fetchConversation, fetchMessages]);
 
   // Subscribe to real-time messages
   useEffect(() => {

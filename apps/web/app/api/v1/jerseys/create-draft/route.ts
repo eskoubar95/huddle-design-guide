@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       .from("jerseys")
       .insert({
         owner_id: userId,
-        status: "draft",
+        status: "draft", // Set to draft so Edge Function can accept image uploads
         club: "",
         season: "",
         jersey_type: "Home", // Default value, will be updated later
@@ -27,9 +27,11 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
+    // Type assertion needed because Supabase types may not match exactly
+    const jerseyData = jersey as { id: string };
+
     return successResponse({ 
-      jerseyId: jersey.id,
-      status: jersey.status 
+      jerseyId: jerseyData.id
     });
   } catch (error) {
     return handleApiError(error, req);

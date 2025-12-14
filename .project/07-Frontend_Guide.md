@@ -235,25 +235,46 @@ Implementere UI til de flows, der skaber værdi:
 
 - `WardrobePage` (page)  
 - `JerseyGrid`, `JerseyCard`  
-- `UploadJerseyModal/Form`
+- `UploadJersey` (multi-step form)  
+- `JerseyImageGallery` (viser `jersey_images`)
 
 **Opgaver:**
 
 - Sørg for at `WardrobePage`:
   - Viser brugerens egne jerseys i grid.  
-  - Har tydelig CTA “Upload jersey”.  
-- `UploadJerseyForm`:
-  - Felter matcher `JerseyCreate` schema (club, season, type, player, badges, condition, notes, visibility, images).  
-  - Brug shadcn‑formularer + React Hook Form + Zod til validering (på sigt).
+  - Har tydelig CTA "Upload jersey".  
+- `UploadJersey` (multi-step):
+  - **Step 1:** Image upload (1–5 billeder) → `POST /api/v1/jerseys/upload-image`  
+  - **Step 2:** Vision AI analyse (valgfri) → `POST /api/v1/jerseys/[id]/analyze-vision`  
+  - **Step 3:** Metadata input med smart autofill fra Vision AI eller metadata search  
+  - **Step 4:** Metadata matching → `POST /api/v1/jerseys/[id]/auto-link-metadata`  
+  - **Step 5:** Condition, notes, visibility, status  
+  - Felter matcher `JerseyCreate` schema (club, season, type, player, badges, condition, notes, visibility).  
+  - Brug shadcn‑formularer + React Hook Form + Zod til validering.
+
+**Metadata Integration:**
+
+- **Metadata Search:**  
+  - `MetadataCombobox` komponent til søgning af clubs/players/seasons
+  - Kalder `/api/v1/metadata/clubs/search`, `/api/v1/metadata/players/search`, etc.
+  - Auto-fill fra Vision AI resultater
+
+- **Vision AI Results:**  
+  - `AIVisionResults` komponent viser ekstraherede metadata
+  - Confidence score vises
+  - Bruger kan acceptere/redigere resultater
 
 **API-integration:**
 
-- Læs: `GET /api/v1/users/:id/wardrobe` (eller direkte Supabase-equivalent i nuværende setup).  
-- Skriv: `POST /api/v1/jerseys` ved submit i upload‑form.
+- Læs: `GET /api/v1/users/:id/wardrobe` (inkluderer `jersey_images`).  
+- Skriv: `POST /api/v1/jerseys` ved submit i upload‑form.  
+- Images: `POST /api/v1/jerseys/upload-image`, `POST /api/v1/jerseys/[id]/reorder-images`
 
 **Testing:**
 
 - Kan uploade jersey → den dukker op i grid uden manuel reload.  
+- Vision AI ekstraherer metadata korrekt.  
+- Metadata matching fungerer for kendte klubber/spillere.  
 - Valideringsfejl vises pænt (fx missing club/season, ingen billeder).
 
 #### 4.3.2 Marketplace UI
@@ -511,6 +532,13 @@ Denne frontend‑guide binder produktbrief, PRD, tech stack, database og API‑d
 - Performance optimizations (Server Components hvor muligt)
 - Image optimization (Next.js Image component)
 - Testing og quality improvements
+
+**Implementerede Features:**
+- ✅ Metadata matching UI (`MetadataCombobox`, `MetadataMatchingSection`)
+- ✅ Vision AI integration (`AIVisionResults`, `JerseyAnalysisLoading`)
+- ✅ Jersey image upload og reordering (`JerseyImageGallery`, `EditImageUpload`)
+- ✅ Multi-step upload flow (`UploadJersey` med steps)
+- ✅ Metadata search endpoints integration
 
 Hvis du arbejder fasevist (layout → auth → core features → advanced features → tests), vil du relativt hurtigt have en frontend, der matcher Huddles ambition: et moderne, mørkt, sportsligt univers for fodboldtrøje‑samlere, som føles både intuitivt og professionelt.
 

@@ -42,7 +42,8 @@ const handler = async (req: NextRequest) => {
         // Log validation errors for debugging with full details
         console.error("[JERSEYS API] Query validation error:", error);
         if (error instanceof Error && 'issues' in error) {
-          console.error("[JERSEYS API] Validation issues:", (error as any).issues);
+          const zodError = error as { issues?: unknown[] };
+          console.error("[JERSEYS API] Validation issues:", zodError.issues);
         }
         throw new ApiError(
           "VALIDATION_ERROR", 

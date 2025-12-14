@@ -40,6 +40,8 @@ export const TopNav = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Prevent hydration mismatch by only rendering DropdownMenus after mount
+  // This pattern is required for SSR hydration safety in Next.js
+  // The setState in effect is intentional and necessary for proper hydration
   useEffect(() => {
     setMounted(true);
   }, []);

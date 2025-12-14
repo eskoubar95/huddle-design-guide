@@ -2,12 +2,27 @@
 
 # Test script for analyze-jersey-vision Edge Function
 # Usage: ./test-analyze-jersey-vision.sh
+#
+# Required environment variables:
+#   - SUPABASE_URL: Your Supabase project URL
+#   - SUPABASE_ANON_KEY: Your Supabase anonymous key (public, but should not be committed)
 
 set -e
 
-# Configuration
-SUPABASE_URL="https://trbyclravrmmhxplocsr.supabase.co"
-ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyYnljbHJhdnJtbWh4cGxvY3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwODI1NjIsImV4cCI6MjA3OTY1ODU2Mn0.W5nQsk-E5EBxJl_TqRIxH6zKdyv8eDJp0SbgP3eAEzY"
+# Configuration - use environment variables
+SUPABASE_URL="${SUPABASE_URL:-https://trbyclravrmmhxplocsr.supabase.co}"
+ANON_KEY="${SUPABASE_ANON_KEY}"
+
+if [ -z "$ANON_KEY" ]; then
+  echo "❌ Error: SUPABASE_ANON_KEY environment variable is not set"
+  echo ""
+  echo "Please set it in your environment or .env.local:"
+  echo "  export SUPABASE_ANON_KEY='your-anon-key-here'"
+  echo ""
+  echo "Or add to .env.local:"
+  echo "  SUPABASE_ANON_KEY=your-anon-key-here"
+  exit 1
+fi
 
 # Test data
 JERSEY_ID="96bf8365-ec0d-4a21-88c5-cb4cd4c54836"

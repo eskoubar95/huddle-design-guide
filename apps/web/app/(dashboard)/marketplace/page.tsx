@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useMarketplaceSales, useMarketplaceAuctions, type AuctionWithJersey } from "@/lib/hooks/use-marketplace";
-import { useToast } from "@/hooks/use-toast";
+// Removed unused import: useToast
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {
@@ -33,28 +33,13 @@ interface Jersey {
   images: string[];
 }
 
-interface SaleListing extends Jersey {
-  listing_id: string;
-  price: number;
-  currency: string;
-  negotiable: boolean;
-}
-
-interface Auction extends Jersey {
-  auction_id: string;
-  current_bid?: number;
-  starting_bid: number;
-  buy_now_price?: number;
-  currency: string;
-  ends_at: string;
-}
-
+// Removed unused interfaces: SaleListing, Auction
 
 const ITEMS_PER_PAGE = 20;
 
 const Marketplace = () => {
   const router = useRouter();
-  const { toast } = useToast();
+  // Removed unused: toast
   const [activeTab, setActiveTab] = useState<"sales" | "auctions">("sales");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAuction, setSelectedAuction] = useState<AuctionWithJersey | null>(null);

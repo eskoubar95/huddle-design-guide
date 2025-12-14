@@ -1,10 +1,10 @@
 ---
-title: Next.js 15 + React 19 Frontend
-description: Next.js 15 + React 19 — regler og best practices for Huddle frontend (App Router + API Routes)
+title: Next.js 16 + React 18 Frontend
+description: Next.js 16 + React 18.3.1 — regler og best practices for Huddle frontend (App Router + API Routes)
 owner: web@huddle
 severity: warn
 globs: "apps/web/app/**, apps/web/components/**, apps/web/lib/**"
-last_review: 2025-11-25
+last_review: 2025-01-15
 next_review: 2026-01-01
 ---
 
@@ -56,13 +56,13 @@ export default async function Page() {
 - Dark theme by default (Sorare-inspired sports aesthetic).
 
 ## Performance
-- Prefer streamed SSR; lazy/split large components with `Suspense`; keep client bundle slim; use React 19 compiler defaults.
+- Prefer streamed SSR; lazy/split large components with `Suspense`; keep client bundle slim.
 - Use TanStack Query (React Query) for client-side data management and caching.
 
 ## Integrations
 - Supabase: server-side via `lib/supabase-server.ts` with service role; client-side via `@supabase/supabase-js` with anon key for RLS.
 - Clerk: use `@clerk/nextjs` for frontend auth, `@clerk/backend` for API route verification.
-- MedusaJS: call via `lib/services/medusa.ts` when integrated (Phase 4+).
+- MedusaJS: customer sync implemented via `lib/services/medusa-customer-service.ts` (uses database functions, not Medusa API). Full e-commerce integration pending.
 - Stripe: server-side only via API routes.
 - Sentry: root error boundary without PII.
 

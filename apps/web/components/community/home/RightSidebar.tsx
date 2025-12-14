@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation";
 import { 
   Clock, 
   TrendingUp, 
-  MapPin, 
   Activity, 
   Flame,
   Heart,
   Gavel,
-  Users,
   ChevronRight,
   Newspaper
 } from "lucide-react";

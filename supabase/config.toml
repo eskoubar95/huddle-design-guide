@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.generate-webp-image]
 verify_jwt = false
+
+[functions.generate-image-variants]
+verify_jwt = false
+
+[functions.backfill-image-variants]
+verify_jwt = false

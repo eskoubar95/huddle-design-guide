@@ -22,8 +22,7 @@ interface UploadJerseyFooterProps {
 
 export function UploadJerseyFooter({
   step,
-  totalSteps,
-  aiSkippedSteps,
+  // Removed unused: totalSteps, aiSkippedSteps
   canProceed,
   isSubmitting,
   isAnalyzing,

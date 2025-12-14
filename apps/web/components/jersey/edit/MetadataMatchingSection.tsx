@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/select";
 import { MetadataCombobox } from "@/components/jersey/MetadataCombobox";
 import { useMetadataMatching } from "@/hooks/use-metadata-matching";
-import { UseFormWatch } from "react-hook-form";
-import type { JerseyUpdateInput } from "@/lib/validation/jersey-schemas";
+// Removed unused imports: UseFormWatch, JerseyUpdateInput
 
 interface MetadataMatchingSectionProps {
   clubId: string;
@@ -57,9 +56,8 @@ export function MetadataMatchingSection({
   club,
   season,
   playerNumber,
-  playerName,
+  // Removed unused: playerName, selectedSeasonData
   allSeasons,
-  selectedSeasonData,
   selectedPlayerData,
   matchingQuery,
   uniquePlayerResults,

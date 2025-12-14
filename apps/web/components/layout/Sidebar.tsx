@@ -16,6 +16,8 @@ export const Sidebar = () => {
   const [mounted, setMounted] = useState(false);
 
   // Prevent hydration mismatch by only rendering user-dependent content after mount
+  // This pattern is required for SSR hydration safety in Next.js
+  // The setState in effect is intentional and necessary for proper hydration
   useEffect(() => {
     setMounted(true);
   }, []);

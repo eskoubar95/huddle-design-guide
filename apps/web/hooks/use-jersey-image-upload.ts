@@ -7,6 +7,9 @@ export interface ImageFile {
   id: string;
   file: File;
   preview: string;
+  status?: 'pending' | 'uploading' | 'ready' | 'error';
+  error?: string;
+  uploadedUrl?: string;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -203,17 +206,56 @@ export function useJerseyImageUpload(): UseJerseyImageUploadReturn {
 
       if (imagesToProcess.length === 0) return [];
 
+      // Set all images to 'pending' status initially
+      setImages((prev) =>
+        prev.map((img) =>
+          imagesToProcess.some((p) => p.id === img.id)
+            ? { ...img, status: 'pending' as const }
+            : img
+        )
+      );
+
       try {
         const urls: string[] = [];
         // Upload images in order, using their index as sort_order
         // First image (index 0) = cover, subsequent images = 1, 2, 3...
         for (let i = 0; i < imagesToProcess.length; i++) {
           const image = imagesToProcess[i];
-          // Find the actual index in the full images array to preserve user's ordering
-          const actualIndex = images.findIndex((img) => img.id === image.id);
-          const sortOrder = actualIndex >= 0 ? actualIndex : i;
-          const url = await uploadSingleImage(image, draftJerseyId, userId, token, sortOrder);
-          urls.push(url);
+          
+          // Set status to 'uploading'
+          setImages((prev) =>
+            prev.map((img) =>
+              img.id === image.id ? { ...img, status: 'uploading' as const } : img
+            )
+          );
+
+          try {
+            // Find the actual index in the full images array to preserve user's ordering
+            const actualIndex = images.findIndex((img) => img.id === image.id);
+            const sortOrder = actualIndex >= 0 ? actualIndex : i;
+            const url = await uploadSingleImage(image, draftJerseyId, userId, token, sortOrder);
+            urls.push(url);
+
+            // Set status to 'ready' with uploaded URL
+            setImages((prev) =>
+              prev.map((img) =>
+                img.id === image.id
+                  ? { ...img, status: 'ready' as const, uploadedUrl: url }
+                  : img
+              )
+            );
+          } catch (error) {
+            // Set status to 'error'
+            const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+            setImages((prev) =>
+              prev.map((img) =>
+                img.id === image.id
+                  ? { ...img, status: 'error' as const, error: errorMessage }
+                  : img
+              )
+            );
+            throw error;
+          }
         }
         setUploadedImageUrls((prev) => [...prev, ...urls]);
         return urls;

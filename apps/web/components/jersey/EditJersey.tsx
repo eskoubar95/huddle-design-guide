@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from "react";
-import { GripVertical, Trash2, Upload } from "lucide-react";
+import { GripVertical, Trash2, Upload, Loader2 } from "lucide-react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { useUpdateJersey } from "@/lib/hooks/use-jerseys";
+import { useQuery } from "@tanstack/react-query";
 import { jerseyUpdateSchema, type JerseyUpdateInput } from "@/lib/validation/jersey-schemas";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { Controller } from "react-hook-form";
@@ -331,7 +332,23 @@ export const EditJersey = ({ jersey, isOpen, onClose, onSuccess }: EditJerseyPro
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-            throw new Error(`Failed to upload ${image.file.name}: ${errorData.error || response.statusText}`);
+            
+            // Handle both legacy format ({ error: "string" }) and new format ({ error: { message: "...", code: "..." } })
+            let errorMessage = `Failed to upload ${image.file.name}`;
+            if (errorData.error) {
+              if (typeof errorData.error === "string") {
+                errorMessage = `${errorMessage}: ${errorData.error}`;
+              } else if (errorData.error.message) {
+                errorMessage = `${errorMessage}: ${errorData.error.message}`;
+                if (errorData.error.details) {
+                  errorMessage += ` (${errorData.error.details})`;
+                }
+              }
+            } else {
+              errorMessage = `${errorMessage}: ${response.statusText}`;
+            }
+            
+            throw new Error(errorMessage);
           }
 
           const data = await response.json();

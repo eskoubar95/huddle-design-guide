@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useUser, useAuth } from "@clerk/nextjs";
 
 interface ProtectedRouteProps {
@@ -11,29 +11,36 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isCheckingToken, setIsCheckingToken] = useState(true);
 
   // Track mounted state to prevent hydration mismatch
+  // This pattern is required for SSR hydration safety in Next.js
+  // The setState in effect is intentional and necessary for proper hydration
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Check if user is authenticated and token is valid
   useEffect(() => {
+    let isCancelled = false;
+
     const checkAuth = async () => {
       if (!isLoaded) {
-        setIsCheckingToken(true);
+        if (!isCancelled) {
+          setIsCheckingToken(true);
+        }
         return;
       }
 
       if (!user) {
         // No user - redirect to auth
-        const authUrl = new URL("/auth", window.location.origin);
-        authUrl.searchParams.set("redirect_url", pathname || "/");
-        window.location.href = authUrl.toString();
+        if (!isCancelled) {
+          const authUrl = new URL("/auth", window.location.origin);
+          authUrl.searchParams.set("redirect_url", pathname || "/");
+          window.location.href = authUrl.toString();
+        }
         return;
       }
 
@@ -41,6 +48,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       // Use skipCache to ensure we get a fresh token check
       try {
         const token = await getToken({ skipCache: true });
+        if (isCancelled) return;
+
         if (!token) {
           // No token - redirect to auth
           const authUrl = new URL("/auth", window.location.origin);
@@ -52,6 +61,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       } catch (error) {
         // Token error - redirect to auth
         // Only log in development to avoid console spam
+        if (isCancelled) return;
+
         if (process.env.NODE_ENV === "development") {
           console.error("[ProtectedRoute] Token check failed:", error);
         }
@@ -62,6 +73,11 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     };
 
     checkAuth();
+
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isCancelled = true;
+    };
   }, [user, isLoaded, getToken, pathname]);
 
   // During SSR and initial hydration, render children to match server output

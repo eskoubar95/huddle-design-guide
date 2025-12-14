@@ -136,7 +136,6 @@ export class MetadataAutoLinkService {
     // Common name mappings (Danish -> English)
     const nameMappings: Record<string, string> = {
       'fc københavn': 'fc copenhagen',
-      'fc københavn': 'fc copenhagen',
       'københavn': 'copenhagen',
       'brøndby': 'brondby',
       'brøndby if': 'brondby if',

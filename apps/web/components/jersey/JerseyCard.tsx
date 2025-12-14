@@ -3,6 +3,7 @@
 import { Heart, Bookmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
 
 interface JerseyCardProps {
   id: string;
@@ -64,7 +65,7 @@ export const JerseyCard = ({
       {/* Jersey Image */}
       <div className="relative aspect-[3/4] overflow-hidden bg-gradient-card">
         {image ? (
-          <img
+          <JerseyImageWithLoading
             src={image}
             alt={`${club} ${season} ${type}`}
             className="w-full h-full object-cover transition-smooth group-hover:scale-105"
@@ -74,9 +75,9 @@ export const JerseyCard = ({
             <span className="text-muted-foreground text-sm">No image</span>
           </div>
         )}
-        
+
         {/* Top actions */}
-        <div className="absolute top-2 right-2 flex gap-2">
+        <div className="absolute top-2 right-2 flex gap-2 z-20">
           <button
             className={cn(
               "p-1.5 rounded-full backdrop-blur-sm transition-smooth",
@@ -110,7 +111,7 @@ export const JerseyCard = ({
         </div>
 
         {/* Condition badge */}
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-2 left-2 z-20">
           <div className="px-2 py-1 rounded-md backdrop-blur-sm bg-background/60 border border-border/50">
             <span className="text-xs font-bold text-success">{condition}/10</span>
           </div>
@@ -118,7 +119,7 @@ export const JerseyCard = ({
 
         {/* For Sale badge */}
         {forSale && price && (
-          <div className="absolute bottom-2 left-2 right-2">
+          <div className="absolute bottom-2 left-2 right-2 z-20">
             <div className="px-3 py-1.5 rounded-lg backdrop-blur-md bg-accent/90 border border-accent-glow/50">
               <p className="text-sm font-bold text-accent-foreground text-center">{price}</p>
             </div>

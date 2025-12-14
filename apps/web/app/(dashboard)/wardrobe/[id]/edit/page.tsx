@@ -3,18 +3,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Sparkles, CheckCircle2, Info, X } from "lucide-react";
+// Removed unused imports: ArrowLeft, Loader2, Sparkles, CheckCircle2, Info, X
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Badge as BadgeUI } from "@/components/ui/badge";
+// Removed unused import: BadgeUI
 import { useToast } from "@/hooks/use-toast";
 import { useJersey, useUpdateJersey } from "@/lib/hooks/use-jerseys";
 import { jerseyUpdateSchema, type JerseyUpdateInput } from "@/lib/validation/jersey-schemas";
+// Removed unused import: JerseyDTO
 import { useUser, useAuth } from "@clerk/nextjs";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { EditImageUpload } from "@/components/jersey/EditImageUpload";
-import { Controller } from "react-hook-form";
+// Removed unused import: Controller
 import { useMetadataMatching } from "@/hooks/use-metadata-matching";
 import { useQuery } from "@tanstack/react-query";
 import { JerseyInfoSection } from "@/components/jersey/edit/JerseyInfoSection";
@@ -77,7 +78,6 @@ const EditJerseyPage = () => {
   const {
     data: jersey,
     isLoading: jerseyLoading,
-    error: jerseyError,
   } = useJersey(jerseyId);
 
   // React Hook Form setup
@@ -112,17 +112,17 @@ const EditJerseyPage = () => {
         notes: jersey.notes || undefined,
         visibility: jersey.visibility as "public" | "private",
         // Initialize metadata FK's if they exist
-        clubId: (jersey as any).club_id || undefined,
-        playerId: (jersey as any).player_id || undefined,
-        seasonId: (jersey as any).season_id || undefined,
+        clubId: jersey.club_id || undefined,
+        playerId: jersey.player_id || undefined,
+        seasonId: jersey.season_id || undefined,
       };
       
       form.reset(formData, { keepDefaultValues: false });
 
       // Initialize metadata FK state (convert null/undefined to empty string for consistency)
-      setClubId((jersey as any).club_id || '');
-      setPlayerId((jersey as any).player_id || '');
-      const initialSeasonId = (jersey as any).season_id || '';
+      setClubId(jersey.club_id || '');
+      setPlayerId(jersey.player_id || '');
+      const initialSeasonId = jersey.season_id || '';
       setSeasonId(initialSeasonId);
       // seasonLabel will be set by the query below
 
@@ -160,7 +160,6 @@ const EditJerseyPage = () => {
   const playerName = form.watch('playerName');
   const seasonText = form.watch('season');
   const club = form.watch('club');
-  const season = form.watch('season');
 
   // Fetch seasons for dropdown
   const { data: seasonsData } = useQuery<{ seasons: Array<{ id: string; label: string; start_year: number; end_year: number }> }>({
@@ -250,7 +249,7 @@ const EditJerseyPage = () => {
       .sort((a, b) => b.confidenceScore - a.confidenceScore);
     
     return results;
-  }, [matchingQuery.data, playerId]);
+  }, [matchingQuery, playerId]);
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = useCallback(() => {
@@ -269,10 +268,10 @@ const EditJerseyPage = () => {
     const currentFormData = form.getValues();
     
     // Normalize form data for comparison (handle undefined vs null, arrays, etc.)
-    const normalizeFormData = (data: any) => {
-      const normalized: any = {};
+    const normalizeFormData = (data: JerseyUpdateInput): string => {
+      const normalized: Record<string, unknown> = {};
       Object.keys(data).forEach(key => {
-        const value = data[key];
+        const value = (data as Record<string, unknown>)[key];
         // Convert null to undefined for consistent comparison
         if (value === null) {
           normalized[key] = undefined;
@@ -300,10 +299,12 @@ const EditJerseyPage = () => {
       currentUrls.some((url, idx) => url !== originalUrls[idx]);
     
     return formChanged || imagesChanged;
-  }, [originalData, jersey, images, form.formState.isDirty, form]);
+  }, [originalData, jersey, images, form]);
 
   // Handle navigation with unsaved changes check
-  const handleNavigation = useCallback((navigateFn: () => void) => {
+  // Note: handleNavigation is defined but not currently used - kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleNavigation = useCallback((navigateFn: () => void) => {
     if (hasUnsavedChanges()) {
       setPendingNavigation(() => navigateFn);
       setShowUnsavedDialog(true);
@@ -366,9 +367,6 @@ const EditJerseyPage = () => {
       updateUnsavedChanges();
     });
 
-    // Also update when images change
-    const interval = setInterval(updateUnsavedChanges, 300);
-
     window.addEventListener('checkUnsavedChanges', handleCheckUnsavedChanges);
     window.addEventListener('saveJersey', handleSave);
     
@@ -376,7 +374,6 @@ const EditJerseyPage = () => {
       window.removeEventListener('checkUnsavedChanges', handleCheckUnsavedChanges);
       window.removeEventListener('saveJersey', handleSave);
       subscription.unsubscribe();
-      clearInterval(interval);
     };
   }, [hasUnsavedChanges, form]);
 
@@ -437,6 +434,16 @@ const EditJerseyPage = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    // Update unsaved changes state when images change
+    setTimeout(() => {
+      const updateUnsavedChanges = () => {
+        const hasChanges = hasUnsavedChanges();
+        window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
+          detail: { hasChanges }
+        }));
+      };
+      updateUnsavedChanges();
+    }, 0);
   };
 
   const removeImage = (id: string) => {
@@ -445,6 +452,16 @@ const EditJerseyPage = () => {
       URL.revokeObjectURL(image.preview);
     }
     setImages(images.filter((img) => img.id !== id));
+    // Update unsaved changes state when images change
+    setTimeout(() => {
+      const updateUnsavedChanges = () => {
+        const hasChanges = hasUnsavedChanges();
+        window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
+          detail: { hasChanges }
+        }));
+      };
+      updateUnsavedChanges();
+    }, 0);
   };
 
   const handleDragStart = (index: number) => {
@@ -461,6 +478,16 @@ const EditJerseyPage = () => {
     newImages.splice(index, 0, draggedImage);
     setImages(newImages);
     setDraggedIndex(index);
+    // Update unsaved changes state when images change
+    setTimeout(() => {
+      const updateUnsavedChanges = () => {
+        const hasChanges = hasUnsavedChanges();
+        window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
+          detail: { hasChanges }
+        }));
+      };
+      updateUnsavedChanges();
+    }, 0);
   };
 
   const handleDragEnd = async () => {
@@ -509,7 +536,7 @@ const EditJerseyPage = () => {
 
   // Auto-link handler
   const handleAutoLink = async () => {
-    if (!jersey || !club || !season) {
+    if (!jersey || !club || !seasonText) {
       toast({
         title: "Missing information",
         description: "Please ensure club and season are filled in before auto-linking.",
@@ -601,18 +628,18 @@ const EditJerseyPage = () => {
     setUploadProgress(0);
 
     try {
+      // Get auth token from Clerk once at the start
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Failed to get authentication token");
+      }
+
       // Upload new images to storage
       const imageUrls: string[] = [];
       const newImagesToUpload = images.filter((img) => img.isNew && img.file);
       const totalImages = newImagesToUpload.length;
 
       if (newImagesToUpload.length > 0) {
-        // Get auth token from Clerk
-        const token = await getToken();
-        if (!token) {
-          throw new Error("Failed to get authentication token");
-        }
-
         for (let i = 0; i < newImagesToUpload.length; i++) {
           const image = newImagesToUpload[i];
           if (!image.file) continue;
@@ -632,7 +659,23 @@ const EditJerseyPage = () => {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-            throw new Error(`Failed to upload ${image.file.name}: ${errorData.error || response.statusText}`);
+            
+            // Handle both legacy format ({ error: "string" }) and new format ({ error: { message: "...", code: "..." } })
+            let errorMessage = `Failed to upload ${image.file.name}`;
+            if (errorData.error) {
+              if (typeof errorData.error === "string") {
+                errorMessage = `${errorMessage}: ${errorData.error}`;
+              } else if (errorData.error.message) {
+                errorMessage = `${errorMessage}: ${errorData.error.message}`;
+                if (errorData.error.details) {
+                  errorMessage += ` (${errorData.error.details})`;
+                }
+              }
+            } else {
+              errorMessage = `${errorMessage}: ${response.statusText}`;
+            }
+            
+            throw new Error(errorMessage);
           }
 
           const responseData = await response.json();
@@ -646,7 +689,6 @@ const EditJerseyPage = () => {
       const allImageUrls = [...existingUrls, ...imageUrls];
 
       // Update sort_order for all images based on final order
-      const token = await getToken();
       if (token && allImageUrls.length > 0) {
         try {
           const response = await fetch(`/api/v1/jerseys/${jerseyId}/reorder-images`, {
@@ -841,7 +883,7 @@ const EditJerseyPage = () => {
                     isAutoLinking={isAutoLinking}
                     autoLinkSuccess={autoLinkSuccess}
                     club={club || ''}
-                    season={season || ''}
+                    season={seasonText || ''}
                     playerNumber={playerNumber}
                     playerName={playerName}
                     allSeasons={allSeasons}
@@ -869,6 +911,7 @@ const EditJerseyPage = () => {
                     onPlayerChange={setPlayerId}
                     onClearSeason={() => {
                       setSeasonId('');
+                      setSeasonLabel('');
                       setPlayerId('');
                     }}
                     onClearPlayer={() => setPlayerId('')}

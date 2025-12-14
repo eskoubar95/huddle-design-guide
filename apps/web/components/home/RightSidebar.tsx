@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { 
   Clock, 
   TrendingUp, 
-  MapPin, 
+  // Removed unused: MapPin 
   Activity, 
   Flame,
   Heart,
   Gavel,
-  Users,
-  ChevronRight,
+  // Removed unused: Users
+  // Removed unused: ChevronRight
   Newspaper
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";

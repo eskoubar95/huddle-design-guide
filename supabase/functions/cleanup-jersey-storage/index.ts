@@ -1,10 +1,7 @@
 // @ts-nocheck - Deno runtime (TypeScript doesn't understand Deno types)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { Errors, corsHeaders, handleEdgeFunctionError } from '../_shared/utils/errors.ts'
+import { retryWithBackoff } from '../_shared/utils/retry.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -15,10 +12,7 @@ Deno.serve(async (req) => {
     const { jerseyId } = await req.json() as { jerseyId: string }
 
     if (!jerseyId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing jerseyId' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return Errors.MISSING_FIELDS(['jerseyId']).toResponse()
     }
 
     const supabase = createClient(
@@ -26,28 +20,45 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // List all files in jersey folder
-    const { data: files, error: listError } = await supabase.storage
+    // List all files in jersey folder (includes original + all variants)
+    const { data: files, error: listError } = await retryWithBackoff(
+      async () => {
+        const { data, error } = await supabase.storage
       .from('jersey_images')
       .list(jerseyId)
 
-    if (listError) {
-      console.error('List error:', listError)
+        if (error && !error.message?.includes('not found')) {
+          throw error
+        }
+        return { data, error }
+      },
+      { maxRetries: 3, initialDelay: 1000 }
+    )
+
+    if (listError && !listError.message?.includes('not found')) {
+      console.error('[CLEANUP] List error:', listError)
       // Continue anyway - folder might not exist
     }
 
     if (files && files.length > 0) {
-      // Delete all files in folder
+      // Delete all files in folder (original + variants: -vision.jpg, -gallery.webp, -card.webp)
       const filePaths = files.map(file => `${jerseyId}/${file.name}`)
       
+      console.log(`[CLEANUP] Deleting ${filePaths.length} files for jersey ${jerseyId}`)
+      
+      await retryWithBackoff(
+        async () => {
       const { error: deleteError } = await supabase.storage
         .from('jersey_images')
         .remove(filePaths)
 
       if (deleteError) {
-        console.error('Delete error:', deleteError)
         // Log but don't fail - files might already be deleted
+            console.warn('[CLEANUP] Some files may not have been deleted:', deleteError.message)
       }
+        },
+        { maxRetries: 3, initialDelay: 1000 }
+      )
     }
 
     return new Response(
@@ -55,11 +66,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Cleanup error:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    console.error('[CLEANUP] Unexpected error:', error)
+    return handleEdgeFunctionError(error)
   }
 })
 

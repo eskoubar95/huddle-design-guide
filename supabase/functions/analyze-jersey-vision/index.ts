@@ -193,22 +193,69 @@ function getPostgresConnectionString(): string {
 }
 
 /**
- * Download image from Storage URL and convert to base64
+ * Get variant storage path from original storage path
+ * Example: "jersey-id/1234567890-abc123.jpg" -> "jersey-id/1234567890-abc123-vision.jpg"
  */
-async function downloadImageAsBase64(imageUrl: string, supabase: any): Promise<string> {
+function getVariantStoragePath(originalPath: string, variant: 'vision' | 'gallery' | 'card'): string {
+  if (!originalPath) return originalPath
+
+  const pathParts = originalPath.split('/')
+  const fileName = pathParts[pathParts.length - 1]
+  const baseName = fileName.replace(/\.[^.]+$/, '') // Remove extension
+  const jerseyId = pathParts[0]
+
+  const variantConfig = {
+    vision: { suffix: '-vision', ext: '.jpg' },
+    gallery: { suffix: '-gallery', ext: '.webp' },
+    card: { suffix: '-card', ext: '.webp' },
+  }[variant]
+
+  const variantFileName = `${baseName}${variantConfig.suffix}${variantConfig.ext}`
+  return `${jerseyId}/${variantFileName}`
+}
+
+/**
+ * Download image from Storage and convert to base64
+ * Tries vision variant first if storage_path is available, falls back to original
+ */
+async function downloadImageAsBase64(
+  imageUrl: string,
+  storagePath: string | null,
+  supabase: any
+): Promise<string> {
   try {
-    // Extract storage path from URL
-    const urlParts = imageUrl.split('/storage/v1/object/public/jersey_images/')
-    if (urlParts.length !== 2) {
-      throw new Error(`Invalid image URL format: ${imageUrl}`)
+    let downloadPath: string
+
+    // If storage_path is available, try vision variant first
+    if (storagePath) {
+      const visionVariantPath = getVariantStoragePath(storagePath, 'vision')
+      
+      // Try to download vision variant
+      const { data: visionData, error: visionError } = await supabase.storage
+        .from('jersey_images')
+        .download(visionVariantPath)
+      
+      if (!visionError && visionData) {
+        console.log(`[analyze-jersey-vision] Using vision variant: ${visionVariantPath}`)
+        downloadPath = visionVariantPath
+      } else {
+        // Fallback to original
+        console.log(`[analyze-jersey-vision] Vision variant not found, using original: ${storagePath}`)
+        downloadPath = storagePath
+      }
+    } else {
+      // Extract storage path from URL if storage_path not provided
+      const urlParts = imageUrl.split('/storage/v1/object/public/jersey_images/')
+      if (urlParts.length !== 2) {
+        throw new Error(`Invalid image URL format: ${imageUrl}`)
+      }
+      downloadPath = urlParts[1]
     }
-    
-    const storagePath = urlParts[1]
     
     // Download from Storage
     const { data, error } = await supabase.storage
       .from('jersey_images')
-      .download(storagePath)
+      .download(downloadPath)
     
     if (error) throw error
     
@@ -892,14 +939,15 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get image URLs from database if not provided
+    // Get image URLs and storage paths from database if not provided
     let imageUrls: string[] = providedImageUrls || []
+    let imageStoragePaths: (string | null)[] = []
     
     if (imageUrls.length === 0) {
       console.log('[analyze-jersey-vision] No imageUrls provided, fetching from database')
       const { data: jerseyImages, error: imagesError } = await supabase
         .from('jersey_images')
-        .select('image_url')
+        .select('image_url, storage_path')
         .eq('jersey_id', jerseyId)
         .order('sort_order', { ascending: true })
       
@@ -920,7 +968,11 @@ Deno.serve(async (req) => {
       }
       
       imageUrls = jerseyImages.map(img => img.image_url)
+      imageStoragePaths = jerseyImages.map(img => img.storage_path || null)
       console.log('[analyze-jersey-vision] Fetched', imageUrls.length, 'images from database')
+    } else {
+      // If imageUrls provided, we don't have storage_paths - will extract from URLs
+      imageStoragePaths = imageUrls.map(() => null)
     }
     
     if (imageUrls.length === 0) {
@@ -991,8 +1043,12 @@ Deno.serve(async (req) => {
     // Store availability flag for use in queries
     // If extension is not available, we'll skip vector operations gracefully
 
-    // Download cover image (first image)
-    const coverImageBase64 = await downloadImageAsBase64(imageUrls[0], supabase)
+    // Download cover image (first image) - use vision variant if available
+    const coverImageBase64 = await downloadImageAsBase64(
+      imageUrls[0],
+      imageStoragePaths[0],
+      supabase
+    )
 
     // Generate embedding for cover image
     // Note: This is simplified - actual implementation should use Vision API to get text description first
@@ -1010,9 +1066,11 @@ Deno.serve(async (req) => {
       let seasonSuggestions: Array<{ id: string; label: string; confidence: number }> | undefined = undefined
 
     try {
-      // Step 1: Run Vision analysis on all images
+      // Step 1: Run Vision analysis on all images - use vision variants if available
       const allImagesBase64 = await Promise.all(
-        imageUrls.map(url => downloadImageAsBase64(url, supabase))
+        imageUrls.map((url, index) =>
+          downloadImageAsBase64(url, imageStoragePaths[index] || null, supabase)
+        )
       )
       
       visionResult = await analyzeImagesWithVision(allImagesBase64)

@@ -218,12 +218,17 @@ MVP (v1.0) fokuserer på en webbaseret oplevelse bygget på Next.js med et Sorar
 
 - **Krav:**
   - Opret/redigér/slet jerseys med felter: klub/land, sæson, type, tryk, badges, condition (1–10), noter.  
-  - Understøttelse af 1–5 billeder pr. jersey, inkl. valg af thumbnail.  
+  - Understøttelse af 1–5 billeder pr. jersey via `jersey_images` tabel, inkl. valg af thumbnail (via `sort_order`).  
   - Visibility-toggle (Public/Private) pr. jersey.  
-  - Wardrobe-visning med filtrering og sortering.
+  - Status: Draft/Published/Archived.  
+  - Wardrobe-visning med filtrering og sortering.  
+  - **Vision AI:** Automatisk metadata extraction fra billeder (valgfri).  
+  - **Metadata linking:** Valgfri linking til `metadata` schema (clubs, players, seasons).
 - **Acceptkriterier:**
   - En verificeret bruger kan uploade en jersey på < 2 minutter.  
-  - Public jerseys kan findes i feed/marked af andre brugere.
+  - Public jerseys kan findes i feed/marked af andre brugere.  
+  - Vision AI kan ekstrahere metadata med >70% confidence.  
+  - Metadata auto-linking fungerer for kendte klubber/spillere.
 
 #### 5.1.2 Marketplace – Fastpris
 
@@ -292,9 +297,33 @@ MVP (v1.0) fokuserer på en webbaseret oplevelse bygget på Next.js med et Sorar
 
 ---
 
-### 5.2 Nice-to-Have / Fase 2+
+### 5.2 Implementerede Features (beyond MVP)
 
-- Collections (kuraterede samlinger: “World Cup 2010”, “AC Milan 90s” osv.).  
+- **Metadata System:** ✅  
+  - Normaliseret fodboldreferencedata fra Transfermarkt API
+  - Smart autofill i upload flow
+  - Metadata matching og auto-linking
+  - Analytics support (per club/season/player)
+
+- **Vision AI Integration:** ✅  
+  - Automatisk metadata extraction fra jersey billeder
+  - Confidence scoring
+  - Kombineret med metadata matching for præcis linking
+
+- **Jersey Images System:** ✅  
+  - Normaliseret `jersey_images` tabel (erstatter array)
+  - WebP generation for performance
+  - Image embeddings for template matching
+  - Reordering support
+
+- **Edge Functions:** ✅  
+  - Backend services for metadata, image processing, cleanup
+  - Scheduled jobs (pg_cron) for cleanup
+  - Automated workflows (auto-linking, WebP generation)
+
+### 5.3 Nice-to-Have / Fase 2+
+
+- Collections (kuraterede samlinger: "World Cup 2010", "AC Milan 90s" osv.).  
 - Trade Mode (byttefunktion uden monetær transaktion).  
 - Rating/Review-system mellem brugere.  
 - Udvidet messaging (grupper, vedhæftede medier, voice notes).  

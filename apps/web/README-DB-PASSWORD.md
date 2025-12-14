@@ -28,8 +28,10 @@ For seed scripts that use direct PostgreSQL connections, you need to set the dat
 If you prefer, you can also set the full connection string:
 
 ```bash
-SUPABASE_DB_CONNECTION_STRING=postgresql://postgres.[PROJECT_REF]:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+SUPABASE_DB_CONNECTION_STRING=postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
 ```
+
+Note: The username is `postgres` (not `postgres.[PROJECT_REF]`). Replace `[PROJECT_REF]` with your actual project reference and `[PASSWORD]` with your database password.
 
 But the password approach is simpler and more secure.
 
