@@ -127,6 +127,13 @@ const AuthContent = () => {
         password: validated.password,
       });
 
+      // Debug: Log the result to see what Clerk returns
+      console.log("[AUTH DEBUG] Sign in result:", {
+        status: result.status,
+        createdSessionId: result.createdSessionId,
+        firstFactorVerification: result.firstFactorVerification,
+      });
+
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         toast.success("Welcome back!");
@@ -143,9 +150,16 @@ const AuthContent = () => {
         setNeedsVerification(true);
         setVerificationEmail(validated.email);
         toast.info("Please check your email for a verification code");
+      } else if (result.status === 'needs_second_factor') {
+        // 2FA required
+        setVerificationCode("");
+        setNeedsVerification(true);
+        setVerificationEmail(validated.email);
+        toast.info("Please enter your 2FA code");
       } else {
-        // Handle other multi-step authentication (e.g., MFA)
-        toast.error("Additional authentication required");
+        // Handle other multi-step authentication
+        console.error("Unexpected auth status:", result.status);
+        toast.error("Authentication flow not supported. Please contact support.");
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
