@@ -70,7 +70,6 @@ export default function ProfileCompletePage() {
   } = useProfileCompletionSteps({
     formWatch: form.watch,
     formGetValues: form.getValues,
-    formTrigger: form.trigger,
   });
 
   // Sync personal info to shipping address when moving to step 2

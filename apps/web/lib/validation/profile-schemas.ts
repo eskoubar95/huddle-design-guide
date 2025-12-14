@@ -44,6 +44,20 @@ export const profileCompletionSchema = z.object({
 export type ProfileCompletionInput = z.infer<typeof profileCompletionSchema>;
 
 /**
+ * Step-specific schemas for partial validation
+ * These allow validating only the current step's fields
+ */
+export const personalInfoSchema = z.object({
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().min(1).max(100),
+  phone: z.string().trim().min(1).max(50),
+});
+
+export const shippingAddressOnlySchema = z.object({
+  shippingAddress: shippingAddressSchema,
+});
+
+/**
  * Schema for identity verification review request
  */
 export const reviewRequestSchema = z.object({

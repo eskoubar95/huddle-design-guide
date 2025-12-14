@@ -1,14 +1,14 @@
 import { useState, useCallback, useMemo } from "react";
-import { UseFormWatch, UseFormGetValues, UseFormTrigger } from "react-hook-form";
+import { UseFormWatch, UseFormGetValues } from "react-hook-form";
 import { toast } from "@/hooks/use-toast";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
+import { personalInfoSchema, shippingAddressOnlySchema } from "@/lib/validation/profile-schemas";
 
 type Step = "personal-info" | "shipping-address" | "summary";
 
 interface UseProfileCompletionStepsParams {
   formWatch: UseFormWatch<ProfileCompletionInput>;
   formGetValues: UseFormGetValues<ProfileCompletionInput>;
-  formTrigger: UseFormTrigger<ProfileCompletionInput>;
 }
 
 interface UseProfileCompletionStepsReturn {
@@ -27,7 +27,6 @@ const STEPS: Step[] = ["personal-info", "shipping-address", "summary"];
 export function useProfileCompletionSteps({
   formWatch,
   formGetValues,
-  formTrigger,
 }: UseProfileCompletionStepsParams): UseProfileCompletionStepsReturn {
   const [currentStep, setCurrentStep] = useState<Step>("personal-info");
 
@@ -87,10 +86,16 @@ export function useProfileCompletionSteps({
   const goNext = useCallback(async () => {
     const currentIndex = STEPS.indexOf(currentStep);
 
-    // Validate current step before proceeding
+    // Validate current step before proceeding using step-specific schemas
     if (currentStep === "personal-info") {
-      const isValid = await formTrigger(["firstName", "lastName", "phone"]);
-      if (!isValid) {
+      const values = formGetValues();
+      const result = personalInfoSchema.safeParse({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        phone: values.phone,
+      });
+      
+      if (!result.success) {
         toast({
           title: "Required Fields",
           description: "Please fill in all personal information fields correctly",
@@ -101,8 +106,12 @@ export function useProfileCompletionSteps({
     }
 
     if (currentStep === "shipping-address") {
-      const isValid = await formTrigger(["shippingAddress"]);
-      if (!isValid) {
+      const values = formGetValues();
+      const result = shippingAddressOnlySchema.safeParse({
+        shippingAddress: values.shippingAddress,
+      });
+      
+      if (!result.success) {
         toast({
           title: "Required Fields",
           description: "Please fill in all shipping address fields correctly",
@@ -115,7 +124,7 @@ export function useProfileCompletionSteps({
     if (currentIndex < STEPS.length - 1) {
       setCurrentStep(STEPS[currentIndex + 1]);
     }
-  }, [currentStep, formTrigger]);
+  }, [currentStep, formGetValues]);
 
   const goBack = useCallback(() => {
     const currentIndex = STEPS.indexOf(currentStep);
