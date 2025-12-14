@@ -46,11 +46,20 @@ export async function POST(request: NextRequest) {
   // Verify webhook signature
   const stripe = getStripe();
   let event: Stripe.Event;
+  
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new ApiError(
+      "SERVICE_UNAVAILABLE",
+      "Stripe webhook secret is not configured",
+      503
+    );
+  }
+
   try {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

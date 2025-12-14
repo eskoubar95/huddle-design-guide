@@ -21,6 +21,7 @@ export const shippingAddressSchema = z.object({
   fullName: z.string().trim().min(1).max(255),
   street: z.string().trim().min(1).max(255),
   city: z.string().trim().min(1).max(100),
+  state: z.string().trim().max(100).optional(), // State/Province/Region (optional)
   postalCode: z.string().trim().min(1).max(20),
   country: z.string().length(2), // ISO country code
   phone: z.string().trim().min(1).max(50),

@@ -50,7 +50,7 @@ export class ProfileValidationService {
       .select("id")
       .eq("user_id", userId)
       .eq("is_default", true)
-      .single();
+      .maybeSingle();
 
     const hasDefaultShippingAddress = !!defaultAddress;
     if (!hasDefaultShippingAddress) {
@@ -96,7 +96,7 @@ export class ProfileValidationService {
       .select("id")
       .eq("user_id", userId)
       .eq("is_default", true)
-      .single();
+      .maybeSingle();
 
     const hasDefaultShippingAddress = !!defaultAddress;
     if (!hasDefaultShippingAddress) {

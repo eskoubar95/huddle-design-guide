@@ -14,7 +14,7 @@ ALTER TABLE public.profiles
 -- Add Stripe Identity verification fields
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS stripe_identity_verification_status TEXT NULL
-    CHECK (stripe_identity_verification_status IN ('pending', 'verified', 'rejected')),
+    CHECK (stripe_identity_verification_status IN ('processing', 'requires_input', 'verified', 'canceled')),
   ADD COLUMN IF NOT EXISTS stripe_identity_verification_id TEXT NULL;
 
 -- Add computed column for profile completeness

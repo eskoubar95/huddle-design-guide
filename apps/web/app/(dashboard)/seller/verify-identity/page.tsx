@@ -26,7 +26,15 @@ export default function VerifyIdentityPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [isRequestingReview, setIsRequestingReview] = useState(false);
 
-  const redirectUrl = searchParams?.get("redirect_url") || "/marketplace";
+  // Validate redirect URL to prevent open redirects
+  const redirectUrl = (() => {
+    const param = searchParams?.get("redirect_url");
+    // Only allow relative paths starting with / (not //)
+    if (param && param.startsWith("/") && !param.startsWith("//")) {
+      return param;
+    }
+    return "/marketplace";
+  })();
   const sessionComplete = searchParams?.get("session_complete") === "true";
 
   // Fetch current verification status

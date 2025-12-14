@@ -50,10 +50,23 @@ const Profile = () => {
   useEffect(() => {
     const fetchCompleteness = async () => {
       try {
-        const response = await fetch("/api/v1/profile/completeness");
+        const token = await getToken();
+        if (!token) {
+          console.warn("No auth token available for completeness check");
+          return;
+        }
+        
+        const response = await fetch("/api/v1/profile/completeness", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
         if (response.ok) {
           const data = await response.json();
           setProfileCompleteness(data);
+        } else {
+          console.error("Failed to fetch completeness:", response.status);
         }
       } catch (error) {
         console.error("Failed to fetch profile completeness:", error);
@@ -63,7 +76,7 @@ const Profile = () => {
     if (user?.id) {
       fetchCompleteness();
     }
-  }, [user?.id]);
+  }, [user?.id, getToken]);
 
   // Fetch stats from API (count from listings/auctions/jerseys)
   const { data: jerseysData } = useJerseys(

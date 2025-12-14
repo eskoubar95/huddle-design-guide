@@ -126,6 +126,25 @@ export function ShippingAddressStep({
             </div>
           </div>
 
+          {/* State/Province (conditional - shown for US, CA, AU) */}
+          {["US", "CA", "AU"].includes(watch("shippingAddress.country") || "") && (
+            <div className="space-y-2">
+              <Label htmlFor="state">
+                State/Province/Region <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="state"
+                {...register("shippingAddress.state")}
+                placeholder="Enter state, province, or region"
+              />
+              {errors.shippingAddress?.state && (
+                <p className="text-sm text-destructive">
+                  {errors.shippingAddress.state.message}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="country">
               Country <span className="text-destructive">*</span>

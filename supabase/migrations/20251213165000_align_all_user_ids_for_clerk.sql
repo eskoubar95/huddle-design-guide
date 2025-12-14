@@ -208,8 +208,8 @@ CREATE POLICY "Users can view their own notifications" ON public.notifications
 CREATE POLICY "Users can update their own notifications" ON public.notifications
   FOR UPDATE USING (auth.uid()::text = user_id);
 
-CREATE POLICY "System can create notifications" ON public.notifications
-  FOR INSERT WITH CHECK (true);
+-- Note: Notifications are created by service-role only (no INSERT policy for authenticated users)
+-- System notifications are created server-side via API routes using service-role client
 
 -- sale_listings policies
 CREATE POLICY "Sellers can create sale listings" ON public.sale_listings
@@ -251,11 +251,8 @@ CREATE POLICY "Anyone can view bids" ON public.bids
 CREATE POLICY "Users can view their own transactions" ON public.transactions
   FOR SELECT USING (auth.uid()::text = buyer_id OR auth.uid()::text = seller_id);
 
-CREATE POLICY "System can create transactions" ON public.transactions
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "System can update transactions" ON public.transactions
-  FOR UPDATE USING (true);
+-- Note: Transactions are created/updated by service-role only (no INSERT/UPDATE policies)
+-- Financial data modifications must be done server-side via API routes using service-role client
 
 -- likes policies
 CREATE POLICY "Authenticated users can like jerseys" ON public.likes

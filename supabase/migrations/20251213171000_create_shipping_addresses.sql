@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.shipping_addresses (
   full_name TEXT NOT NULL,
   street TEXT NOT NULL,
   city TEXT NOT NULL,
+  state TEXT NULL, -- State/Province/Region (optional, required for US/CA/AU)
   postal_code TEXT NOT NULL,
   country TEXT NOT NULL,
   phone TEXT NOT NULL,

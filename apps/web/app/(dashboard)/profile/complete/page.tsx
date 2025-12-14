@@ -26,7 +26,15 @@ export default function ProfileCompletePage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectUrl = searchParams?.get("redirect_url") || "/profile";
+  // Validate redirect URL to prevent open redirects
+  const redirectUrl = (() => {
+    const param = searchParams?.get("redirect_url");
+    // Only allow relative paths starting with / (not //)
+    if (param && param.startsWith("/") && !param.startsWith("//")) {
+      return param;
+    }
+    return "/profile";
+  })();
 
   const form = useForm<ProfileCompletionInput>({
     resolver: zodResolver(profileCompletionSchema),
