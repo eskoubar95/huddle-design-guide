@@ -90,8 +90,10 @@ const JerseyDetail = () => {
     : null;
 
   // Fetch sale listing (if exists)
-  // Note: We need to find listing by jersey_id, which current API doesn't support directly
-  // For now, we'll fetch all listings and filter client-side (not ideal, but works)
+  // TODO (HUD-XX): Optimize by adding jersey_id parameter to listings API endpoint
+  // Currently fetches up to 1000 listings and filters client-side - inefficient for large datasets
+  // Preferred: const { data: listing } = useListingByJerseyId(jerseyId);
+  // Or: GET /api/v1/listings?jersey_id={jerseyId}&status=active
   const { data: allListings } = useListings({ status: "active", limit: 1000 });
   const listing = useMemo(() => {
     if (!allListings?.items || !jerseyId) return null;
@@ -102,6 +104,10 @@ const JerseyDetail = () => {
   }, [allListings, jerseyId]);
 
   // Fetch auction (if exists)
+  // TODO (HUD-XX): Optimize by adding jersey_id parameter to auctions API endpoint
+  // Currently fetches up to 1000 auctions and filters client-side - inefficient for large datasets
+  // Preferred: const { data: auction } = useAuctionByJerseyId(jerseyId);
+  // Or: GET /api/v1/auctions?jersey_id={jerseyId}&status=active
   const { data: allAuctions } = useAuctions({ status: "active", limit: 1000 });
   const auction = useMemo(() => {
     if (!allAuctions?.items || !jerseyId) return null;
