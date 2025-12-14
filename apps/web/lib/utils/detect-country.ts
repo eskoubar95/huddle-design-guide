@@ -7,7 +7,7 @@ import type { Country } from "react-phone-number-input";
 export function detectUserCountry(): Country {
   try {
     // Try to get country from browser locale
-    const locale = navigator.language || (navigator as any).userLanguage;
+    const locale = navigator.language || (navigator as { userLanguage?: string }).userLanguage;
     
     if (locale) {
       // Extract country code from locale (e.g., "da-DK" -> "DK", "en-US" -> "US")

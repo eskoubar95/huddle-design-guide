@@ -147,15 +147,33 @@ const AuthContent = () => {
       } else if (result.status === 'needs_first_factor') {
         // Email verification required
         setVerificationCode("");
-        setNeedsVerification(true);
-        setVerificationEmail(validated.email);
+        setIsVerifying(true);
         toast.info("Please check your email for a verification code");
       } else if (result.status === 'needs_second_factor') {
-        // 2FA required
-        setVerificationCode("");
-        setNeedsVerification(true);
-        setVerificationEmail(validated.email);
-        toast.info("Please enter your 2FA code");
+        // Client Trust: Clerk requires second factor verification (email code)
+        console.log("[AUTH DEBUG] Supported second factors:", result.supportedSecondFactors);
+        
+        // Find email_code strategy (most common for Client Trust)
+        const emailCodeFactor = result.supportedSecondFactors?.find(
+          (factor) => factor.strategy === 'email_code'
+        );
+        
+        if (emailCodeFactor) {
+          // Prepare the email code (sends the code)
+          // TypeScript doesn't properly recognize Clerk's second factor types, so we need to cast
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (signIn.prepareSecondFactor as any)({
+            strategy: 'email_code',
+            emailAddressId: (emailCodeFactor as { emailAddressId: string }).emailAddressId,
+          });
+          
+          setVerificationCode("");
+          setIsVerifying(true);
+          toast.info("Check your email for a verification code (Client Trust security)");
+        } else {
+          console.error("No supported second factor found:", result.supportedSecondFactors);
+          toast.error("Unable to complete authentication. Please contact support.");
+        }
       } else {
         // Handle other multi-step authentication
         console.error("Unexpected auth status:", result.status);
@@ -242,6 +260,38 @@ const AuthContent = () => {
 
     try {
       setIsSubmitting(true);
+
+      // Check if this is Client Trust / 2FA (sign in) or email verification (sign up)
+      if (signIn && signIn.status === 'needs_second_factor') {
+        // Handle Client Trust / Second Factor verification
+        // Check which strategy to use (email_code for Client Trust, totp for 2FA)
+        const emailCodeFactor = signIn.supportedSecondFactors?.find(
+          (factor) => factor.strategy === 'email_code'
+        );
+        
+        const strategy = emailCodeFactor ? 'email_code' : 'totp';
+        console.log("[AUTH DEBUG] Using second factor strategy:", strategy);
+        
+        const result = await signIn.attemptSecondFactor({
+          strategy,
+          code: verificationCode,
+        });
+
+        if (result.status === 'complete') {
+          await setActive({ session: result.createdSessionId });
+          toast.success("Welcome back!");
+          
+          // Wait a bit for session to be fully set up before redirect
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const originalRedirectUrl = searchParams.get("redirect_url") || "/";
+          const finalRedirectUrl = await handlePostAuthRedirect(originalRedirectUrl);
+          router.push(finalRedirectUrl);
+        } else {
+          toast.error("Verification failed. Please try again.");
+        }
+        return;
+      }
 
       if (!signUp) {
         toast.error("Authentication service not available");

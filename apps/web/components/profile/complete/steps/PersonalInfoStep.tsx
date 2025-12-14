@@ -9,6 +9,8 @@ import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
 import { detectUserCountry } from "@/lib/utils/detect-country";
 import { useState, useEffect } from "react";
 
+import type { Country } from "react-phone-number-input";
+
 interface PersonalInfoStepProps {
   register: UseFormRegister<ProfileCompletionInput>;
   control: Control<ProfileCompletionInput>;
@@ -16,7 +18,7 @@ interface PersonalInfoStepProps {
 }
 
 export function PersonalInfoStep({ register, control, errors }: PersonalInfoStepProps) {
-  const [defaultCountry, setDefaultCountry] = useState<any>("DK");
+  const [defaultCountry, setDefaultCountry] = useState<Country>("DK");
 
   useEffect(() => {
     const detected = detectUserCountry();

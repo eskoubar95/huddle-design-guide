@@ -48,6 +48,7 @@ export const TopNav = () => {
       try {
         const response = await fetch("/api/v1/profile/completeness", {
           headers: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             Authorization: `Bearer ${await (window as any).__clerk?.session?.getToken()}`,
           },
         });
