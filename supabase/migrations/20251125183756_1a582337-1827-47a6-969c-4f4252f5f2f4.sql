@@ -35,10 +35,10 @@ SELECT cron.schedule(
     END IF;
     
     RETURN (
-      SELECT net.http_post(
-        url:='https://qhwfvtzibpwqouzidooe.supabase.co/functions/v1/close-auctions',
+  SELECT net.http_post(
+    url:='https://qhwfvtzibpwqouzidooe.supabase.co/functions/v1/close-auctions',
         headers:=headers_json,
-        body:='{}'::jsonb
+    body:='{}'::jsonb
       ) as request_id
     );
   END;
