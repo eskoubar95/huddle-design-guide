@@ -1,15 +1,25 @@
 'use client'
 
+import { useState, useEffect } from "react";
 import { UseFormRegister, FieldErrors, Control, Controller, UseFormWatch } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
 
 interface ShippingAddressStepProps {
@@ -19,22 +29,10 @@ interface ShippingAddressStepProps {
   errors: FieldErrors<ProfileCompletionInput>;
 }
 
-const COUNTRIES = [
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "ES", name: "Spain" },
-  { code: "IT", name: "Italy" },
-  { code: "NL", name: "Netherlands" },
-  { code: "DK", name: "Denmark" },
-  { code: "SE", name: "Sweden" },
-  { code: "NO", name: "Norway" },
-  { code: "AU", name: "Australia" },
-  { code: "JP", name: "Japan" },
-  { code: "BR", name: "Brazil" },
-];
+interface Country {
+  iso_2: string;
+  display_name: string;
+}
 
 export function ShippingAddressStep({
   register,
@@ -42,6 +40,37 @@ export function ShippingAddressStep({
   watch,
   errors,
 }: ShippingAddressStepProps) {
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedCountry = watch("shippingAddress.country");
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/v1/countries");
+        if (!response.ok) {
+          throw new Error("Failed to fetch countries");
+        }
+        const data = await response.json();
+        setCountries(data.countries || []);
+      } catch (error) {
+        console.error("Error fetching countries:", error);
+        // Fallback to empty array on error
+        setCountries([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
+
+  const selectedCountryName = countries.find(
+    (c) => c.iso_2 === selectedCountry
+  )?.display_name || "Select country";
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       <div className="space-y-6">
@@ -107,7 +136,7 @@ export function ShippingAddressStep({
           </div>
 
           {/* State/Province (conditional - shown for US, CA, AU) */}
-          {["US", "CA", "AU"].includes(watch("shippingAddress.country") || "") && (
+          {["US", "CA", "AU"].includes(selectedCountry || "") && (
             <div className="space-y-2">
               <Label htmlFor="state">
                 State/Province/Region <span className="text-destructive">*</span>
@@ -134,23 +163,52 @@ export function ShippingAddressStep({
               name="shippingAddress.country"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger
-                    id="country"
-                    aria-invalid={
-                      errors.shippingAddress?.country ? "true" : "false"
-                    }
-                  >
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {country.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={isOpen} onOpenChange={setIsOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isOpen}
+                      className="w-full justify-between"
+                      disabled={isLoading}
+                    >
+                      {isLoading
+                        ? "Loading countries..."
+                        : selectedCountryName}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search country..." />
+                      <CommandList>
+                        <CommandEmpty>No country found.</CommandEmpty>
+                        <CommandGroup>
+                          {countries.map((country) => (
+                            <CommandItem
+                              key={country.iso_2}
+                              value={country.display_name}
+                              onSelect={() => {
+                                field.onChange(country.iso_2);
+                                setIsOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  country.iso_2 === field.value
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {country.display_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               )}
             />
             {errors.shippingAddress?.country && (
