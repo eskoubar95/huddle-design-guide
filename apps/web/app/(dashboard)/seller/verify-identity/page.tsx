@@ -263,7 +263,7 @@ export default function VerifyIdentityPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  We'll send you a notification once your verification is complete. You can check back here anytime.
+                  We&apos;ll send you a notification once your verification is complete. You can check back here anytime.
                 </p>
                 <Button variant="outline" onClick={() => router.push(redirectUrl)}>
                   Go to Marketplace
@@ -328,10 +328,10 @@ export default function VerifyIdentityPage() {
               <CardContent className="space-y-4">
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>What you'll need</AlertTitle>
+                  <AlertTitle>What you&apos;ll need</AlertTitle>
                   <AlertDescription className="mt-2">
                     <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li>A government-issued ID (driver's license, passport, or national ID)</li>
+                      <li>A government-issued ID (driver&apos;s license, passport, or national ID)</li>
                       <li>A device with a camera for a selfie</li>
                       <li>Approximately 2-3 minutes of your time</li>
                     </ul>
