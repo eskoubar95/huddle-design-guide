@@ -130,11 +130,21 @@ const AuthContent = () => {
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         toast.success("Welcome back!");
+        
+        // Wait a bit for session to be fully set up before redirect
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const originalRedirectUrl = searchParams.get("redirect_url") || "/";
         const finalRedirectUrl = await handlePostAuthRedirect(originalRedirectUrl);
         router.push(finalRedirectUrl);
+      } else if (result.status === 'needs_first_factor') {
+        // Email verification required
+        setVerificationCode("");
+        setNeedsVerification(true);
+        setVerificationEmail(validated.email);
+        toast.info("Please check your email for a verification code");
       } else {
-        // Handle multi-step authentication (e.g., MFA, email verification)
+        // Handle other multi-step authentication (e.g., MFA)
         toast.error("Additional authentication required");
       }
     } catch (error) {
