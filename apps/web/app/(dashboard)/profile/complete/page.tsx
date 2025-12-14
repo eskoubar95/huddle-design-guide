@@ -137,6 +137,7 @@ export default function ProfileCompletePage() {
             <ShippingAddressStep
               register={form.register}
               control={form.control}
+              watch={form.watch}
               errors={form.formState.errors}
             />
           )}

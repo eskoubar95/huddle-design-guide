@@ -6,7 +6,7 @@ import { EditProfile } from "@/components/profile/EditProfile";
 import { Settings, Share2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useProfile } from "@/lib/hooks/use-profiles";
 import { useJerseys } from "@/lib/hooks/use-jerseys";
 import { useListings } from "@/lib/hooks/use-listings";
@@ -29,6 +29,7 @@ interface Stats {
 
 const Profile = () => {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [editModalOpen, setEditModalOpen] = useState(false);

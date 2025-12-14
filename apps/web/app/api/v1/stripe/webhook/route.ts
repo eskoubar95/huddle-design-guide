@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase/server";
+import { ApiError } from "@/lib/api/errors";
 import * as Sentry from "@sentry/nextjs";
 
 // Lazy-initialize Stripe client to avoid build-time errors when env vars are not set

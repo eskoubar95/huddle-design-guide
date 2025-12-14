@@ -1,6 +1,6 @@
 'use client'
 
-import { UseFormRegister, FieldErrors } from "react-hook-form";
+import { UseFormRegister, FieldErrors, Control, Controller, UseFormWatch } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
-import { Controller, Control } from "react-hook-form";
 
 interface ShippingAddressStepProps {
   register: UseFormRegister<ProfileCompletionInput>;
   control: Control<ProfileCompletionInput>;
+  watch: UseFormWatch<ProfileCompletionInput>;
   errors: FieldErrors<ProfileCompletionInput>;
 }
 
@@ -40,6 +40,7 @@ const COUNTRIES = [
 export function ShippingAddressStep({
   register,
   control,
+  watch,
   errors,
 }: ShippingAddressStepProps) {
   return (
