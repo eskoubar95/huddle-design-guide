@@ -15,7 +15,7 @@ interface ImageFile {
 
 interface ImageUploadStepProps {
   images: ImageFile[];
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: (id: string) => void;
   onDragStart: (index: number) => void;

@@ -14,7 +14,7 @@ interface ImageItem {
 
 interface EditImageUploadProps {
   images: ImageItem[];
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: (id: string) => void;
   onDragStart: (index: number) => void;

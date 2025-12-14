@@ -22,16 +22,14 @@ export async function POST(req: NextRequest) {
         jersey_type: "Home", // Default value, will be updated later
         images: [], // Required NOT NULL constraint
       })
-      .select("id, status")
+      .select("id")
       .single();
 
     if (error) throw error;
-
-    // Type assertion needed because Supabase types may not match exactly
-    const jerseyData = jersey as { id: string };
+    if (!jersey) throw new Error("Failed to create jersey draft");
 
     return successResponse({ 
-      jerseyId: jerseyData.id
+      jerseyId: jersey.id
     });
   } catch (error) {
     return handleApiError(error, req);
