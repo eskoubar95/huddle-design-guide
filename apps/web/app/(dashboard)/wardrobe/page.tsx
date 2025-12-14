@@ -1,45 +1,48 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, SlidersHorizontal, ShoppingCart, Gavel, Eye, EyeOff } from "lucide-react";
+import { Plus, SlidersHorizontal, Eye, EyeOff, CheckSquare2 } from "lucide-react";
 import { UploadJersey } from "@/components/jersey/UploadJersey";
+import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
+import { WardrobeActionBar } from "@/components/jersey/WardrobeActionBar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@clerk/nextjs";
-import { useJerseys, useUpdateJersey } from "@/lib/hooks/use-jerseys";
+import { useJerseys, useUpdateJersey, useDeleteJersey } from "@/lib/hooks/use-jerseys";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { getImageUrls, getImageVariant } from "@/lib/utils/image";
+import type { JerseyDTO } from "@/lib/services/jersey-service";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface Jersey {
-  id: string;
-  owner_id: string;
-  club: string;
-  season: string;
-  jersey_type: string;
-  player_name?: string | null;
-  player_number?: string | null;
-  competition_badges?: string[] | null;
-  condition_rating?: number | null;
-  notes?: string | null;
-  visibility: string;
-  images: string[];
-  created_at: string;
-}
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { motion, AnimatePresence } from "framer-motion";
 
 const Wardrobe = () => {
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [visibilityFilter, setVisibilityFilter] = useState<"All" | "Public" | "Private">("All");
+  const [typeFilter, setTypeFilter] = useState<string>("All");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedJerseys, setSelectedJerseys] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const previousJerseysRef = useRef<JerseyDTO[]>([]);
 
   // Fetch jerseys using API hook
   const {
@@ -57,21 +60,52 @@ const Wardrobe = () => {
   );
 
   const updateJersey = useUpdateJersey();
+  const deleteJersey = useDeleteJersey();
 
   const jerseys = jerseysData?.items || [];
+  
+  // Track newly added jerseys for animation
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (jerseys.length > 0 && previousJerseysRef.current.length > 0) {
+      // Find newly added jerseys by comparing IDs
+      const previousIds = new Set(previousJerseysRef.current.map(j => j.id));
+      const newIds = jerseys
+        .filter(j => !previousIds.has(j.id))
+        .map(j => j.id);
+      
+      if (newIds.length > 0) {
+        setNewlyAddedIds(new Set(newIds));
+        // Clear animation state after animation completes
+        setTimeout(() => {
+          setNewlyAddedIds(new Set());
+        }, 600);
+      }
+    }
+    previousJerseysRef.current = jerseys;
+  }, [jerseys]);
 
   // Handle errors
   useEffect(() => {
     if (jerseysError) {
+      const errorMessage = jerseysError instanceof Error 
+        ? jerseysError.message 
+        : "Failed to load jerseys";
+      
+      console.error("[Wardrobe] Error loading jerseys:", jerseysError);
+      
       toast({
         title: "Error",
-        description: "Failed to load jerseys",
+        description: errorMessage,
         variant: "destructive",
       });
     }
   }, [jerseysError, toast]);
 
-  const handleToggleVisibility = async (jerseyId: string, currentVisibility: string) => {
+  // Note: handleToggleVisibility is defined but not currently used - kept for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleToggleVisibility = async (jerseyId: string, currentVisibility: string) => {
     try {
       const newVisibility = currentVisibility === "public" ? "private" : "public";
       await updateJersey.mutateAsync({
@@ -94,10 +128,13 @@ const Wardrobe = () => {
   };
 
   const filteredJerseys = jerseys.filter((jersey) => {
-    if (activeFilter === "All") return true;
-    if (activeFilter === "Public") return jersey.visibility === "public";
-    if (activeFilter === "Private") return jersey.visibility === "private";
-    // For Sale and Auctions filters would need to join with sale_listings and auctions tables
+    // Apply visibility filter
+    if (visibilityFilter === "Public" && jersey.visibility !== "public") return false;
+    if (visibilityFilter === "Private" && jersey.visibility !== "private") return false;
+    
+    // Apply type filter
+    if (typeFilter !== "All" && jersey.jersey_type !== typeFilter) return false;
+    
     return true;
   });
 
@@ -106,6 +143,76 @@ const Wardrobe = () => {
     return ["All", ...Array.from(new Set(types))];
   };
 
+  // Multi-select handlers
+  const toggleJerseySelection = (jerseyId: string) => {
+    setSelectedJerseys(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jerseyId)) {
+        newSet.delete(jerseyId);
+      } else {
+        newSet.add(jerseyId);
+      }
+      return newSet;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedJerseys(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedJerseys.size === 0) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedJerseys).map(id => deleteJersey.mutateAsync(id))
+      );
+      
+      toast({
+        title: "Jerseys Deleted",
+        description: `${selectedJerseys.size} jersey${selectedJerseys.size > 1 ? 's' : ''} deleted successfully`,
+      });
+      
+      clearSelection();
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error("Error deleting jerseys:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete jerseys",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkSetVisibility = async (visibility: "public" | "private") => {
+    if (selectedJerseys.size === 0) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedJerseys).map(id =>
+          updateJersey.mutateAsync({ id, data: { visibility } })
+        )
+      );
+      
+      toast({
+        title: "Visibility Updated",
+        description: `${selectedJerseys.size} jersey${selectedJerseys.size > 1 ? 's' : ''} set to ${visibility}`,
+      });
+      
+      clearSelection();
+    } catch (error) {
+      console.error("Error updating visibility:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update visibility",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const isSelectionMode = selectedJerseys.size > 0;
+
   return (
     <ProtectedRoute>
       <UploadJersey
@@ -113,18 +220,31 @@ const Wardrobe = () => {
         onClose={() => setUploadOpen(false)}
         onSuccess={() => refetchJerseys()}
       />
-      <div className="min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+      <div className="min-h-screen pb-20">
+        {/* Page Header with Filters */}
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h1 className="text-2xl font-bold">My Wardrobe</h1>
                 <p className="text-sm text-muted-foreground">
                   {filteredJerseys.length} {filteredJerseys.length === 1 ? "jersey" : "jerseys"}
+                  {isSelectionMode && ` • ${selectedJerseys.size} selected`}
                 </p>
               </div>
-              <DropdownMenu>
+              <div className="flex items-center gap-2">
+                {isSelectionMode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    className="gap-2"
+                  >
+                    Cancel
+                  </Button>
+                )}
+                {!isSelectionMode && (
+                  <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="icon"
@@ -139,25 +259,27 @@ const Wardrobe = () => {
                   {getUniqueTypes().map((type) => (
                     <DropdownMenuItem
                       key={type}
-                      onClick={() => setActiveFilter(type)}
-                      className={activeFilter === type ? "bg-secondary" : ""}
+                      onClick={() => setTypeFilter(type)}
+                      className={typeFilter === type ? "bg-secondary" : ""}
                     >
                       {type}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+                )}
+              </div>
             </div>
 
             {/* Filter chips */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {["All", "Public", "Private"].map((filter) => (
+              {(["All", "Public", "Private"] as const).map((filter) => (
                 <button
                   key={filter}
-                  onClick={() => setActiveFilter(filter)}
+                  onClick={() => setVisibilityFilter(filter)}
                   className={cn(
                     "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all border",
-                    activeFilter === filter
+                    visibilityFilter === filter
                       ? "bg-secondary text-foreground border-primary"
                       : "bg-secondary/50 text-muted-foreground border-border hover:text-foreground hover:border-muted"
                   )}
@@ -184,11 +306,11 @@ const Wardrobe = () => {
                 </div>
                 <h3 className="text-xl font-bold mb-2">No Jerseys Yet</h3>
                 <p className="text-muted-foreground mb-6">
-                  {activeFilter === "All"
+                  {visibilityFilter === "All" && typeFilter === "All"
                     ? "Start building your collection by uploading your first jersey"
-                    : `No ${activeFilter.toLowerCase()} jerseys in your collection`}
+                    : `No jerseys match your filters`}
                 </p>
-                {activeFilter === "All" && (
+                {visibilityFilter === "All" && typeFilter === "All" && (
                   <Button onClick={() => setUploadOpen(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Upload Jersey
@@ -197,123 +319,205 @@ const Wardrobe = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredJerseys.map((jersey) => (
-                  <div
-                    key={jersey.id}
-                    className="group relative rounded-xl overflow-hidden transition-all cursor-pointer bg-card hover:bg-card-hover shadow-card hover:shadow-elevated border border-border/50 hover:border-primary/30"
-                  >
-                    {/* Jersey Image */}
-                    <div
-                      className="relative aspect-[3/4] overflow-hidden bg-secondary"
-                      onClick={() => router.push(`/jersey/${jersey.id}`)}
-                    >
-                      <img
-                        src={jersey.images[0] || "/placeholder.svg"}
-                        alt={`${jersey.club} ${jersey.season}`}
-                        className="w-full h-full object-cover transition-all group-hover:scale-105"
-                      />
+                <AnimatePresence mode="popLayout">
+                {filteredJerseys.map((jersey) => {
+                  const isSelected = selectedJerseys.has(jersey.id);
+                  const isNewlyAdded = newlyAddedIds.has(jersey.id);
+                  // Get image URLs with fallback - use card variant for thumbnails
+                  const firstImage = jersey.imageVariants?.[0];
+                  let imageUrl = "/placeholder.svg";
+                  if (firstImage) {
+                    // Use card variant if storage_path is available, otherwise use optimizedUrl (gallery variant)
+                    if (firstImage.storagePath) {
+                      try {
+                        imageUrl = getImageVariant(
+                          { storage_path: firstImage.storagePath, image_url: firstImage.originalUrl, image_url_webp: firstImage.optimizedUrl },
+                          'card'
+                        );
+                      } catch {
+                        imageUrl = firstImage.optimizedUrl || firstImage.originalUrl;
+                      }
+                    } else {
+                      imageUrl = firstImage.optimizedUrl || firstImage.originalUrl;
+                    }
+                  } else if (jersey.images?.[0]) {
+                    imageUrl = jersey.images[0];
+                  }
+                  const imageUrls = imageUrl !== "/placeholder.svg" ? getImageUrls(imageUrl) : { primary: "/placeholder.svg", fallback: "/placeholder.svg" };
+                  
+                  // Get metadata with fallback
+                  const clubName = jersey.metadata?.club?.name || jersey.club;
+                  const seasonLabel = jersey.metadata?.season?.label || jersey.season;
+                  const jerseyType = jersey.jersey_type;
+                  const playerName = jersey.metadata?.player?.full_name || jersey.player_name;
+                  const playerNumber = jersey.metadata?.player?.current_shirt_number?.toString() || jersey.player_number;
 
-                      {/* Condition badge */}
-                      {jersey.condition_rating && (
-                        <div className="absolute top-2 left-2">
-                          <Badge variant="secondary" className="backdrop-blur-sm bg-background/60">
-                            {jersey.condition_rating}/10
+                  return (
+                    <motion.div
+                      key={jersey.id}
+                      initial={isNewlyAdded ? { opacity: 0, scale: 0.8, y: 20 } : false}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                      className={cn(
+                        "group relative rounded-xl overflow-hidden transition-all bg-card hover:bg-card-hover shadow-card hover:shadow-elevated border",
+                        isSelected 
+                          ? "border-primary ring-2 ring-primary ring-offset-2" 
+                          : "border-border/50 hover:border-primary/30",
+                        isSelectionMode ? "cursor-pointer" : "cursor-pointer"
+                      )}
+                      onClick={(e) => {
+                        // Don't navigate if in selection mode
+                        if (isSelectionMode) {
+                          e.stopPropagation();
+                          toggleJerseySelection(jersey.id);
+                        } else {
+                          router.push(`/wardrobe/${jersey.id}`);
+                        }
+                      }}
+                    >
+
+                      {/* Jersey Image */}
+                      <div
+                        className={cn(
+                          "relative aspect-[3/4] overflow-hidden bg-secondary",
+                          !isSelectionMode && "cursor-pointer"
+                        )}
+                        onClick={() => {
+                          if (!isSelectionMode) {
+                            router.push(`/wardrobe/${jersey.id}`);
+                          }
+                        }}
+                      >
+                        <JerseyImageWithLoading
+                          src={imageUrls.primary}
+                          fallbackSrc={imageUrls.fallback}
+                          alt={`${clubName} ${seasonLabel}`}
+                          className="w-full h-full object-cover transition-all group-hover:scale-105"
+                        />
+
+                        {/* Condition badge */}
+                        {jersey.condition_rating && (
+                          <div className="absolute top-2 left-2 z-20">
+                            <Badge variant="secondary" className="backdrop-blur-sm bg-background/60">
+                              {jersey.condition_rating}/10
+                            </Badge>
+                          </div>
+                        )}
+
+                        {/* Visibility badge */}
+                        <div className="absolute top-2 right-2 z-20">
+                          <Badge
+                            variant={jersey.visibility === "public" ? "default" : "outline"}
+                            className="backdrop-blur-sm"
+                          >
+                            {jersey.visibility === "public" ? (
+                              <Eye className="w-3 h-3" />
+                            ) : (
+                              <EyeOff className="w-3 h-3" />
+                            )}
                           </Badge>
                         </div>
-                      )}
-
-                      {/* Visibility badge */}
-                      <div className="absolute top-2 right-2">
-                        <Badge
-                          variant={jersey.visibility === "public" ? "default" : "outline"}
-                          className="backdrop-blur-sm"
-                        >
-                          {jersey.visibility === "public" ? (
-                            <Eye className="w-3 h-3" />
-                          ) : (
-                            <EyeOff className="w-3 h-3" />
-                          )}
-                        </Badge>
                       </div>
 
-                      {/* Quick Actions - Show on hover */}
-                      <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="flex-1 backdrop-blur-md bg-background/90 hover:bg-background"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/jersey/${jersey.id}`);
-                            // This will open the CreateSaleListing modal on the detail page
-                          }}
-                        >
-                          <ShoppingCart className="w-3 h-3 mr-1" />
-                          Sell
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="flex-1 backdrop-blur-md bg-background/90 hover:bg-background"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/jersey/${jersey.id}`);
-                            // This will open the CreateAuction modal on the detail page
-                          }}
-                        >
-                          <Gavel className="w-3 h-3 mr-1" />
-                          Auction
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="backdrop-blur-md bg-background/90 hover:bg-background h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleVisibility(jersey.id, jersey.visibility);
-                          }}
-                        >
-                          {jersey.visibility === "public" ? (
-                            <EyeOff className="w-3 h-3" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div
-                      className="p-3 space-y-1"
-                      onClick={() => router.push(`/jersey/${jersey.id}`)}
-                    >
-                      <h3 className="font-bold text-sm truncate">{jersey.club}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {jersey.season} • {jersey.jersey_type}
-                      </p>
-                      {jersey.player_name && (
-                        <p className="text-xs text-primary font-medium truncate">
-                          {jersey.player_name}
-                          {jersey.player_number && ` #${jersey.player_number}`}
+                      {/* Info */}
+                      <div
+                        className={cn(
+                          "p-3 space-y-1 relative",
+                          !isSelectionMode && "cursor-pointer"
+                        )}
+                        onClick={(e) => {
+                          if (!isSelectionMode) {
+                            router.push(`/wardrobe/${jersey.id}`);
+                          }
+                        }}
+                      >
+                        <h3 className="font-bold text-sm truncate">{clubName}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {seasonLabel} • {jerseyType}
                         </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        <div className="flex items-center justify-between gap-2">
+                          {playerName && (
+                            <p className="text-xs text-primary font-medium truncate flex-1">
+                              {playerName}
+                              {playerNumber && ` #${playerNumber}`}
+                            </p>
+                          )}
+                          {/* Select button - small button in bottom right */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isSelectionMode) {
+                                // Enable selection mode and select this item
+                                setSelectedJerseys(new Set([jersey.id]));
+                              } else {
+                                // Toggle selection of this item
+                                toggleJerseySelection(jersey.id);
+                              }
+                            }}
+                            className={cn(
+                              "flex-shrink-0 w-6 h-6 rounded-md border transition-all flex items-center justify-center",
+                              isSelected
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "bg-transparent border-border hover:border-primary hover:bg-primary/10"
+                            )}
+                            aria-label={isSelected ? "Deselect jersey" : "Select jersey"}
+                          >
+                            {isSelected ? (
+                              <CheckSquare2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <CheckSquare2 className="w-3.5 h-3.5 opacity-50" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+                </AnimatePresence>
               </div>
             )}
           </div>
         </div>
 
-        {/* Floating Action Button */}
-        <button
-          onClick={() => setUploadOpen(true)}
-          className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 shadow-lg transition-all"
-          aria-label="Upload jersey"
-        >
-          <Plus className="w-6 h-6 text-primary-foreground mx-auto" />
-        </button>
+        {/* Floating Action Button - hide when selection mode */}
+        {!isSelectionMode && (
+          <button
+            onClick={() => setUploadOpen(true)}
+            className="fixed bottom-24 lg:bottom-8 right-6 lg:right-8 z-40 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 shadow-lg transition-all"
+            aria-label="Upload jersey"
+          >
+            <Plus className="w-6 h-6 text-primary-foreground mx-auto" />
+          </button>
+        )}
+
+        {/* Action Bar */}
+        <WardrobeActionBar
+          selectedCount={selectedJerseys.size}
+          onDelete={() => setShowDeleteDialog(true)}
+          onSetPublic={() => handleBulkSetVisibility("public")}
+          onSetPrivate={() => handleBulkSetVisibility("private")}
+          onClearSelection={clearSelection}
+        />
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedJerseys.size} Jersey{selectedJerseys.size > 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete {selectedJerseys.size === 1 ? 'this jersey' : 'these jerseys'} from your collection.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProtectedRoute>
   );
 };

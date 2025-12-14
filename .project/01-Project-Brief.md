@@ -57,16 +57,18 @@ Kun **ægte trøjer**, **ægte samlere** og **et globalt community**, der deler 
 
 #### 3.1 Digital Garderobe
 - Upload trøjer til personlig samling  
-- Upload billeder og vælge thumbnail  
+- Upload billeder (1–5) via `jersey_images` tabel og vælge thumbnail (via `sort_order`)  
+- **Vision AI:** Automatisk metadata extraction fra billeder (valgfri)  
 - Angiv metadata:
-  - Club/Country  
-  - Season  
+  - Club/Country (med valgfri linking til `metadata.clubs`)  
+  - Season (med valgfri linking til `metadata.seasons`)  
   - Type (Home, Away, Third, GK osv.)  
-  - Tryk (nummer + spiller)  
+  - Tryk (nummer + spiller, med valgfri linking til `metadata.players`)  
   - Badges (CL, liga, specials)  
   - Condition (1–10 skala)  
   - Noter  
-  - Visibility: **Public / Private**
+  - Visibility: **Public / Private**  
+  - Status: **Draft / Published / Archived**
 
 #### 3.2 Marketplace
 - Fastpris-annoncer  
@@ -104,6 +106,29 @@ Kun **ægte trøjer**, **ægte samlere** og **et globalt community**, der deler 
 - Statistikker (trøjer, salg, likes)  
 - Wardrobe, For Sale, Auctions, Posts  
 - Settings + visibility options
+
+### Implementerede Features (beyond MVP)
+
+- **Metadata System:** ✅  
+  - Normaliseret fodboldreferencedata fra Transfermarkt API
+  - Smart autofill i upload flow
+  - Metadata matching og auto-linking
+  - Analytics support
+
+- **Vision AI Integration:** ✅  
+  - Automatisk metadata extraction fra jersey billeder
+  - Confidence scoring
+  - Kombineret med metadata matching
+
+- **Jersey Images System:** ✅  
+  - Normaliseret `jersey_images` tabel
+  - WebP generation for performance
+  - Image embeddings for template matching
+
+- **Edge Functions:** ✅  
+  - Backend services for metadata, image processing, cleanup
+  - Scheduled jobs for cleanup
+  - Automated workflows
 
 ### Fase 2 (Efter MVP)
 

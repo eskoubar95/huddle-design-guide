@@ -5,6 +5,7 @@ import { ShoppingBag, Tag, Calendar, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeroSlideData } from "@/lib/hooks/use-hero-slides";
 import { HeroNavigation } from "../HeroNavigation";
+import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
 import { cn } from "@/lib/utils";
 
 interface SaleSlideProps {
@@ -160,11 +161,18 @@ export const SaleSlide = ({
               }}
             >
               {/* Full Size Image */}
-              <img
-                src={jersey.images?.[0] || '/JW_FCK_1.jpg'}
-                alt={`${jersey.club} ${jersey.season}`}
-                className="w-full h-full object-cover"
-              />
+              {jersey.images && jersey.images.length > 0 ? (
+                <JerseyImageWithLoading
+                  src={jersey.images[0]}
+                  alt={`${jersey.club} ${jersey.season}`}
+                  className="w-full h-full object-cover"
+                  containerClassName="w-full h-full"
+                />
+              ) : (
+                <div className="w-full h-full bg-secondary flex items-center justify-center">
+                  <span className="text-muted-foreground text-sm">No image</span>
+                </div>
+              )}
 
               {/* Top Left Sale Icon */}
               <div className="absolute top-4 left-4 z-20">
@@ -184,7 +192,7 @@ export const SaleSlide = ({
                 {/* Meta Badges */}
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <div className="px-2 py-1 rounded bg-success/20 backdrop-blur-sm border border-success/30 text-[10px] font-bold text-success uppercase tracking-wide whitespace-nowrap">
-                    {jersey.listing.currency} {jersey.listing.price}
+                    {jersey.listing.currency} {jersey.listing.price.toLocaleString()}
                   </div>
                   <div className="px-2 py-1 rounded bg-white/10 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white uppercase tracking-wide whitespace-nowrap">
                     {jersey.season}

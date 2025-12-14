@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export async function GET() {

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 // Icons removed - not used in this component
 import { Button } from "@/components/ui/button";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
+import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
 import { useFeaturedAuction } from "@/lib/hooks/use-featured-auction";
 import { HeroNavigation } from "../HeroNavigation";
 
@@ -99,15 +100,18 @@ export const AuctionSlide = ({
       </div>
 
       {/* Right Side - Jersey Image */}
-      <div className="hidden md:flex h-full w-1/2 items-center justify-center z-10">
-        <div className="relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border border-white/10 transform rotate-3 hover:rotate-0 transition-transform duration-500">
-          <img
-            src={auction.images[0]}
-            alt={`${auction.club} ${auction.season}`}
-            className="w-full h-full object-cover"
-          />
+      {auction.images && auction.images.length > 0 && (
+        <div className="hidden md:flex h-full w-1/2 items-center justify-center z-10">
+          <div className="relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border border-white/10 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+            <JerseyImageWithLoading
+              src={auction.images[0]}
+              alt={`${auction.club} ${auction.season}`}
+              className="w-full h-full object-cover"
+              containerClassName="w-full h-full"
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

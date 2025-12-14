@@ -129,7 +129,7 @@ const Notifications = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   const handleMarkAllAsRead = async () => {
     if (!user) return;
@@ -201,7 +201,7 @@ const Notifications = () => {
 
     // Navigate to related page
     if (notification.related_jersey_id) {
-      router.push(`/jersey/${notification.related_jersey_id}`);
+      router.push(`/wardrobe/${notification.related_jersey_id}`);
     }
   };
 
@@ -210,7 +210,7 @@ const Notifications = () => {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
             <h1 className="text-2xl font-bold">Notifications</h1>
           </div>
@@ -236,8 +236,8 @@ const Notifications = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+      {/* Page Header */}
+      <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-3xl mx-auto px-4 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>

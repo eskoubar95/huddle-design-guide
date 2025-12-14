@@ -28,6 +28,22 @@
 
 ## Required Variables
 
+### `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- **Type:** String
+- **Required:** Yes
+- **Description:** Clerk publishable key for client-side authentication
+- **Example:** `pk_test_...`
+- **Security:** Safe for client-side (public key)
+- **Where to find:** Clerk Dashboard → API Keys → Publishable key
+
+### `CLERK_SECRET_KEY`
+- **Type:** String
+- **Required:** Yes (server-side only)
+- **Description:** Clerk secret key for server-side token verification
+- **Example:** `sk_test_...`
+- **Security:** ⚠️ Server-side only, never expose to client or commit to git
+- **Where to find:** Clerk Dashboard → API Keys → Secret key
+
 ### `NEXT_PUBLIC_SUPABASE_URL`
 - **Type:** String
 - **Required:** Yes
@@ -71,6 +87,13 @@
 - **Security:** ⚠️ Server-side only, never commit to git
 - **Where to find:** Medusa Admin Dashboard → Settings → Developer → Secret API Keys
 - **Note:** Use **Secret API key** (not Publishable key). Secret keys are for Admin API, publishable keys are for Store API.
+
+### `NEXT_PUBLIC_FEATURED_AUCTION_ID`
+- **Type:** String
+- **Required:** No
+- **Description:** ID of featured auction to display in hero carousel
+- **Example:** `auction-abc123`
+- **Note:** If not set, featured auction slide will not appear
 
 ## Environment Files
 

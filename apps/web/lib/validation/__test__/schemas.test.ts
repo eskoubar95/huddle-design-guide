@@ -5,23 +5,16 @@
 
 import {
   jerseyCreateSchema,
-  jerseyUpdateSchema,
+  // Removed unused: jerseyUpdateSchema
 } from "../jersey-schemas";
 import {
   saleListingCreateSchema,
-  saleListingUpdateSchema,
+  // Removed unused: saleListingUpdateSchema
 } from "../listing-schemas";
 import {
-  auctionCreateSchema,
-  bidCreateSchema,
+  // Removed unused: auctionCreateSchema, bidCreateSchema
 } from "../auction-schemas";
-import { postCreateSchema } from "../post-schemas";
-import { profileUpdateSchema } from "../profile-schemas";
-import {
-  paginationSchema,
-  jerseyListQuerySchema,
-  listingListQuerySchema,
-} from "../query-schemas";
+// Removed unused: postCreateSchema, profileUpdateSchema, paginationSchema, jerseyListQuerySchema, listingListQuerySchema
 
 // Test valid inputs
 const validJersey = {

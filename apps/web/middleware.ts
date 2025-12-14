@@ -13,13 +13,31 @@ export default clerkMiddleware(async (auth, request) => {
   // Protect routes that require authentication
   if (isProtectedRoute(request)) {
     // auth() returns a Promise in Next.js 16, so we await it
-    const { userId } = await auth();
+    const authResult = await auth();
+    const { userId, sessionId } = authResult;
 
     if (!userId) {
+      // Log redirect reason (no PII)
+      if (process.env.NODE_ENV === "development") {
+        console.log("[MIDDLEWARE] Redirecting to auth", {
+          path: request.nextUrl.pathname,
+          reason: "no_user_id",
+          hasSessionId: !!sessionId,
+        });
+      }
+
       // Redirect to auth page if not authenticated
       const authUrl = new URL("/auth", request.url);
       authUrl.searchParams.set("redirect_url", request.url);
       return NextResponse.redirect(authUrl);
+    }
+
+    // Log successful auth (no PII)
+    if (process.env.NODE_ENV === "development") {
+      console.log("[MIDDLEWARE] Authenticated request", {
+        path: request.nextUrl.pathname,
+        hasSessionId: !!sessionId,
+      });
     }
   }
 

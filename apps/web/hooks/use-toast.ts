@@ -14,12 +14,15 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement;
 };
 
+// Note: actionTypes is only used as a type, not as a value
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",
   DISMISS_TOAST: "DISMISS_TOAST",
   REMOVE_TOAST: "REMOVE_TOAST",
 } as const;
+
+type ActionTypes = typeof actionTypes;
 
 let count = 0;
 

@@ -14,13 +14,14 @@ interface SidebarNavLinkProps {
 
 export const SidebarNavLink = ({ href, icon: Icon, label, badge }: SidebarNavLinkProps) => {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  // For root path, use exact match. For other paths, match if pathname starts with href
+  const isActive = href === '/' ? pathname === href : pathname.startsWith(href);
 
   return (
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+        "flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary",
         isActive
           ? "bg-secondary text-foreground border-l-2 border-primary"
           : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"

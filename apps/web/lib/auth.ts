@@ -17,8 +17,16 @@ export interface AuthResult {
  */
 export async function requireAuth(req: Request): Promise<AuthResult> {
   const authHeader = req.headers.get("authorization");
+  const requestId = crypto.randomUUID().slice(0, 8);
 
   if (!authHeader?.startsWith("Bearer ")) {
+    // Log missing token (no PII)
+    if (process.env.NODE_ENV === "development") {
+      console.log("[AUTH] Missing authorization header", {
+        requestId,
+        endpoint: new URL(req.url).pathname,
+      });
+    }
     throw new ApiError("UNAUTHORIZED", "Authentication required", 401);
   }
 
@@ -30,6 +38,15 @@ export async function requireAuth(req: Request): Promise<AuthResult> {
       secretKey: process.env.CLERK_SECRET_KEY!,
     });
     const userId = session.sub;
+
+    // Log successful auth (no PII, only userId prefix)
+    if (process.env.NODE_ENV === "development") {
+      console.log("[AUTH] Token verified successfully", {
+        requestId,
+        userIdPrefix: userId.slice(0, 8),
+        endpoint: new URL(req.url).pathname,
+      });
+    }
 
     // Get user data from Clerk API (not session claims)
     const user = await clerk.users.getUser(userId);
@@ -95,11 +112,24 @@ export async function requireAuth(req: Request): Promise<AuthResult> {
     return { userId, profileId: profile.id };
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    // Log error for debugging (only in development)
+
+    // Extract error details for logging (no PII)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    const isExpired = errorMessage.toLowerCase().includes("expired") || errorMessage.toLowerCase().includes("exp");
+
+    // Log structured error (no PII)
     if (process.env.NODE_ENV === "development") {
-      console.error("Token verification failed:", error);
+      console.error("[AUTH] Token verification failed", {
+        requestId,
+        errorType: errorName,
+        isExpired,
+        endpoint: new URL(req.url).pathname,
+        // Don't log full error message as it may contain token fragments
+      });
     }
-    throw new ApiError("UNAUTHORIZED", "Invalid token", 401);
+
+    throw new ApiError("UNAUTHORIZED", isExpired ? "Token expired" : "Invalid token", 401);
   }
 }
 

@@ -81,11 +81,36 @@ Hold service role og Stripe-nøgler strengt server-side (aldrig i client bundles
 4. Verificér i Supabase UI:
    - Tabeller: `jerseys`, `sale_listings`, `auctions`, `bids`, `transactions`, `profiles`, `follows`, `likes`, `saved_jerseys`, `posts`, `comments`, `conversations`, `messages`, `notifications`, `search_analytics` m.fl.
 
-### 2.6 MedusaJS (senere)
+### 2.6 Edge Functions (Supabase)
 
-Denne guide fokuserer primært på Huddle API + Supabase. Medusa sættes op i **Fase 4** (Advanced features).
+**Implementerede Edge Functions:**
 
-### 2.7 MedusaJS Setup (Fase 4 - Implementeret)
+- **`analyze-jersey-vision`** - Vision AI analyse af jersey billeder
+- **`match-jersey-metadata`** - Match jersey metadata mod Transfermarkt
+- **`auto-link-metadata`** - Auto-link jersey til metadata schema
+- **`backfill-metadata`** - Backfill historiske metadata fra Transfermarkt
+- **`upsert-metadata`** - Upsert metadata (clubs, players, seasons)
+- **`generate-webp-image`** - Generer WebP version af billeder
+- **`upload-jersey-image`** - Upload og process jersey billeder
+- **`cleanup-jersey-storage`** - Cleanup abandoned storage files
+- **`close-auctions`** - Luk udløbne auktioner (cron job)
+
+**Shared Code:**
+- `_shared/` mappe indeholder genbrugelig kode:
+  - Services: `match-service.ts`, `search-service.ts`, `upsert-service.ts`, `data-retrieval-service.ts`
+  - Repositories: `metadata-repository.ts`, `transfermarkt-client.ts`
+  - Utils: `country-mapper.ts`, `name-mapper.ts`, `season-parser.ts`, `auth.ts`, `db-connection.ts`
+  - Prompts: `vision-prompts.ts`
+
+**Konfiguration:**
+- Edge Functions konfigureres i `supabase/config.toml`
+- `verify_jwt = false` for service-to-service calls
+
+### 2.7 MedusaJS (implementeret)
+
+Medusa er implementeret og kører i `apps/medusa/`. Se sektion 2.7 nedenfor for setup detaljer.
+
+### 2.8 MedusaJS Setup (Fase 4 - Implementeret)
 
 Medusa backend er installeret i `apps/medusa/` og konfigureret til at bruge Supabase Postgres med `medusa` schema.
 
@@ -146,18 +171,22 @@ Medusa backend er installeret i `apps/medusa/` og konfigureret til at bruge Supa
 
 ## 3. Udviklingsfaser (high level)
 
-1. **Fase 1 – Foundation & core models**
+1. **Fase 1 – Foundation & core models** ✅
    - Sæt projekt, Supabase-klient og basis API-struktur op.
    - Implementér simple read‑endpoints (fx `GET /jerseys/:id`, `GET /feed`).
-2. **Fase 2 – Authentication integration**
-   - Integrér Clerk med API’et.  
-   - Mappning mellem Clerk user og Supabase `profiles`.
-3. **Fase 3 – Core business logic APIs**
+2. **Fase 2 – Authentication integration** ✅
+   - Integrér Clerk med API'et.  
+   - Mappning mellem Clerk user (TEXT ID) og Supabase `profiles`.
+3. **Fase 3 – Core business logic APIs** ✅
    - Wardrobe: CRUD på jerseys.  
    - Marketplace: sale listings, auktioner, bud, transactions.
-4. **Fase 4 – Advanced features**
+   - Jersey images: Upload, reorder, Vision AI integration.
+4. **Fase 4 – Advanced features** ✅
    - Messaging, notifications, search analytics.  
    - Integration med Medusa (products/orders/shipping) og Stripe.
+   - **Metadata system:** Metadata schema, matching, auto-linking.
+   - **Vision AI:** Automatisk metadata extraction fra jersey billeder.
+   - **Edge Functions:** Backend services for metadata, image processing, cleanup.
 5. **Fase 5 – Testing & optimization**
    - Enhedstests, integrationstests.  
    - Performance, logging, sikkerhed, pre‑launch check.
@@ -397,11 +426,61 @@ Sørg for at oprette notifikationer i de vigtigste flows (nyt bud, outbid, aukti
   - Start simpelt: `ILIKE` queries på `club`, `season`, `player_name` og pris‑filtre.  
 - Log queries i `search_analytics` til senere insights.
 
-### 7.4 Medusa & Stripe (første iteration)
+### 7.4 Metadata System (implementeret)
 
-1. **Sæt Medusa op i `apps/medusa`** med standard-konfiguration, der peger på samme Postgres‑instans (eget schema).  
-2. **Definér mapping** (jf. `04-Database_Schema.md`):
-   - Tilføj felt `medusa_product_id` på `jerseys` eller `sale_listings`.  
+**Metadata Schema:**
+- Oprettet `metadata` schema med tabeller: `competitions`, `seasons`, `clubs`, `club_seasons`, `players`, `player_contracts`, `competition_seasons`, `kit_templates`.
+- Populeres via Edge Functions og seed scripts fra Transfermarkt API.
+
+**Metadata Services (Edge Functions):**
+- `match-jersey-metadata`: Match jersey metadata mod Transfermarkt
+- `auto-link-metadata`: Auto-link jersey til metadata schema (trigger-based)
+- `backfill-metadata`: Backfill historiske metadata
+- `upsert-metadata`: Upsert metadata records
+
+**Metadata Repository:**
+- `supabase/functions/_shared/repositories/metadata-repository.ts`
+- `apps/web/lib/repositories/metadata-repository.ts` (Next.js API)
+
+**Integration:**
+- `public.jerseys` har valgfrie FK'er: `club_id`, `player_id`, `season_id` → `metadata.*`
+- Auto-linking via trigger eller manuel API call
+- Frontend kan søge metadata via `/api/v1/metadata/*` endpoints
+
+### 7.5 Vision AI Integration (implementeret)
+
+**Edge Function:**
+- `analyze-jersey-vision`: Analyserer jersey billeder med OpenAI Vision API
+- Ekstraherer: club, season, player, number, badges, condition
+- Gemmer resultater i `jerseys.vision_raw` (JSONB) og `vision_confidence` (FLOAT)
+
+**Integration:**
+- Kaldet automatisk under upload eller manuelt via `/api/v1/jerseys/[id]/analyze-vision`
+- Resultater bruges til auto-fill i upload flow
+- Kan kombineres med metadata matching for præcis linking
+
+### 7.6 Jersey Images System (implementeret)
+
+**Tabel:**
+- `jersey_images` erstatter `jerseys.images[]` array
+- Felter: `jersey_id`, `image_url`, `storage_path`, `view_type`, `sort_order`, `image_embedding`, `image_url_webp`
+
+**Features:**
+- Normaliseret storage med metadata
+- WebP generation via `generate-webp-image` Edge Function (trigger-based)
+- Image embeddings (3072 dimensions) for template matching
+- Reordering support via `/api/v1/jerseys/[id]/reorder-images`
+
+**Cleanup:**
+- `cleanup-jersey-storage` Edge Function fjerner abandoned files
+- CASCADE delete fra `jerseys` → `jersey_images`
+
+### 7.7 Medusa & Stripe (første iteration)
+
+1. **Medusa oprettet i `apps/medusa`** med standard-konfiguration, der peger på samme Postgres‑instans (`medusa` schema).  
+2. **Mapping defineret** (jf. `04-Database_Schema.md`):
+   - `jerseys.medusa_product_id` (UUID, nullable)
+   - `sale_listings.medusa_product_id` (UUID, nullable)
 3. **Checkout flow (høj-niveau):**
    - Huddle API endpoint: `POST /api/v1/checkout`:
      - Modtager listing/auction id.  

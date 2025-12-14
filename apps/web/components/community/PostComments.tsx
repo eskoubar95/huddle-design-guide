@@ -145,7 +145,7 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [open, postId]);
+  }, [open, postId, fetchComments]);
 
   const handleSubmit = async () => {
     if (!user) {
@@ -242,7 +242,7 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
               <div key={comment.id} className="flex gap-3">
                 <button
                   onClick={() => handleUserClick(comment.user_id)}
-                  className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary"
                   aria-label={`View ${comment.profiles.username}'s profile`}
                 >
                   {comment.profiles.avatar_url ? (
@@ -259,7 +259,7 @@ export const PostComments = ({ postId, open, onOpenChange }: PostCommentsProps) 
                   <div className="bg-secondary rounded-lg p-3">
                     <button
                       onClick={() => handleUserClick(comment.user_id)}
-                      className="font-semibold text-sm hover:underline text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                      className="font-semibold text-sm hover:underline text-left focus:outline-none focus:ring-2 focus:ring-primary rounded"
                       aria-label={`View ${comment.profiles.username}'s profile`}
                     >
                       {comment.profiles.username}

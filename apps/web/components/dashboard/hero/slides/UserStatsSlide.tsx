@@ -31,14 +31,15 @@ export const UserStatsSlide = ({
     return null; // Don't show slide if no user or loading
   }
 
-  const username = user?.username || user?.firstName || "Your";
+  const displayName = user?.username || user?.firstName;
+  const headerText = displayName ? `${displayName}'s` : "Your";
 
   return (
     <div className="relative h-full w-full flex flex-col justify-between p-4 md:p-8 lg:p-8 2xl:p-12">
       {/* Top Left - Title */}
       <div className="z-10">
         <h2 className="text-xl md:text-2xl font-mono text-white font-bold tracking-widest uppercase">
-           {username}&apos;s
+           {headerText}
         </h2>
         <h2 className="text-3xl md:text-4xl lg:text-4xl 2xl:text-6xl font-black text-white uppercase tracking-tight leading-none">
           Wardrobe

@@ -1,0 +1,18 @@
+{
+  "extends": "../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "../apps/web",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
+

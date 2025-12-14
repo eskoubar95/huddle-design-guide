@@ -12,39 +12,7 @@ import { usePosts } from "@/lib/hooks/use-posts";
 import { useToast } from "@/hooks/use-toast";
 import { User, MapPin, Calendar, Loader2, ArrowLeft, Heart, MessageSquare } from "lucide-react";
 
-interface Profile {
-  id: string;
-  username: string;
-  avatar_url: string | null;
-  country: string | null;
-  bio: string | null;
-  created_at: string | null;
-}
-
-interface Jersey {
-  id: string;
-  club: string;
-  season: string;
-  jersey_type: string;
-  images: string[];
-  condition_rating: number | null;
-  visibility: string;
-}
-
-interface Post {
-  id: string;
-  content: string | null;
-  created_at: string;
-  jersey_id: string | null;
-  jerseys?: {
-    id: string;
-    club: string;
-    season: string;
-    images: string[];
-  } | null;
-  post_likes: { user_id: string }[];
-  comments: { id: string }[];
-}
+// Removed unused interfaces: Profile, Jersey, Post
 
 const UserProfile = () => {
   const params = useParams<{ username: string }>();
@@ -159,7 +127,7 @@ const UserProfile = () => {
     if (profile) {
       fetchFollowStats();
     }
-  }, [profile, currentUser?.id]);
+  }, [profile, currentUser?.id, fetchFollowStats]);
 
   // TODO: Follows endpoints not implemented yet (HUD-17)
   // For now, keep follow functionality using direct Supabase calls
@@ -261,7 +229,7 @@ const UserProfile = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border">
+      <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
         <div className="max-w-4xl mx-auto px-4 lg:px-8 py-4">
           <button
             onClick={() => router.back()}
@@ -412,7 +380,7 @@ const UserProfile = () => {
                     {post.jersey_id && (
                       <div
                         className="px-4 pb-4 cursor-pointer"
-                        onClick={() => router.push(`/jersey/${post.jersey_id}`)}
+                        onClick={() => router.push(`/wardrobe/${post.jersey_id}`)}
                       >
                         <div className="bg-secondary/50 rounded-lg p-3 flex gap-3 hover:bg-secondary/70 transition-colors">
                           <div className="w-16 h-24 rounded bg-secondary flex items-center justify-center text-xs text-muted-foreground">

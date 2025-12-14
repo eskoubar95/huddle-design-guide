@@ -6,17 +6,20 @@ Dette dokument opsummerer den anbefalede tech stack til Huddle v1.0 baseret på 
 
 ## 2. Frontend
 
-- **Framework:** Next.js (App Router) + React + TypeScript  
-  - **Hvorfor:** Moderne standardstack, stærk DX, god SEO for landing/marketing-sider og app-lignende oplevelse til dashboard. Ét sprog (TypeScript) på tværs af front/back.
+- **Framework:** Next.js 15 (App Router) + React 19 + TypeScript  
+  - **Hvorfor:** Moderne standardstack, stærk DX, god SEO for landing/marketing-sider og app-lignende oplevelse til dashboard. Ét sprog (TypeScript) på tværs af front/back.  
+  - **Status:** ✅ Migreret fra Vite til Next.js (HUD-13)
 
-- **Styling & UI:** Tailwind CSS + Radix UI (eller lignende headless komponentbibliotek)  
-  - **Hvorfor:** Hurtig udvikling af dark, sportslig UI med konsistente design tokens og tilgængelige primitives.
+- **Styling & UI:** Tailwind CSS + shadcn/ui (Radix UI primitives)  
+  - **Hvorfor:** Hurtig udvikling af dark, sportslig UI med konsistente design tokens og tilgængelige primitives.  
+  - **Status:** ✅ 49 UI komponenter implementeret
 
 - **State & data:** TanStack Query (React Query)  
-  - **Hvorfor:** Stabil, battle-tested datahåndtering mod Medusa/Supabase-API’er med caching, refetch, mutations.
+  - **Hvorfor:** Stabil, battle-tested datahåndtering mod Medusa/Supabase-API'er med caching, refetch, mutations.
 
 - **Forms & validering:** React Hook Form + Zod  
-  - **Hvorfor:** Effektiv formhåndtering (upload jersey, listings, auktioner) med stærke typer og validering.
+  - **Hvorfor:** Effektiv formhåndtering (upload jersey, listings, auktioner) med stærke typer og validering.  
+  - **Status:** ✅ Implementeret i upload flows
 
 - **Internationalisering:** next-intl (eller tilsvarende)  
   - **Hvorfor:** UI er engelsk fra dag ét, men bør kunne udvides til flere sprog uden større omskrivning.
@@ -52,22 +55,34 @@ Dette dokument opsummerer den anbefalede tech stack til Huddle v1.0 baseret på 
     - Huddle-profiler mappes 1:1 til Clerk users (ekstra domænefelter i egen DB).  
   - **Hvorfor:** Hurtig at integrere, god UX out-of-the-box, stærk dev-oplevelse.
 
-- **Fil- og billedstorage:** Supabase Storage (eller S3-kompatibel storage)  
-  - **Anvendelse:** Billeder af jerseys (original + thumbnails).  
-  - **Hvorfor:** Billigt, simpelt, tæt integreret med Postgres; let at skifte til dedikeret S3/R2 senere hvis nødvendigt.
+- **Fil- og billedstorage:** Supabase Storage  
+  - **Anvendelse:** Billeder af jerseys (original + WebP variants) i `jersey_images` bucket.  
+  - **Hvorfor:** Billigt, simpelt, tæt integreret med Postgres; let at skifte til dedikeret S3/R2 senere hvis nødvendigt.  
+  - **Features:**  
+    - Normaliseret `jersey_images` tabel (erstatter `images[]` array)
+    - WebP generation via Edge Function
+    - Image embeddings (OpenAI) for template matching
+    - Cleanup Edge Function for abandoned files
 
 ---
 
 ## 4. Infrastruktur & Deployment
 
 - **Frontend-hosting:** Vercel  
-  - **Hvorfor:** Native til Next.js, automatisk previews, enkel miljøvariabel-håndtering, stærk performance.
+  - **Hvorfor:** Native til Next.js, automatisk previews, enkel miljøvariabel-håndtering, stærk performance.  
+  - **Status:** ✅ Next.js 15 app deployeret
 
 - **Backend-hosting (Medusa):** Railway (primært) / evt. senere Fly.io/andre som supplement  
-  - **Hvorfor:** Railway giver enkel Node-hosting, god DX til små teams og nem skalering; passer til MedusaJS og supplerer Vercel godt.
+  - **Hvorfor:** Railway giver enkel Node-hosting, god DX til små teams og nem skalering; passer til MedusaJS og supplerer Vercel godt.  
+  - **Status:** ✅ Medusa kører lokalt i `apps/medusa/`
 
 - **Database & storage:** Supabase  
-  - **Hvorfor:** Managed Postgres + Storage + funktioner (SQL editor, policies), god balance mellem pris og power.
+  - **Hvorfor:** Managed Postgres + Storage + Edge Functions, god balance mellem pris og power.  
+  - **Features:**  
+    - Postgres med multiple schemas (`public`, `metadata`, `medusa`)
+    - Supabase Storage for jersey images
+    - Edge Functions for backend services (9 functions implementeret)
+    - pg_cron for scheduled jobs (cleanup)
 
 - **CI/CD:** GitHub Actions + Vercel/host-integrations  
   - **Flow:**  
@@ -75,7 +90,8 @@ Dette dokument opsummerer den anbefalede tech stack til Huddle v1.0 baseret på 
     - Merge til `main`: automatisk deploy til Vercel (frontend) og Render/Railway (backend).
 
 - **Monitoring & logging:** Sentry (frontend + backend) + platform-logs  
-  - **Hvorfor:** Hurtig indsigt i fejl og performance uden tung opsætning.
+  - **Hvorfor:** Hurtig indsigt i fejl og performance uden tung opsætning.  
+  - **Status:** ✅ Konfigureret (client, server, edge)
 
 ---
 
@@ -89,12 +105,22 @@ Dette dokument opsummerer den anbefalede tech stack til Huddle v1.0 baseret på 
   - **Anvendelse:** Obligatorisk ID-verifikation for sælgere/biddere.  
   - **Hvorfor:** Samme leverandør som betaling, færre integrationer og samlet økonomi/compliance.
 
+- **Vision AI:** OpenAI Vision API  
+  - **Anvendelse:** Automatisk metadata extraction fra jersey billeder (club, season, player, number, badges).  
+  - **Hvorfor:** Reducerer manuel input, forbedrer data kvalitet.  
+  - **Status:** ✅ Implementeret via `analyze-jersey-vision` Edge Function
+
+- **Metadata Source:** Transfermarkt API  
+  - **Anvendelse:** Fodboldreferencedata (clubs, players, seasons, competitions).  
+  - **Hvorfor:** Omfattende historiske data (10-15+ år), gratis API.  
+  - **Status:** ✅ Integreret via Edge Functions og seed scripts
+
 - **E-mail:** Resend eller Postmark  
   - **Anvendelse:** Verifikationsmails, kritiske notifikationer (auktion vundet/tabt, ordrestatus).  
   - **Hvorfor:** Billige, pålidelige, nem integration til Node/Next.
 
 - **Produktanalyse (senere):** PostHog eller Plausible  
-  - **Anvendelse:** Tracke activation, engagement, funnels fra PRD’ets KPI’er.  
+  - **Anvendelse:** Tracke activation, engagement, funnels fra PRD'ets KPI'er.  
   - **Hvorfor:** Privacy-venlige, gode til startups.
 
 ---

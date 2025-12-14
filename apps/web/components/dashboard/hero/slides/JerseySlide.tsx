@@ -5,6 +5,7 @@ import { Star, Tag, Calendar, Shield, Trophy, Medal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeroSlideData } from "@/lib/hooks/use-hero-slides";
 import { HeroNavigation } from "../HeroNavigation";
+import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
 import { cn } from "@/lib/utils";
 
 interface JerseySlideProps {
@@ -151,7 +152,7 @@ export const JerseySlide = ({
               />
           </div>
           <Button
-            onClick={() => router.push(`/jersey/${jersey.id}`)}
+            onClick={() => router.push(`/wardrobe/${jersey.id}`)}
             variant="secondary"
             className="font-semibold bg-white text-black hover:bg-white/90 border-none shadow-lg w-full md:w-auto"
           >
@@ -182,10 +183,11 @@ export const JerseySlide = ({
               }}
             >
               {/* Full Size Image */}
-              <img
+              <JerseyImageWithLoading
                 src={jersey.images?.[0] || '/JW_FCK_1.jpg'}
                 alt={`${jersey.club} ${jersey.season}`}
                 className="w-full h-full object-cover"
+                containerClassName="w-full h-full"
               />
 
               {/* Top Left Tier Icon */}

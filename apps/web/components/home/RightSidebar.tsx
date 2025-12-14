@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { 
   Clock, 
   TrendingUp, 
-  MapPin, 
+  // Removed unused: MapPin 
   Activity, 
   Flame,
   Heart,
   Gavel,
-  Users,
-  ChevronRight,
+  // Removed unused: Users
+  // Removed unused: ChevronRight
   Newspaper
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -36,6 +36,7 @@ interface LiveAuction {
   starting_bid: number;
   currency: string;
   jerseys: {
+    id: string;
     club: string;
     images: string[];
   };
@@ -138,23 +139,23 @@ export const RightSidebar = () => {
   };
 
   const handleNavigateToJersey = (jerseyId: string) => {
-    router.push(`/jersey/${jerseyId}`);
+    router.push(`/wardrobe/${jerseyId}`);
   };
 
   return (
-    <aside className="hidden xl:block w-80 h-screen sticky top-0 border-l border-border bg-background overflow-hidden">
-      <ScrollArea className="h-full">
-        <div className="p-6 space-y-6">
+    <div className="h-full flex flex-col bg-background/50 backdrop-blur-xl">
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-6">
           {/* Watchlist */}
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <Heart className="w-4 h-4 text-primary" aria-hidden="true" />
-                <h3 className="font-semibold">Watchlist</h3>
+                <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">Watchlist</h3>
               </div>
               <button 
                 onClick={handleNavigateToWardrobe}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                className="text-[10px] font-medium text-muted-foreground hover:text-white transition-colors uppercase tracking-wider"
                 aria-label="View all saved jerseys"
               >
                 View all
@@ -165,34 +166,33 @@ export const RightSidebar = () => {
               {loading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-16 rounded-xl bg-secondary animate-pulse" />
+                    <div key={i} className="h-14 rounded-lg bg-white/5 animate-pulse" />
                   ))}
                 </div>
               ) : savedJerseys.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center" role="status">
-                  No saved jerseys yet
-                </p>
+                <div className="rounded-lg border border-dashed border-white/10 p-4 text-center">
+                  <p className="text-xs text-muted-foreground">No saved jerseys yet</p>
+                </div>
               ) : (
                 savedJerseys.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleNavigateToJersey(item.jersey.id)}
-                    className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    className="w-full p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/10 transition-all group text-left"
                     aria-label={`View ${item.jersey.club} ${item.jersey.season} jersey`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
+                      <div className="w-10 h-10 rounded-md overflow-hidden bg-black/40 flex-shrink-0 border border-white/5">
                         <img 
                           src={item.jersey.images[0]} 
                           alt={`${item.jersey.club} ${item.jersey.season}`}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                         />
                       </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-sm font-medium line-clamp-1">{item.jersey.club}</p>
-                        <p className="text-xs text-muted-foreground">{item.jersey.season}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white truncate group-hover:text-primary transition-colors">{item.jersey.club}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{item.jersey.season}</p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all" aria-hidden="true" />
                     </div>
                   </button>
                 ))
@@ -202,14 +202,14 @@ export const RightSidebar = () => {
 
           {/* Live Auctions */}
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <Gavel className="w-4 h-4 text-accent" aria-hidden="true" />
-                <h3 className="font-semibold">Live Auctions</h3>
+                <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">Live Auctions</h3>
               </div>
               <button 
                 onClick={handleNavigateToMarketplace}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                className="text-[10px] font-medium text-muted-foreground hover:text-white transition-colors uppercase tracking-wider"
                 aria-label="View all live auctions"
               >
                 View all
@@ -220,42 +220,39 @@ export const RightSidebar = () => {
               {loading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-16 rounded-xl bg-secondary animate-pulse" />
+                    <div key={i} className="h-14 rounded-lg bg-white/5 animate-pulse" />
                   ))}
                 </div>
               ) : liveAuctions.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center" role="status">
-                  No live auctions at the moment
-                </p>
+                <div className="rounded-lg border border-dashed border-white/10 p-4 text-center">
+                  <p className="text-xs text-muted-foreground">No live auctions</p>
+                </div>
               ) : (
                 liveAuctions.map((auction) => (
                   <button
                     key={auction.id}
-                    onClick={() => handleNavigateToJersey(auction.jerseys.club)}
-                    className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                    aria-label={`View ${auction.jerseys.club} auction ending in ${formatTimeRemaining(auction.ends_at)}`}
+                    onClick={() => handleNavigateToJersey(auction.jerseys.id)}
+                    className="w-full p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/10 transition-all group relative overflow-hidden text-left"
+                    aria-label={`View ${auction.jerseys.club} auction`}
                   >
-                    {/* Pulse effect for ending soon */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/5 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    
                     <div className="relative flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
+                      <div className="w-10 h-10 rounded-md overflow-hidden bg-black/40 flex-shrink-0 border border-white/5">
                         <img 
                           src={auction.jerseys.images[0]} 
                           alt={auction.jerseys.club}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                         />
                       </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-sm font-medium line-clamp-1">{auction.jerseys.club}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {auction.currency} {auction.current_bid || auction.starting_bid}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1 text-xs text-accent">
-                          <Clock className="w-3 h-3 animate-pulse" aria-hidden="true" />
-                          <span className="font-medium">{formatTimeRemaining(auction.ends_at)}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white truncate group-hover:text-accent transition-colors">{auction.jerseys.club}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] font-mono text-accent">
+                            {auction.currency} {auction.current_bid || auction.starting_bid}
+                          </p>
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Clock className="w-2.5 h-2.5" />
+                            <span>{formatTimeRemaining(auction.ends_at)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -267,10 +264,10 @@ export const RightSidebar = () => {
 
           {/* Community Activity */}
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-success" aria-hidden="true" />
-                <h3 className="font-semibold">Community Activity</h3>
+                <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">Community</h3>
               </div>
             </div>
             
@@ -278,27 +275,29 @@ export const RightSidebar = () => {
               {activities.map((activity, idx) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl bg-card border border-border"
+                  className="p-2 rounded-lg bg-transparent hover:bg-white/5 border border-transparent hover:border-white/5 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-8 h-8">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="w-6 h-6 mt-0.5 border border-white/10">
                       <AvatarImage src={activity.avatar} alt={activity.username} />
-                      <AvatarFallback className="text-xs">
+                      <AvatarFallback className="text-[10px] bg-white/10 text-white">
                         {activity.username[0].toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 text-left">
-                      <p className="text-xs">
-                        <span className="font-medium">{activity.username}</span>
-                        {activity.type === 'follow' && ' started following you'}
-                        {activity.type === 'upload' && ' uploaded a jersey'}
-                        {activity.type === 'win' && ' won an auction'}
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-bold text-white hover:underline cursor-pointer">{activity.username}</span>
+                        <span className="opacity-80">
+                          {activity.type === 'follow' && ' started following you'}
+                          {activity.type === 'upload' && ' listed a new jersey'}
+                          {activity.type === 'win' && ' won an auction'}
+                        </span>
                       </p>
                       {activity.details && (
-                        <p className="text-xs text-muted-foreground">{activity.details}</p>
+                        <p className="text-[10px] text-white/60 mt-0.5 truncate">{activity.details}</p>
                       )}
+                      <p className="text-[9px] text-white/20 mt-1">{activity.time}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">{activity.time}</span>
                   </div>
                 </div>
               ))}
@@ -307,63 +306,56 @@ export const RightSidebar = () => {
 
           {/* Marketplace Metrics */}
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-accent" aria-hidden="true" />
-              <h3 className="font-semibold">Trending</h3>
+            <div className="flex items-center gap-2 px-1">
+              <Flame className="w-4 h-4 text-hype-pink" aria-hidden="true" />
+              <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">Trending</h3>
             </div>
             
-            <div className="space-y-2">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/20">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium">Top Club</span>
+            <div className="grid gap-2">
+              <div className="p-3 rounded-lg bg-gradient-to-br from-primary/10 to-transparent border border-primary/20">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Top Club</span>
                   <TrendingUp className="w-3 h-3 text-primary" aria-hidden="true" />
                 </div>
-                <p className="text-lg font-bold">Real Madrid</p>
-                <p className="text-xs text-muted-foreground">+156 views today</p>
+                <p className="text-sm font-bold text-white">Real Madrid</p>
+                <p className="text-[10px] text-muted-foreground">+156 views today</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-gradient-to-br from-accent/5 to-success/5 border border-accent/20">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium">Price Drops</span>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-accent/10 to-transparent border border-accent/20">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Price Drops</span>
                   <TrendingUp className="w-3 h-3 text-accent rotate-180" aria-hidden="true" />
                 </div>
-                <p className="text-lg font-bold">23 Jerseys</p>
-                <p className="text-xs text-muted-foreground">In your watchlist</p>
+                <p className="text-sm font-bold text-white">23 Jerseys</p>
+                <p className="text-[10px] text-muted-foreground">In your watchlist</p>
               </div>
             </div>
           </section>
 
           {/* Huddle News */}
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <Newspaper className="w-4 h-4 text-foreground" aria-hidden="true" />
-                <h3 className="font-semibold">Huddle News</h3>
+                <Newspaper className="w-4 h-4 text-white" aria-hidden="true" />
+                <h3 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">Huddle News</h3>
               </div>
             </div>
             
             <div className="space-y-2">
-              <button className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all text-left group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-                <div className="aspect-video rounded-lg bg-secondary mb-2 overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
+              <button className="w-full group text-left">
+                <div className="aspect-video rounded-lg bg-white/5 mb-2 overflow-hidden border border-white/5 relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 opacity-50 group-hover:opacity-80 transition-opacity" />
                 </div>
-                <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
+                <p className="text-xs font-medium text-white line-clamp-2 group-hover:text-primary transition-colors leading-relaxed">
                   Classic Kits Making a Comeback in 2024
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">2 hours ago</p>
-              </button>
-
-              <button className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all text-left group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-                <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
-                  New Authentication Feature: Verify Your Jerseys
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">1 day ago</p>
+                <p className="text-[10px] text-muted-foreground mt-1">2 hours ago</p>
               </button>
             </div>
           </section>
         </div>
       </ScrollArea>
-    </aside>
+    </div>
   );
 };
 

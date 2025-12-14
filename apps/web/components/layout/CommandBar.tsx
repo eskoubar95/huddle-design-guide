@@ -388,7 +388,7 @@ export const CommandBar = () => {
     if (result.type === "user") {
       router.push(`/user/${result.id}`);
     } else if (result.type === "jersey" || result.type === "sale" || result.type === "auction") {
-      router.push(`/jersey/${result.id}`);
+      router.push(`/wardrobe/${result.id}`);
     }
   };
 
@@ -407,14 +407,15 @@ export const CommandBar = () => {
     <>
       {/* Command Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="overflow-hidden p-0 shadow-lg">
-          <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5" shouldFilter={false}>
+        <DialogContent className="overflow-hidden p-0 shadow-2xl bg-[#141414]/95 backdrop-blur-xl border border-white/10 rounded-xl">
+          <Command className="bg-transparent [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5 [&_[cmdk-item][aria-selected='true']]:bg-white/5 [&_[cmdk-item][aria-selected='true']]:text-white" shouldFilter={false}>
             <CommandInput 
               placeholder="Search jerseys, users, marketplace..." 
               value={search}
               onValueChange={setSearch}
+              className="border-b border-white/5 bg-transparent"
             />
-            <CommandList>
+            <CommandList className="max-h-[400px] overflow-y-auto custom-scrollbar">
           {!search ? (
             <>
               {searchHistory.length > 0 && (

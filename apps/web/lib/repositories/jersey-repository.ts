@@ -4,31 +4,58 @@ import type { Database } from "@/lib/supabase/types";
 type Jersey = Database["public"]["Tables"]["jerseys"]["Row"];
 type JerseyInsert = Database["public"]["Tables"]["jerseys"]["Insert"];
 type JerseyUpdate = Database["public"]["Tables"]["jerseys"]["Update"];
+type JerseyImage = Database["public"]["Tables"]["jersey_images"]["Row"];
+
+export interface JerseyWithRelations extends Jersey {
+  jersey_images?: JerseyImage[];
+  metadata_club?: { id: string; name: string } | null;
+  metadata_season?: { id: string; label: string } | null;
+  metadata_player?: { id: string; full_name: string; current_shirt_number?: number | null } | null;
+}
 
 /**
  * Repository for jersey data access
  * Handles CRUD operations and cursor-based pagination
  */
 export class JerseyRepository extends BaseRepository {
-  async findById(id: string): Promise<Jersey | null> {
+  async findById(id: string): Promise<JerseyWithRelations | null> {
     const supabase = await this.getSupabase();
-    const { data, error } = await supabase
+    
+    // Fetch jersey with related data
+    const { data: jersey, error: jerseyError } = await supabase
       .from("jerseys")
       .select("*")
       .eq("id", id)
       .single();
 
-    if (error) {
-      if (error.code === "PGRST116") return null; // Not found
-      throw error;
+    if (jerseyError) {
+      if (jerseyError.code === "PGRST116") return null; // Not found
+      throw jerseyError;
     }
 
-    return data;
+    if (!jersey) return null;
+
+    // Fetch jersey_images
+    const { data: images, error: imagesError } = await supabase
+      .from("jersey_images")
+      .select("*")
+      .eq("jersey_id", id)
+      .order("sort_order", { ascending: true });
+
+    if (imagesError) {
+      console.error("[JerseyRepository] Error fetching jersey_images:", imagesError);
+      // Continue without images - fallback to legacy images array
+    }
+
+    // Return jersey with images - metadata will be fetched in service layer if needed
+    const result: JerseyWithRelations = { ...jersey, jersey_images: images || [] };
+
+    return result;
   }
 
   async findMany(
     params: PaginationParams & { ownerId?: string; visibility?: string }
-  ): Promise<PaginatedResult<Jersey>> {
+  ): Promise<PaginatedResult<JerseyWithRelations>> {
     const supabase = await this.getSupabase();
     let query = supabase
       .from("jerseys")
@@ -44,6 +71,7 @@ export class JerseyRepository extends BaseRepository {
       if (params.visibility !== "all") {
         query = query.eq("visibility", params.visibility);
       }
+      // If visibility is "all", don't filter by visibility (show all for that owner)
     }
 
     if (params.cursor) {
@@ -54,13 +82,47 @@ export class JerseyRepository extends BaseRepository {
         .or(`created_at.eq.${createdAt},id.lt.${id}`);
     }
 
-    const { data, error } = await query;
+    const { data: jerseys, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      // Log error for debugging
+      console.error("[JerseyRepository] Query error:", error);
+      throw error;
+    }
 
-    const items = data || [];
-    const hasMore = items.length > params.limit;
-    const result = hasMore ? items.slice(0, params.limit) : items;
+    const jerseyItems = jerseys || [];
+    const hasMore = jerseyItems.length > params.limit;
+    const result = hasMore ? jerseyItems.slice(0, params.limit) : jerseyItems;
+
+    // Fetch jersey_images for all jerseys in batch
+    const jerseyIds = result.map((j) => j.id);
+    const { data: allImages, error: imagesError } = await supabase
+      .from("jersey_images")
+      .select("*")
+      .in("jersey_id", jerseyIds)
+      .order("jersey_id", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (imagesError) {
+      console.error("[JerseyRepository] Error fetching jersey_images:", imagesError);
+      // Continue without images - fallback to legacy images array
+    }
+
+    // Group images by jersey_id
+    const imagesByJerseyId = new Map<string, JerseyImage[]>();
+    if (allImages) {
+      for (const image of allImages) {
+        const existing = imagesByJerseyId.get(image.jersey_id) || [];
+        existing.push(image);
+        imagesByJerseyId.set(image.jersey_id, existing);
+      }
+    }
+
+    // Combine jerseys with their images
+    const itemsWithRelations: JerseyWithRelations[] = result.map((jersey) => ({
+      ...jersey,
+      jersey_images: imagesByJerseyId.get(jersey.id) || [],
+    }));
 
     const nextCursor =
       hasMore && result.length > 0
@@ -70,7 +132,7 @@ export class JerseyRepository extends BaseRepository {
           )
         : null;
 
-    return { items: result, nextCursor };
+    return { items: itemsWithRelations, nextCursor };
   }
 
   async create(data: JerseyInsert): Promise<Jersey> {

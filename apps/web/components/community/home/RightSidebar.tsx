@@ -5,17 +5,15 @@ import { useRouter } from "next/navigation";
 import { 
   Clock, 
   TrendingUp, 
-  MapPin, 
   Activity, 
   Flame,
   Heart,
   Gavel,
-  Users,
   ChevronRight,
   Newspaper
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -36,6 +34,7 @@ interface LiveAuction {
   starting_bid: number;
   currency: string;
   jerseys: {
+    id: string;
     club: string;
     images: string[];
   };
@@ -51,7 +50,7 @@ interface CommunityActivity {
 
 export const RightSidebar = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
   const [savedJerseys, setSavedJerseys] = useState<SavedJersey[]>([]);
   const [liveAuctions, setLiveAuctions] = useState<LiveAuction[]>([]);
   const [activities, setActivities] = useState<CommunityActivity[]>([]);
@@ -71,7 +70,7 @@ export const RightSidebar = () => {
         const { data: saved, error: savedError } = await supabase
           .from("saved_jerseys")
           .select("*, jersey:jerseys!inner(*)")
-          .eq("user_id", user.id)
+          .eq("user_id", user?.id || "")
           .limit(5);
 
         if (savedError) {
@@ -138,7 +137,7 @@ export const RightSidebar = () => {
   };
 
   const handleNavigateToJersey = (jerseyId: string) => {
-    router.push(`/jersey/${jerseyId}`);
+    router.push(`/wardrobe/${jerseyId}`);
   };
 
   return (
@@ -154,7 +153,7 @@ export const RightSidebar = () => {
               </div>
               <button 
                 onClick={handleNavigateToWardrobe}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded"
                 aria-label="View all saved jerseys"
               >
                 View all
@@ -177,7 +176,7 @@ export const RightSidebar = () => {
                   <button
                     key={item.id}
                     onClick={() => handleNavigateToJersey(item.jersey.id)}
-                    className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all group focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label={`View ${item.jersey.club} ${item.jersey.season} jersey`}
                   >
                     <div className="flex items-center gap-3">
@@ -209,7 +208,7 @@ export const RightSidebar = () => {
               </div>
               <button 
                 onClick={handleNavigateToMarketplace}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded"
                 aria-label="View all live auctions"
               >
                 View all
@@ -231,8 +230,8 @@ export const RightSidebar = () => {
                 liveAuctions.map((auction) => (
                   <button
                     key={auction.id}
-                    onClick={() => handleNavigateToJersey(auction.jerseys.club)}
-                    className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    onClick={() => handleNavigateToJersey(auction.jerseys.id)}
+                    className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary"
                     aria-label={`View ${auction.jerseys.club} auction ending in ${formatTimeRemaining(auction.ends_at)}`}
                   >
                     {/* Pulse effect for ending soon */}
@@ -343,7 +342,7 @@ export const RightSidebar = () => {
             </div>
             
             <div className="space-y-2">
-              <button className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all text-left group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+              <button className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all text-left group focus:outline-none focus:ring-2 focus:ring-primary">
                 <div className="aspect-video rounded-lg bg-secondary mb-2 overflow-hidden">
                   <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
                 </div>
@@ -353,7 +352,7 @@ export const RightSidebar = () => {
                 <p className="text-xs text-muted-foreground mt-1">2 hours ago</p>
               </button>
 
-              <button className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all text-left group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+              <button className="w-full p-3 rounded-xl bg-card hover:bg-card-hover border border-border transition-all text-left group focus:outline-none focus:ring-2 focus:ring-primary">
                 <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
                   New Authentication Feature: Verify Your Jerseys
                 </p>
@@ -366,5 +365,4 @@ export const RightSidebar = () => {
     </aside>
   );
 };
-
 

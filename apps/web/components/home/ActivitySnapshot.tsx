@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shirt, Store, Gavel, Heart, Users, TrendingUp } from "lucide-react";
+import { Shirt, Store, Gavel, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@clerk/nextjs";
 
@@ -118,7 +118,7 @@ export const ActivitySnapshot = () => {
             <button
               key={card.label}
               onClick={card.onClick}
-              className={`group relative p-8 hover:bg-card-hover transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+              className={`group relative p-6 hover:bg-card-hover transition-all focus:outline-none focus:ring-2 focus:ring-primary ${
                 index !== statCards.length - 1 ? 'border-r border-border/50' : ''
               }`}
               aria-label={`${card.label}: ${card.value} ${card.subtitle}`}
@@ -131,19 +131,19 @@ export const ActivitySnapshot = () => {
               {/* Hover gradient */}
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-transparent via-transparent to-primary/10" />
               
-              <div className="relative space-y-5">
-                <div className={`w-14 h-14 rounded-2xl ${card.bgColor} flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all shadow-lg`}>
-                  <card.icon className={`w-7 h-7 ${card.color}`} />
+              <div className="relative space-y-4">
+                <div className={`w-12 h-12 rounded-xl ${card.bgColor} flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all shadow-lg`}>
+                  <card.icon className={`w-6 h-6 ${card.color}`} />
                 </div>
 
-                <div className="space-y-2 text-left">
-                  <div className="text-5xl font-black">{card.value}</div>
-                  <div className="text-sm text-muted-foreground font-medium">{card.subtitle}</div>
+                <div className="space-y-1 text-left">
+                  <div className="text-4xl font-black">{card.value}</div>
+                  <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{card.subtitle}</div>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   <span>{card.label}</span>
-                  <TrendingUp className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <TrendingUp className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             </button>

@@ -291,7 +291,7 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
                     setShippingCostSeller(false);
                     setShippingFreeInCountry(false);
                   }}
-                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary ${
                     shippingCostBuyer
                       ? "border-primary bg-secondary"
                       : "border-border hover:border-muted"
@@ -311,7 +311,7 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
                     setShippingCostSeller(true);
                     setShippingFreeInCountry(false);
                   }}
-                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary ${
                     shippingCostSeller
                       ? "border-primary bg-secondary"
                       : "border-border hover:border-muted"
@@ -331,7 +331,7 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
                     setShippingCostSeller(false);
                     setShippingFreeInCountry(true);
                   }}
-                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  className={`w-full p-4 rounded-lg border-2 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary ${
                     shippingFreeInCountry
                       ? "border-primary bg-secondary"
                       : "border-border hover:border-muted"
