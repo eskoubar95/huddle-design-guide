@@ -326,6 +326,14 @@ const EditJerseyPage = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // Update TopNav about unsaved changes state (shared between form watch and image handlers)
+  const updateUnsavedChangesState = useCallback(() => {
+    const hasChanges = hasUnsavedChanges();
+    window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
+      detail: { hasChanges }
+    }));
+  }, [hasUnsavedChanges]);
+
   // Handle custom events from TopNav
   useEffect(() => {
     const handleCheckUnsavedChanges = (e: Event) => {
@@ -351,20 +359,12 @@ const EditJerseyPage = () => {
       }
     };
 
-    // Update TopNav about unsaved changes state
-    const updateUnsavedChanges = () => {
-      const hasChanges = hasUnsavedChanges();
-      window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
-        detail: { hasChanges }
-      }));
-    };
-
     // Initial update
-    updateUnsavedChanges();
+    updateUnsavedChangesState();
 
     // Update when form values change
     const subscription = form.watch(() => {
-      updateUnsavedChanges();
+      updateUnsavedChangesState();
     });
 
     window.addEventListener('checkUnsavedChanges', handleCheckUnsavedChanges);
@@ -375,7 +375,7 @@ const EditJerseyPage = () => {
       window.removeEventListener('saveJersey', handleSave);
       subscription.unsubscribe();
     };
-  }, [hasUnsavedChanges, form]);
+  }, [hasUnsavedChanges, form, updateUnsavedChangesState]);
 
   // Check if user is owner
   const isOwner = user?.id === jersey?.owner_id;
@@ -435,15 +435,7 @@ const EditJerseyPage = () => {
       fileInputRef.current.value = "";
     }
     // Update unsaved changes state when images change
-    setTimeout(() => {
-      const updateUnsavedChanges = () => {
-        const hasChanges = hasUnsavedChanges();
-        window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
-          detail: { hasChanges }
-        }));
-      };
-      updateUnsavedChanges();
-    }, 0);
+    updateUnsavedChangesState();
   };
 
   const removeImage = (id: string) => {
@@ -453,15 +445,7 @@ const EditJerseyPage = () => {
     }
     setImages(images.filter((img) => img.id !== id));
     // Update unsaved changes state when images change
-    setTimeout(() => {
-      const updateUnsavedChanges = () => {
-        const hasChanges = hasUnsavedChanges();
-        window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
-          detail: { hasChanges }
-        }));
-      };
-      updateUnsavedChanges();
-    }, 0);
+    updateUnsavedChangesState();
   };
 
   const handleDragStart = (index: number) => {
@@ -479,15 +463,7 @@ const EditJerseyPage = () => {
     setImages(newImages);
     setDraggedIndex(index);
     // Update unsaved changes state when images change
-    setTimeout(() => {
-      const updateUnsavedChanges = () => {
-        const hasChanges = hasUnsavedChanges();
-        window.dispatchEvent(new CustomEvent('unsavedChangesUpdate', {
-          detail: { hasChanges }
-        }));
-      };
-      updateUnsavedChanges();
-    }, 0);
+    updateUnsavedChangesState();
   };
 
   const handleDragEnd = async () => {
