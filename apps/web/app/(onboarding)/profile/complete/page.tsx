@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useProfileCompletionSteps } from "@/hooks/use-profile-completion-steps";
 import { ProfileCompletionHeader } from "@/components/profile/complete/ProfileCompletionHeader";
-import { ProfileCompletionProgress } from "@/components/profile/complete/ProfileCompletionProgress";
 import { ProfileCompletionFooter } from "@/components/profile/complete/ProfileCompletionFooter";
 import { PersonalInfoStep } from "@/components/profile/complete/steps/PersonalInfoStep";
 import { ShippingAddressStep } from "@/components/profile/complete/steps/ShippingAddressStep";
@@ -16,9 +15,6 @@ import {
   profileCompletionSchema,
   type ProfileCompletionInput,
 } from "@/lib/validation/profile-schemas";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-
-const STEP_LABELS = ["Personal Info", "Shipping Address", "Review"];
 
 export default function ProfileCompletePage() {
   const router = useRouter();
@@ -77,6 +73,23 @@ export default function ProfileCompletePage() {
     formTrigger: form.trigger,
   });
 
+  // Sync personal info to shipping address when moving to step 2
+  useEffect(() => {
+    if (currentStep === "shipping-address") {
+      const { firstName, lastName, phone, shippingAddress } = form.getValues();
+      
+      // Auto-fill full name if empty
+      if (!shippingAddress.fullName && firstName && lastName) {
+        form.setValue("shippingAddress.fullName", `${firstName} ${lastName}`.trim());
+      }
+      
+      // Auto-fill phone if empty
+      if (!shippingAddress.phone && phone) {
+        form.setValue("shippingAddress.phone", phone);
+      }
+    }
+  }, [currentStep, form]);
+
   const handleClose = () => {
     reset();
     router.push("/profile");
@@ -123,17 +136,29 @@ export default function ProfileCompletePage() {
     }
   };
 
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case "personal-info":
+        return "Personal Information";
+      case "shipping-address":
+        return "Shipping Address";
+      case "summary":
+        return "Review Details";
+      default:
+        return "Complete Profile";
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <ProfileCompletionHeader onClose={handleClose} />
-
-      <ProfileCompletionProgress
+      <ProfileCompletionHeader 
         currentStep={stepNumber}
         totalSteps={totalSteps}
-        stepLabels={STEP_LABELS}
+        onClose={handleClose}
+        stepTitle={getStepTitle()}
       />
 
-      <main className="flex-1 pb-20">
+      <main className="flex-1 overflow-y-auto">
         {currentStep === "personal-info" && (
           <PersonalInfoStep
             register={form.register}

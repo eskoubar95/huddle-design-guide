@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ProfileCompletionInput } from "@/lib/validation/profile-schemas";
 
 interface ShippingAddressStepProps {
@@ -45,31 +44,8 @@ export function ShippingAddressStep({
 }: ShippingAddressStepProps) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Shipping Address</CardTitle>
-          <CardDescription>
-            Add your default shipping address for deliveries
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fullName">
-              Full Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="fullName"
-              {...register("shippingAddress.fullName")}
-              placeholder="John Doe"
-              aria-invalid={errors.shippingAddress?.fullName ? "true" : "false"}
-            />
-            {errors.shippingAddress?.fullName && (
-              <p className="text-sm text-destructive">
-                {errors.shippingAddress.fullName.message}
-              </p>
-            )}
-          </div>
-
+      <div className="space-y-6">
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="street">
               Street Address <span className="text-destructive">*</span>
@@ -78,6 +54,7 @@ export function ShippingAddressStep({
               id="street"
               {...register("shippingAddress.street")}
               placeholder="123 Main St, Apt 4B"
+              autoComplete="shipping street-address"
               aria-invalid={
                 errors.shippingAddress?.street ? "true" : "false"
               }
@@ -98,6 +75,7 @@ export function ShippingAddressStep({
                 id="city"
                 {...register("shippingAddress.city")}
                 placeholder="New York"
+                autoComplete="shipping address-level2"
                 aria-invalid={errors.shippingAddress?.city ? "true" : "false"}
               />
               {errors.shippingAddress?.city && (
@@ -115,6 +93,7 @@ export function ShippingAddressStep({
                 id="postalCode"
                 {...register("shippingAddress.postalCode")}
                 placeholder="10001"
+                autoComplete="shipping postal-code"
                 aria-invalid={
                   errors.shippingAddress?.postalCode ? "true" : "false"
                 }
@@ -137,6 +116,7 @@ export function ShippingAddressStep({
                 id="state"
                 {...register("shippingAddress.state")}
                 placeholder="Enter state, province, or region"
+                autoComplete="shipping address-level1"
               />
               {errors.shippingAddress?.state && (
                 <p className="text-sm text-destructive">
@@ -179,31 +159,8 @@ export function ShippingAddressStep({
               </p>
             )}
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone">
-              Phone Number <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              {...register("shippingAddress.phone")}
-              placeholder="+1 (555) 123-4567"
-              aria-invalid={
-                errors.shippingAddress?.phone ? "true" : "false"
-              }
-            />
-            {errors.shippingAddress?.phone && (
-              <p className="text-sm text-destructive">
-                {errors.shippingAddress.phone.message}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              For delivery coordination and updates
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

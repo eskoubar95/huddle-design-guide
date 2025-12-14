@@ -27,13 +27,6 @@ export function PersonalInfoStep({ register, control, errors }: PersonalInfoStep
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       <div className="space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold tracking-tight">Personal Information</h2>
-          <p className="text-sm text-muted-foreground">
-            We need your personal details to ensure secure transactions
-          </p>
-        </div>
-        
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
