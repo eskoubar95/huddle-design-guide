@@ -40,12 +40,22 @@ const handler = async (req: NextRequest) => {
     }
 
     // Check if user already has a default shipping address
-    const { data: existingDefault } = await supabase
+    const { data: existingDefault, error: checkError } = await supabase
       .from("shipping_addresses")
       .select("id")
       .eq("user_id", userId)
       .eq("is_default", true)
-      .single();
+      .maybeSingle();
+    
+    // Ignore "not found" errors (it's fine if no default exists yet)
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw new ApiError(
+        "INTERNAL_SERVER_ERROR",
+        "Failed to check existing addresses",
+        500,
+        { details: checkError.message }
+      );
+    }
 
     // If user has existing default and we're adding a new one, unset the old default
     if (existingDefault && validated.shippingAddress.isDefault !== false) {
@@ -58,25 +68,46 @@ const handler = async (req: NextRequest) => {
     // Insert shipping address (set as default if it's the first one or explicitly requested)
     const isDefault = validated.shippingAddress.isDefault ?? !existingDefault;
 
-    const { error: addressError } = await supabase
+    const { error: addressError, data: addressData } = await supabase
       .from("shipping_addresses")
       .insert({
         user_id: userId,
         full_name: validated.shippingAddress.fullName,
         street: validated.shippingAddress.street,
+        address_line_2: validated.shippingAddress.addressLine2 || null,
         city: validated.shippingAddress.city,
+        state: validated.shippingAddress.state || null,
         postal_code: validated.shippingAddress.postalCode,
         country: validated.shippingAddress.country,
         phone: validated.shippingAddress.phone,
         is_default: isDefault,
-      });
+      })
+      .select();
 
     if (addressError) {
+      console.error("[PROFILE_COMPLETE] Shipping address insert error:", {
+        error: addressError,
+        code: addressError.code,
+        message: addressError.message,
+        details: addressError.details,
+        hint: addressError.hint,
+        userId,
+        addressData: {
+          full_name: validated.shippingAddress.fullName,
+          street: validated.shippingAddress.street,
+          city: validated.shippingAddress.city,
+          country: validated.shippingAddress.country,
+        },
+      });
       throw new ApiError(
         "INTERNAL_SERVER_ERROR",
         "Failed to save shipping address",
         500,
-        { details: addressError.message }
+        { 
+          details: addressError.message,
+          code: addressError.code,
+          hint: addressError.hint,
+        }
       );
     }
 

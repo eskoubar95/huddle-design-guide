@@ -1,6 +1,7 @@
 import * as React from "react";
 import { CheckIcon, ChevronsUpDown } from "lucide-react";
 import * as RPNInput from "react-phone-number-input";
+import { parsePhoneNumber } from "react-phone-number-input";
 import flags from "react-phone-number-input/flags";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,31 @@ type PhoneInputProps = Omit<
 
 const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
   React.forwardRef<React.ElementRef<typeof RPNInput.default>, PhoneInputProps>(
-    ({ className, onChange, value, ...props }, ref) => {
+    ({ className, onChange, value, defaultCountry, ...props }, ref) => {
+      const [internalValue, setInternalValue] = React.useState<RPNInput.Value>(value || "");
+      const [currentCountry, setCurrentCountry] = React.useState<RPNInput.Country | undefined>(defaultCountry);
+
+      // Reset to default country when value is cleared
+      React.useEffect(() => {
+        if (!value || value === "") {
+          setInternalValue("");
+          setCurrentCountry(defaultCountry);
+        } else {
+          setInternalValue(value);
+          // Extract country from value if it starts with +
+          if (typeof value === "string" && value.startsWith("+")) {
+            try {
+              const country = parsePhoneNumber(value)?.country;
+              if (country) {
+                setCurrentCountry(country);
+              }
+            } catch {
+              // If parsing fails, keep current country
+            }
+          }
+        }
+      }, [value, defaultCountry]);
+
       return (
         <RPNInput.default
           ref={ref}
@@ -40,7 +65,11 @@ const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
           countrySelectComponent={CountrySelect}
           inputComponent={InputComponent as never}
           smartCaret={false}
-          value={value || undefined}
+          // Don't show country code when input is empty - use undefined instead of empty string
+          value={internalValue && internalValue !== "" ? internalValue : undefined}
+          defaultCountry={currentCountry || defaultCountry}
+          // Only show international format when there's a value
+          international={!!internalValue && internalValue !== ""}
           /**
            * Handles the onChange event.
            *
@@ -50,7 +79,27 @@ const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
            *
            * @param {E164Number | undefined} value - The entered value
            */
-          onChange={(value) => onChange?.(value || ("" as RPNInput.Value))}
+          onChange={(newValue) => {
+            const finalValue = newValue || "";
+            setInternalValue(finalValue);
+            
+            // If value is cleared, reset to default country
+            if (!finalValue) {
+              setCurrentCountry(defaultCountry);
+            } else if (typeof finalValue === "string" && finalValue.startsWith("+")) {
+              // Try to detect country from the value
+              try {
+                const parsed = parsePhoneNumber(finalValue);
+                if (parsed?.country) {
+                  setCurrentCountry(parsed.country);
+                }
+              } catch {
+                // If parsing fails, keep current country
+              }
+            }
+            
+            onChange?.(finalValue as RPNInput.Value);
+          }}
           {...props}
         />
       );
@@ -63,7 +112,7 @@ const InputComponent = React.forwardRef<
   React.ComponentProps<"input">
 >(({ className, ...props }, ref) => (
   <Input
-    className={cn("rounded-e-lg rounded-s-none", className)}
+    className={cn("rounded-e-lg rounded-s-none h-10", className)}
     {...props}
     ref={ref}
   />
@@ -102,7 +151,7 @@ const CountrySelect = ({
         <Button
           type="button"
           variant="outline"
-          className="flex gap-1 rounded-e-none rounded-s-lg border-r-0 px-3 focus:z-10"
+          className="flex gap-1 rounded-e-none rounded-s-lg border-r-0 px-3 focus:z-10 h-10"
           disabled={disabled}
         >
           <FlagComponent

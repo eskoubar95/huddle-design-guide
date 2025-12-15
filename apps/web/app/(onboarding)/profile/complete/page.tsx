@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { useProfileCompletionSteps } from "@/hooks/use-profile-completion-steps";
 import { useCountries } from "@/hooks/use-countries";
@@ -21,6 +22,7 @@ export default function ProfileCompletePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { getToken } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Validate redirect URL to prevent open redirects
@@ -49,6 +51,7 @@ export default function ProfileCompletePage() {
       shippingAddress: {
         fullName: "",
         street: "",
+        addressLine2: "",
         city: "",
         postalCode: "",
         country: "",
@@ -103,11 +106,17 @@ export default function ProfileCompletePage() {
 
     try {
       const values = form.getValues();
+      const token = await getToken();
+
+      if (!token) {
+        throw new Error("Authentication required. Please sign in again.");
+      }
 
       const response = await fetch("/api/v1/profile/complete", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify(values),
       });
@@ -158,6 +167,7 @@ export default function ProfileCompletePage() {
         currentStep={stepNumber}
         totalSteps={totalSteps}
         onClose={handleClose}
+        onSkip={handleSkip}
         stepTitle={getStepTitle()}
       />
 
@@ -182,7 +192,7 @@ export default function ProfileCompletePage() {
         )}
 
         {currentStep === "summary" && (
-          <SummaryStep getValues={form.getValues} />
+          <SummaryStep getValues={form.getValues} countries={countries} />
         )}
       </main>
 
@@ -195,7 +205,6 @@ export default function ProfileCompletePage() {
         onNext={goNext}
         onSubmit={handleSubmit}
         onClose={handleClose}
-        onSkip={handleSkip}
       />
     </div>
   );

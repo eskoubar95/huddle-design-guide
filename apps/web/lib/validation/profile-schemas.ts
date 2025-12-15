@@ -19,7 +19,8 @@ export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
  */
 export const shippingAddressSchema = z.object({
   fullName: z.string().trim().min(1).max(255),
-  street: z.string().trim().min(1).max(255),
+  street: z.string().trim().min(1).max(255), // Address line 1
+  addressLine2: z.string().trim().max(255).optional(), // Address line 2 (optional)
   city: z.string().trim().min(1).max(100),
   state: z.string().trim().max(100).optional(), // State/Province/Region (optional)
   postalCode: z.string().trim().min(1).max(20),

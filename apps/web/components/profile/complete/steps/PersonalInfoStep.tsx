@@ -76,7 +76,6 @@ export function PersonalInfoStep({ register, control, errors }: PersonalInfoStep
                   {...field}
                   defaultCountry={defaultCountry}
                   placeholder="Enter phone number"
-                  international
                 />
               )}
             />

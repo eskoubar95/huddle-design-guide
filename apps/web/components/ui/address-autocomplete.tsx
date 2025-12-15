@@ -23,6 +23,7 @@ interface AddressAutocompleteProps {
   value: string;
   onChange: (address: AddressComponents) => void;
   onInputChange?: (value: string) => void;
+  onManualEntry?: () => void; // Callback when "Couldn't Find" is clicked
   placeholder?: string;
   label?: string;
   error?: string;
@@ -33,6 +34,7 @@ interface AddressAutocompleteProps {
 
 export interface AddressComponents {
   street: string;
+  addressLine2?: string; // Apartment, suite, floor, etc.
   city: string;
   postalCode: string;
   state?: string;
@@ -108,6 +110,7 @@ export function AddressAutocomplete({
   value,
   onChange,
   onInputChange,
+  onManualEntry,
   placeholder = "Start typing your address...",
   label,
   error,
@@ -117,6 +120,7 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [apiReady, setApiReady] = useState(false);
   const [predictions, setPredictions] = useState<AutocompletePrediction[]>([]);
   const [searchQuery, setSearchQuery] = useState(value || "");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -124,42 +128,83 @@ export function AddressAutocomplete({
   const placesServiceRef = useRef<PlacesService | null>(null);
   const sessionTokenRef = useRef<unknown>(null);
 
-  // Initialize Google Places API
+
+  // Initialize Google Places API - check if already loaded
   useEffect(() => {
+    const initGooglePlaces = () => {
+      if (typeof window !== 'undefined' && window.google?.maps?.places) {
+        const places = window.google.maps.places;
+        
+        try {
+          // Create AutocompleteService
+          autocompleteServiceRef.current = new places.AutocompleteService();
+          
+          // Create PlacesService (needs a dummy div)
+          const dummyDiv = document.createElement('div');
+          placesServiceRef.current = new places.PlacesService(dummyDiv);
+          
+          // Create session token for billing optimization
+          sessionTokenRef.current = new places.AutocompleteSessionToken();
+          
+          setApiReady(true);
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Error initializing Google Places:', error);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Check if already loaded
     if (typeof window !== 'undefined' && window.google?.maps?.places) {
-      const places = window.google.maps.places;
-      
-      // Create AutocompleteService
-      autocompleteServiceRef.current = new places.AutocompleteService();
-      
-      // Create PlacesService (needs a dummy div)
-      const dummyDiv = document.createElement('div');
-      placesServiceRef.current = new places.PlacesService(dummyDiv);
-      
-      // Create session token for billing optimization
-      sessionTokenRef.current = new places.AutocompleteSessionToken();
-      
-      setIsLoading(false);
+      initGooglePlaces();
     }
-  }, []);
+
+    // Fallback timeout - enable input after 3 seconds even if API not loaded
+    const timeout = setTimeout(() => {
+      if (!apiReady) {
+        console.warn('Google Places API not loaded after 3 seconds, enabling input anyway');
+        setIsLoading(false);
+      }
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [apiReady]);
 
   // Handle Google Maps API script load
   const handleScriptLoad = () => {
     if (window.google?.maps?.places) {
       const places = window.google.maps.places;
       
-      autocompleteServiceRef.current = new places.AutocompleteService();
-      const dummyDiv = document.createElement('div');
-      placesServiceRef.current = new places.PlacesService(dummyDiv);
-      sessionTokenRef.current = new places.AutocompleteSessionToken();
-      
-      setIsLoading(false);
+      try {
+        autocompleteServiceRef.current = new places.AutocompleteService();
+        const dummyDiv = document.createElement('div');
+        placesServiceRef.current = new places.PlacesService(dummyDiv);
+        sessionTokenRef.current = new places.AutocompleteSessionToken();
+        
+        setApiReady(true);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error initializing Google Places:', error);
+        setIsLoading(false);
+      }
+    } else {
+      // Script loaded but API not ready - wait a bit
+      const checkInterval = setInterval(() => {
+        if (window.google?.maps?.places) {
+          handleScriptLoad();
+          clearInterval(checkInterval);
+        }
+      }, 100);
+
+      // Stop checking after 5 seconds
+      setTimeout(() => clearInterval(checkInterval), 5000);
     }
   };
 
   // Fetch predictions when user types
   useEffect(() => {
-    if (!autocompleteServiceRef.current || !searchQuery || searchQuery.length < 3) {
+    if (!apiReady || !autocompleteServiceRef.current || !searchQuery || searchQuery.length < 3) {
       setPredictions([]);
       return;
     }
@@ -184,10 +229,10 @@ export function AddressAutocomplete({
         }
       }
     );
-  }, [searchQuery, country]);
+  }, [searchQuery, country, apiReady]);
 
   // Handle address selection
-  const handleSelect = (placeId: string) => {
+  const handleSelect = (placeId: string, predictionMainText: string) => {
     if (!placesServiceRef.current) return;
 
     const request: PlaceDetailsRequest = {
@@ -195,13 +240,23 @@ export function AddressAutocomplete({
       fields: [
         'address_components',
         'formatted_address',
+        // Explicitly request all address component types we need
+        'name', // Place name (useful for debugging)
       ],
       sessionToken: sessionTokenRef.current || undefined,
     };
 
     placesServiceRef.current.getDetails(request, (place, status) => {
       if (status === window.google?.maps?.places?.PlacesServiceStatus?.OK && place) {
-        const components = parseAddressComponents(place);
+        // Debug: Log address components to help diagnose parsing issues
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Google Places API address components:', place.address_components);
+          console.log('Prediction main_text:', predictionMainText);
+        }
+        const components = parseAddressComponents(place, predictionMainText);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Parsed address components:', components);
+        }
         onChange(components);
         setSearchQuery(components.fullAddress);
         setIsOpen(false);
@@ -210,15 +265,20 @@ export function AddressAutocomplete({
         if (window.google?.maps?.places) {
           sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
         }
+      } else {
+        console.error('Google Places API error:', status);
       }
     });
   };
 
   // Parse Google Places address components into our format
-  const parseAddressComponents = (place: PlaceResult): AddressComponents => {
+  // predictionMainText is used to extract street number when Google doesn't return it separately
+  const parseAddressComponents = (place: PlaceResult, predictionMainText?: string): AddressComponents => {
     const components = place.address_components || [];
     
-    let street = '';
+    let streetNumber = '';
+    let route = '';
+    let subpremise = ''; // Apartment, floor, suite, etc.
     let city = '';
     let postalCode = '';
     let state = '';
@@ -228,12 +288,21 @@ export function AddressAutocomplete({
       const types = component.types;
       
       if (types.includes('street_number')) {
-        street = component.long_name + ' ';
+        streetNumber = component.long_name;
       }
       if (types.includes('route')) {
-        street += component.long_name;
+        route = component.long_name;
       }
-      if (types.includes('locality')) {
+      if (types.includes('subpremise')) {
+        // Apartment, floor, suite, unit, etc.
+        subpremise = component.long_name;
+      }
+      // City can be in locality, sublocality, or administrative_area_level_2
+      if (types.includes('locality') && !city) {
+        city = component.long_name;
+      } else if (types.includes('sublocality') && !city) {
+        city = component.long_name;
+      } else if (types.includes('administrative_area_level_2') && !city) {
         city = component.long_name;
       }
       if (types.includes('postal_code')) {
@@ -243,16 +312,69 @@ export function AddressAutocomplete({
         state = component.short_name;
       }
       if (types.includes('country')) {
-        countryCode = component.short_name;
+        // Always use short_name for country (ISO-2 code)
+        countryCode = component.short_name || component.long_name;
       }
     });
 
+    // If street_number is not a separate component, try to extract from prediction main_text
+    // This is the most reliable source since it contains what the user selected (e.g., "Rua X 11")
+    if (!streetNumber && predictionMainText) {
+      // Extract street number from prediction (e.g., "Rua Doutor António Granjo 11" -> "11")
+      const mainTextMatch = predictionMainText.match(/\s+(\d+)$/);
+      if (mainTextMatch) {
+        streetNumber = mainTextMatch[1];
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Extracted street number from prediction:', streetNumber);
+        }
+      }
+    }
+
+    // Fallback: try to extract from route
+    if (!streetNumber && route) {
+      const routeMatch = route.match(/\s+(\d+)(?:\s|$)/);
+      if (routeMatch) {
+        streetNumber = routeMatch[1];
+        // Remove the number from route
+        route = route.replace(/\s+\d+(?:\s|$)/, '').trim();
+      }
+    }
+
+    // Fallback: try to extract from formatted_address
+    if (!streetNumber && place.formatted_address) {
+      // Look for pattern like "Rua X 11" or "Street 11," at the start
+      const addressMatch = place.formatted_address.match(/^([^,]+?)\s+(\d+)(?:\s*,|\s+)/);
+      if (addressMatch && addressMatch[2]) {
+        streetNumber = addressMatch[2];
+      }
+    }
+
+    // Combine street number and route (street number last for European format like "Rua X 11")
+    // or street number first for US format ("11 Main St")
+    // Use route + number if route doesn't contain number
+    const street = streetNumber 
+      ? `${route} ${streetNumber}`.trim() 
+      : route;
+
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Parsed values:', {
+        streetNumber,
+        route,
+        street,
+        countryCode,
+        subpremise,
+        predictionMainText,
+      });
+    }
+
     return {
-      street: street.trim(),
+      street: street || route, // Fallback to route if no street number
+      addressLine2: subpremise || undefined,
       city,
       postalCode,
       state: state || undefined,
-      country: countryCode,
+      country: countryCode || '', // Ensure it's always a string
       fullAddress: place.formatted_address || '',
     };
   };
@@ -295,19 +417,19 @@ export function AddressAutocomplete({
                   }
                 }}
                 placeholder={placeholder}
-                disabled={disabled || isLoading || !googleMapsApiKey}
+                disabled={disabled}
                 autoComplete="off"
                 className={cn(
                   error && "border-destructive"
                 )}
               />
-              {isLoading && googleMapsApiKey && (
+              {isLoading && googleMapsApiKey && !apiReady && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
               )}
             </div>
           </PopoverTrigger>
           
-          {predictions.length > 0 && (
+          {(predictions.length > 0 || (searchQuery.length >= 3 && apiReady)) && (
             <PopoverContent 
               className="w-[var(--radix-popover-trigger-width)] p-0" 
               align="start"
@@ -315,23 +437,56 @@ export function AddressAutocomplete({
             >
               <Command>
                 <CommandList>
-                  <CommandEmpty>No addresses found.</CommandEmpty>
-                  <CommandGroup>
-                    {predictions.map((prediction) => (
-                      <CommandItem
-                        key={prediction.place_id}
-                        value={prediction.description}
-                        onSelect={() => handleSelect(prediction.place_id)}
-                        className="cursor-pointer"
-                      >
-                        <MapPin className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{prediction.structured_formatting.main_text}</span>
-                          <span className="text-xs text-muted-foreground">{prediction.structured_formatting.secondary_text}</span>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  {predictions.length > 0 ? (
+                    <>
+                      <CommandGroup>
+                        {predictions.map((prediction) => (
+                          <CommandItem
+                            key={prediction.place_id}
+                            value={prediction.description}
+                            onSelect={() => handleSelect(prediction.place_id, prediction.structured_formatting.main_text)}
+                            className="cursor-pointer"
+                          >
+                            <MapPin className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{prediction.structured_formatting.main_text}</span>
+                              <span className="text-xs text-muted-foreground">{prediction.structured_formatting.secondary_text}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {onManualEntry && (
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => {
+                              setIsOpen(false);
+                              onManualEntry();
+                            }}
+                            className="cursor-pointer text-muted-foreground"
+                          >
+                            <span className="text-sm">Couldn't Find</span>
+                          </CommandItem>
+                        </CommandGroup>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <CommandEmpty>No addresses found.</CommandEmpty>
+                      {onManualEntry && (
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => {
+                              setIsOpen(false);
+                              onManualEntry();
+                            }}
+                            className="cursor-pointer text-muted-foreground"
+                          >
+                            <span className="text-sm">Couldn't Find - Enter manually</span>
+                          </CommandItem>
+                        </CommandGroup>
+                      )}
+                    </>
+                  )}
                 </CommandList>
               </Command>
             </PopoverContent>
