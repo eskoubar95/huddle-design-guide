@@ -33,16 +33,18 @@ type PhoneInputProps = Omit<
 const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
   React.forwardRef<React.ElementRef<typeof RPNInput.default>, PhoneInputProps>(
     ({ className, onChange, value, defaultCountry, ...props }, ref) => {
-      const [internalValue, setInternalValue] = React.useState<RPNInput.Value>(value || "");
+      const [internalValue, setInternalValue] = React.useState<RPNInput.Value | undefined>(
+        (value as RPNInput.Value) || undefined
+      );
       const [currentCountry, setCurrentCountry] = React.useState<RPNInput.Country | undefined>(defaultCountry);
 
       // Reset to default country when value is cleared
       React.useEffect(() => {
         if (!value || value === "") {
-          setInternalValue("");
+          setInternalValue(undefined);
           setCurrentCountry(defaultCountry);
         } else {
-          setInternalValue(value);
+          setInternalValue(value as RPNInput.Value);
           // Extract country from value if it starts with +
           if (typeof value === "string" && value.startsWith("+")) {
             try {
@@ -80,7 +82,7 @@ const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
            * @param {E164Number | undefined} value - The entered value
            */
           onChange={(newValue) => {
-            const finalValue = newValue || "";
+            const finalValue: RPNInput.Value | undefined = newValue || undefined;
             setInternalValue(finalValue);
             
             // If value is cleared, reset to default country
@@ -98,7 +100,8 @@ const PhoneInput: React.ForwardRefExoticComponent<PhoneInputProps> =
               }
             }
             
-            onChange?.(finalValue as RPNInput.Value);
+            // Convert undefined to empty string for form compatibility
+            onChange?.(finalValue ? finalValue : ("" as RPNInput.Value));
           }}
           {...props}
         />

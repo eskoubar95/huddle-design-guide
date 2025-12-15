@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,7 @@ import {
   type ProfileCompletionInput,
 } from "@/lib/validation/profile-schemas";
 
-export default function ProfileCompletePage() {
+function ProfileCompletePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -207,5 +207,17 @@ export default function ProfileCompletePage() {
         onClose={handleClose}
       />
     </div>
+  );
+}
+
+export default function ProfileCompletePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    }>
+      <ProfileCompletePageContent />
+    </Suspense>
   );
 }

@@ -68,7 +68,7 @@ const handler = async (req: NextRequest) => {
     // Insert shipping address (set as default if it's the first one or explicitly requested)
     const isDefault = validated.shippingAddress.isDefault ?? !existingDefault;
 
-    const { error: addressError, data: addressData } = await supabase
+    const { error: addressError } = await supabase
       .from("shipping_addresses")
       .insert({
         user_id: userId,

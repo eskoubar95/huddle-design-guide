@@ -464,7 +464,7 @@ export function AddressAutocomplete({
                             }}
                             className="cursor-pointer text-muted-foreground"
                           >
-                            <span className="text-sm">Couldn't Find</span>
+                            <span className="text-sm">Couldn&apos;t Find</span>
                           </CommandItem>
                         </CommandGroup>
                       )}
@@ -481,7 +481,7 @@ export function AddressAutocomplete({
                             }}
                             className="cursor-pointer text-muted-foreground"
                           >
-                            <span className="text-sm">Couldn't Find - Enter manually</span>
+                            <span className="text-sm">Couldn&apos;t Find - Enter manually</span>
                           </CommandItem>
                         </CommandGroup>
                       )}
