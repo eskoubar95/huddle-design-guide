@@ -4,6 +4,7 @@ import { handleApiError, ApiError } from "@/lib/api/errors";
 import { successResponse } from "@/lib/api/responses";
 import { requireAuth } from "@/lib/auth";
 import { profileCompletionSchema } from "@/lib/validation/profile-schemas";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * POST /api/v1/profile/complete
@@ -59,10 +60,24 @@ const handler = async (req: NextRequest) => {
 
     // If user has existing default and we're adding a new one, unset the old default
     if (existingDefault && validated.shippingAddress.isDefault !== false) {
-      await supabase
+      const { error: unsetError } = await supabase
         .from("shipping_addresses")
         .update({ is_default: false })
         .eq("id", existingDefault.id);
+      
+      if (unsetError) {
+        // Log error but continue - DB constraint should prevent duplicates
+        Sentry.captureException(unsetError, {
+          tags: {
+            component: "profile_complete",
+            operation: "unset_default_address",
+          },
+          extra: {
+            userIdPrefix: userId.slice(0, 8),
+            addressId: existingDefault.id,
+          },
+        });
+      }
     }
 
     // Insert shipping address (set as default if it's the first one or explicitly requested)
@@ -85,29 +100,22 @@ const handler = async (req: NextRequest) => {
       .select();
 
     if (addressError) {
-      console.error("[PROFILE_COMPLETE] Shipping address insert error:", {
-        error: addressError,
-        code: addressError.code,
-        message: addressError.message,
-        details: addressError.details,
-        hint: addressError.hint,
-        userId,
-        addressData: {
-          full_name: validated.shippingAddress.fullName,
-          street: validated.shippingAddress.street,
-          city: validated.shippingAddress.city,
-          country: validated.shippingAddress.country,
+      // Log full error for debugging (no PII)
+      Sentry.captureException(addressError, {
+        tags: {
+          component: "profile_complete",
+          operation: "insert_shipping_address",
+        },
+        extra: {
+          userIdPrefix: userId.slice(0, 8),
+          errorCode: addressError.code,
+          errorHint: addressError.hint,
         },
       });
       throw new ApiError(
         "INTERNAL_SERVER_ERROR",
         "Failed to save shipping address",
-        500,
-        { 
-          details: addressError.message,
-          code: addressError.code,
-          hint: addressError.hint,
-        }
+        500
       );
     }
 

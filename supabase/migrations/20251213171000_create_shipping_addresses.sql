@@ -31,14 +31,20 @@ CREATE INDEX IF NOT EXISTS idx_shipping_addresses_user_id
 -- Enable RLS (no policies - service-role only access)
 ALTER TABLE public.shipping_addresses ENABLE ROW LEVEL SECURITY;
 
--- Add updated_at trigger (if function exists)
+-- Add updated_at trigger (if function exists and trigger doesn't already exist)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column') THEN
-    EXECUTE 'CREATE TRIGGER update_shipping_addresses_updated_at
-      BEFORE UPDATE ON public.shipping_addresses
-      FOR EACH ROW
-      EXECUTE FUNCTION update_updated_at_column()';
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_trigger
+      WHERE tgname = 'update_shipping_addresses_updated_at'
+    ) THEN
+      EXECUTE 'CREATE TRIGGER update_shipping_addresses_updated_at
+        BEFORE UPDATE ON public.shipping_addresses
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()';
+    END IF;
   END IF;
 END $$;
 

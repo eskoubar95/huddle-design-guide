@@ -321,8 +321,9 @@ CREATE POLICY "Anyone can view comments" ON public.comments
   FOR SELECT USING (true);
 
 -- search_analytics policies
-CREATE POLICY "Anyone can log searches" ON public.search_analytics
-  FOR INSERT WITH CHECK (true);
+-- Allow authenticated users to log their own searches
+CREATE POLICY "Authenticated users can log searches" ON public.search_analytics
+  FOR INSERT WITH CHECK (auth.uid()::text = user_id);
 
 CREATE POLICY "Anyone can view search analytics" ON public.search_analytics
   FOR SELECT USING (true);

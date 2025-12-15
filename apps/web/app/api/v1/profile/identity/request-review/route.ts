@@ -4,6 +4,7 @@ import { handleApiError, ApiError } from "@/lib/api/errors";
 import { successResponse } from "@/lib/api/responses";
 import { requireAuth } from "@/lib/auth";
 import { reviewRequestSchema } from "@/lib/validation/profile-schemas";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * POST /api/v1/profile/identity/request-review
@@ -54,11 +55,21 @@ const handler = async (req: NextRequest) => {
       });
 
     if (requestError) {
+      // Log full error for debugging (no PII)
+      Sentry.captureException(requestError, {
+        tags: {
+          component: "identity_verification",
+          operation: "create_review_request",
+        },
+        extra: {
+          userIdPrefix: userId.slice(0, 8),
+          errorCode: requestError.code,
+        },
+      });
       throw new ApiError(
         "INTERNAL_SERVER_ERROR",
         "Failed to create review request",
-        500,
-        { details: requestError.message }
+        500
       );
     }
 

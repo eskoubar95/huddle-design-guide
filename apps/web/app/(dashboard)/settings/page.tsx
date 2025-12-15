@@ -8,6 +8,7 @@ import { useClerk, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 const Settings = () => {
   const { signOut } = useClerk();
@@ -37,7 +38,12 @@ const Settings = () => {
           setProfileCompleteness(data);
         }
       } catch (error) {
-        console.error("Failed to fetch profile completeness:", error);
+        Sentry.captureException(error, {
+          tags: {
+            component: "Settings",
+            operation: "fetchCompleteness",
+          },
+        });
       }
     };
 

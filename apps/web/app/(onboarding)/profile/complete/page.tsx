@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
+import * as Sentry from "@sentry/nextjs";
 import { useProfileCompletionSteps } from "@/hooks/use-profile-completion-steps";
 import { useCountries } from "@/hooks/use-countries";
 import { ProfileCompletionHeader } from "@/components/profile/complete/ProfileCompletionHeader";
@@ -38,7 +39,10 @@ function ProfileCompletePageContent() {
   const handleSkip = () => {
     // Mark that user has seen onboarding
     localStorage.setItem("huddle_onboarding_seen", "true");
-    toast.info("You can complete your profile anytime from Settings");
+    toast({
+      title: "Skipped for now",
+      description: "You can complete your profile anytime from Settings",
+    });
     router.push(redirectUrl);
   };
 
@@ -134,7 +138,12 @@ function ProfileCompletePageContent() {
       reset();
       router.push(redirectUrl);
     } catch (error) {
-      console.error("Profile completion error:", error);
+      Sentry.captureException(error, {
+        tags: {
+          page: "/profile/complete",
+          operation: "submitProfileComplete",
+        },
+      });
       toast({
         title: "Error",
         description:

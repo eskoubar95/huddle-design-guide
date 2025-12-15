@@ -1,4 +1,5 @@
 import type { Country } from "react-phone-number-input";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Detect user's country from browser settings
@@ -7,7 +8,8 @@ import type { Country } from "react-phone-number-input";
 export function detectUserCountry(): Country {
   try {
     // Try to get country from browser locale
-    const locale = navigator.language || (navigator as { userLanguage?: string }).userLanguage;
+    const nav = navigator as Navigator & { userLanguage?: string };
+    const locale = nav.language || nav.userLanguage;
     
     if (locale) {
       // Extract country code from locale (e.g., "da-DK" -> "DK", "en-US" -> "US")
@@ -24,7 +26,12 @@ export function detectUserCountry(): Country {
     // Fallback to Denmark for Huddle's primary market
     return "DK" as Country;
   } catch (error) {
-    console.error("Failed to detect country:", error);
+    Sentry.captureException(error, {
+      tags: {
+        scope: "detect-country",
+        operation: "detectUserCountry",
+      },
+    });
     return "DK" as Country;
   }
 }

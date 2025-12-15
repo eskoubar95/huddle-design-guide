@@ -91,31 +91,37 @@ export class ProfileValidationService {
     if (!profile.phone?.trim()) missingFields.push("phone");
 
     // Check for default shipping address
-    const { data: defaultAddress } = await supabase
+    const { data: defaultAddress, error: defaultAddressError } = await supabase
       .from("shipping_addresses")
       .select("id")
       .eq("user_id", userId)
       .eq("is_default", true)
       .maybeSingle();
 
+    // Handle database errors - don't treat errors as "missing address"
+    if (defaultAddressError) {
+      throw new ApiError(
+        "INTERNAL_SERVER_ERROR",
+        "Failed to fetch shipping address",
+        500
+      );
+    }
+
     const hasDefaultShippingAddress = !!defaultAddress;
     if (!hasDefaultShippingAddress) {
       missingFields.push("default_shipping_address");
     }
 
-    // Check identity verification status
+    // Profile completeness (name/phone + address only, not identity)
+    const isProfileComplete = missingFields.length === 0;
+
+    // Check identity verification status (seller-only requirement, separate from profile completeness)
     const identityStatus = profile.stripe_identity_verification_status;
     const isIdentityVerified = identityStatus === 'verified';
 
-    if (!isIdentityVerified) {
-      missingFields.push("identity_verification");
-    }
-
-    const isProfileComplete = missingFields.length === 0;
-
     // Determine reason for ineligibility
     let reason: SellerEligibilityResult['reason'] | undefined;
-    if (!isProfileComplete) {
+    if (!isProfileComplete || !isIdentityVerified) {
       if (missingFields.some(f => ['first_name', 'last_name', 'phone'].includes(f))) {
         reason = 'profile_incomplete';
       } else if (!hasDefaultShippingAddress) {
