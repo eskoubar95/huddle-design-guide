@@ -32,11 +32,22 @@ const handler = async (req: NextRequest) => {
       .eq("id", userId);
 
     if (profileError) {
+      // Log full error for debugging (no PII)
+      Sentry.captureException(profileError, {
+        tags: {
+          component: "profile_complete",
+          operation: "update_profile",
+        },
+        extra: {
+          userIdPrefix: userId.slice(0, 8),
+          errorCode: profileError.code,
+          errorHint: profileError.hint,
+        },
+      });
       throw new ApiError(
         "INTERNAL_SERVER_ERROR",
         "Failed to update profile",
-        500,
-        { details: profileError.message }
+        500
       );
     }
 
@@ -50,11 +61,22 @@ const handler = async (req: NextRequest) => {
     
     // Ignore "not found" errors (it's fine if no default exists yet)
     if (checkError && checkError.code !== 'PGRST116') {
+      // Log full error for debugging (no PII)
+      Sentry.captureException(checkError, {
+        tags: {
+          component: "profile_complete",
+          operation: "check_existing_addresses",
+        },
+        extra: {
+          userIdPrefix: userId.slice(0, 8),
+          errorCode: checkError.code,
+          errorHint: checkError.hint,
+        },
+      });
       throw new ApiError(
         "INTERNAL_SERVER_ERROR",
         "Failed to check existing addresses",
-        500,
-        { details: checkError.message }
+        500
       );
     }
 
