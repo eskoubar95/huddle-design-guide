@@ -1,14 +1,54 @@
 'use client'
 
-import { Settings as SettingsIcon, ChevronRight, User, Bell, Lock, Eye, Globe, HelpCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings as SettingsIcon, ChevronRight, User, Bell, Lock, Eye, Globe, HelpCircle, ArrowRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 const Settings = () => {
   const { signOut } = useClerk();
+  const { getToken } = useAuth();
   const router = useRouter();
+  const [profileCompleteness, setProfileCompleteness] = useState<{
+    isProfileComplete: boolean;
+    hasDefaultShippingAddress: boolean;
+    missingFields: string[];
+  } | null>(null);
+
+  // Fetch profile completeness
+  useEffect(() => {
+    const fetchCompleteness = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        
+        const response = await fetch("/api/v1/profile/completeness", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setProfileCompleteness(data);
+        }
+      } catch (error) {
+        Sentry.captureException(error, {
+          tags: {
+            component: "Settings",
+            operation: "fetchCompleteness",
+          },
+        });
+      }
+    };
+
+    fetchCompleteness();
+  }, [getToken]);
 
   const handleLogout = async () => {
     await signOut();
@@ -25,6 +65,24 @@ const Settings = () => {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+        {/* Profile Completion Banner */}
+        {profileCompleteness && !profileCompleteness.isProfileComplete && (
+          <Alert className="border-yellow-500/50 bg-yellow-500/10">
+            <AlertTitle className="text-yellow-500">Complete Your Profile</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="text-sm text-muted-foreground mb-3">
+                Unlock all features on the marketplace. Complete your profile to buy and sell jerseys.
+              </p>
+              <Link href="/profile/complete">
+                <Button size="sm" variant="outline" className="w-full sm:w-auto border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400">
+                  Complete Profile
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Account Section */}
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground mb-3 px-2">ACCOUNT</h2>

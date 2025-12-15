@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditProfile } from "@/components/profile/EditProfile";
-import { Settings, Share2, LogIn } from "lucide-react";
+import { Settings, Share2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@clerk/nextjs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useProfile } from "@/lib/hooks/use-profiles";
 import { useJerseys } from "@/lib/hooks/use-jerseys";
 import { useListings } from "@/lib/hooks/use-listings";
@@ -28,9 +29,15 @@ interface Stats {
 
 const Profile = () => {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [profileCompleteness, setProfileCompleteness] = useState<{
+    isProfileComplete: boolean;
+    hasDefaultShippingAddress: boolean;
+    missingFields: string[];
+  } | null>(null);
 
   // Fetch profile from API
   const {
@@ -39,6 +46,38 @@ const Profile = () => {
     error: profileError,
     refetch: refetchProfile,
   } = useProfile(user?.id || "");
+
+  // Fetch profile completeness
+  useEffect(() => {
+    const fetchCompleteness = async () => {
+      try {
+        const token = await getToken();
+        if (!token) {
+          console.warn("No auth token available for completeness check");
+          return;
+        }
+        
+        const response = await fetch("/api/v1/profile/completeness", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setProfileCompleteness(data);
+        } else {
+          console.error("Failed to fetch completeness:", response.status);
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile completeness:", error);
+      }
+    };
+
+    if (user?.id) {
+      fetchCompleteness();
+    }
+  }, [user?.id, getToken]);
 
   // Fetch stats from API (count from listings/auctions/jerseys)
   const { data: jerseysData } = useJerseys(
@@ -218,6 +257,28 @@ const Profile = () => {
                   </Button>
                 </div>
               </div>
+
+              {/* Profile Completion Alert */}
+              {profileCompleteness &&
+                (!profileCompleteness.isProfileComplete ||
+                 !profileCompleteness.hasDefaultShippingAddress) && (
+                <Alert className="mb-6">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Complete Your Profile</AlertTitle>
+                  <AlertDescription className="flex items-center justify-between gap-4">
+                    <span>
+                      Finish setting up your profile to start buying and selling
+                      on the marketplace.
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => router.push("/profile/complete")}
+                    >
+                      Complete Now
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

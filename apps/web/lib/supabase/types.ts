@@ -88,6 +88,57 @@ export type Database = {
           },
         ]
       }
+      batch_jobs: {
+        Row: {
+          club_ids: string[] | null
+          competition_id: string | null
+          competition_name: string | null
+          completed_at: string | null
+          created_at: string | null
+          error: string | null
+          id: string
+          mode: string
+          priority: number
+          progress: Json | null
+          selected_seasons: string[]
+          started_at: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          club_ids?: string[] | null
+          competition_id?: string | null
+          competition_name?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          mode: string
+          priority?: number
+          progress?: Json | null
+          selected_seasons: string[]
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          club_ids?: string[] | null
+          competition_id?: string | null
+          competition_name?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          mode?: string
+          priority?: number
+          progress?: Json | null
+          selected_seasons?: string[]
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bids: {
         Row: {
           amount: number
@@ -211,42 +262,72 @@ export type Database = {
         }
         Relationships: []
       }
-      jersey_images: {
+      identity_verification_review_requests: {
         Row: {
-          id: string
-          jersey_id: string
-          image_url: string
-          image_url_webp: string | null
-          storage_path: string
-          view_type: string | null
-          sort_order: number
-          image_embedding: unknown | null
           created_at: string
+          id: string
+          message: string | null
+          status: string
           updated_at: string
+          user_id: string
+          verification_session_id: string | null
         }
         Insert: {
-          id?: string
-          jersey_id: string
-          image_url: string
-          image_url_webp?: string | null
-          storage_path: string
-          view_type?: string | null
-          sort_order?: number
-          image_embedding?: unknown | null
           created_at?: string
+          id?: string
+          message?: string | null
+          status?: string
           updated_at?: string
+          user_id: string
+          verification_session_id?: string | null
         }
         Update: {
+          created_at?: string
           id?: string
-          jersey_id?: string
+          message?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          verification_session_id?: string | null
+        }
+        Relationships: []
+      }
+      jersey_images: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_embedding: string | null
+          image_url: string
+          image_url_webp: string | null
+          jersey_id: string
+          sort_order: number | null
+          storage_path: string
+          updated_at: string | null
+          view_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_embedding?: string | null
+          image_url: string
+          image_url_webp?: string | null
+          jersey_id: string
+          sort_order?: number | null
+          storage_path: string
+          updated_at?: string | null
+          view_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_embedding?: string | null
           image_url?: string
           image_url_webp?: string | null
+          jersey_id?: string
+          sort_order?: number | null
           storage_path?: string
+          updated_at?: string | null
           view_type?: string | null
-          sort_order?: number
-          image_embedding?: unknown | null
-          created_at?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -275,8 +356,11 @@ export type Database = {
           player_number: string | null
           season: string
           season_id: string | null
+          status: string | null
           updated_at: string
           visibility: string
+          vision_confidence: number | null
+          vision_raw: Json | null
         }
         Insert: {
           club: string
@@ -294,8 +378,11 @@ export type Database = {
           player_number?: string | null
           season: string
           season_id?: string | null
+          status?: string | null
           updated_at?: string
           visibility?: string
+          vision_confidence?: number | null
+          vision_raw?: Json | null
         }
         Update: {
           club?: string
@@ -313,8 +400,11 @@ export type Database = {
           player_number?: string | null
           season?: string
           season_id?: string | null
+          status?: string | null
           updated_at?: string
           visibility?: string
+          vision_confidence?: number | null
+          vision_raw?: Json | null
         }
         Relationships: []
       }
@@ -538,8 +628,14 @@ export type Database = {
           bio: string | null
           country: string | null
           created_at: string | null
+          first_name: string | null
           id: string
+          is_profile_complete: boolean | null
+          last_name: string | null
           medusa_customer_id: string | null
+          phone: string | null
+          stripe_identity_verification_id: string | null
+          stripe_identity_verification_status: string | null
           updated_at: string | null
           username: string
         }
@@ -548,8 +644,14 @@ export type Database = {
           bio?: string | null
           country?: string | null
           created_at?: string | null
+          first_name?: string | null
           id: string
+          is_profile_complete?: boolean | null
+          last_name?: string | null
           medusa_customer_id?: string | null
+          phone?: string | null
+          stripe_identity_verification_id?: string | null
+          stripe_identity_verification_status?: string | null
           updated_at?: string | null
           username: string
         }
@@ -558,8 +660,14 @@ export type Database = {
           bio?: string | null
           country?: string | null
           created_at?: string | null
+          first_name?: string | null
           id?: string
+          is_profile_complete?: boolean | null
+          last_name?: string | null
           medusa_customer_id?: string | null
+          phone?: string | null
+          stripe_identity_verification_id?: string | null
+          stripe_identity_verification_status?: string | null
           updated_at?: string | null
           username?: string
         }
@@ -680,6 +788,56 @@ export type Database = {
         }
         Relationships: []
       }
+      shipping_addresses: {
+        Row: {
+          city: string
+          country: string
+          created_at: string
+          full_name: string
+          id: string
+          is_default: boolean
+          phone: string
+          postal_code: string
+          street: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city: string
+          country: string
+          created_at?: string
+          full_name: string
+          id?: string
+          is_default?: boolean
+          phone: string
+          postal_code: string
+          street: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string
+          country?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_default?: boolean
+          phone?: string
+          postal_code?: string
+          street?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipping_addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -727,6 +885,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_abandoned_drafts: {
+        Args: never
+        Returns: {
+          deleted_count: number
+          jersey_ids: string[]
+        }[]
+      }
       create_medusa_customer: {
         Args: { p_email: string; p_first_name?: string; p_last_name?: string }
         Returns: string

@@ -168,6 +168,11 @@ function toast({ ...props }: Toast) {
   };
 }
 
+// Add helper methods for common toast variants
+toast.success = (description: string) => toast({ description, variant: "default" });
+toast.error = (description: string) => toast({ description, variant: "destructive" });
+toast.info = (description: string) => toast({ description, variant: "default" });
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 

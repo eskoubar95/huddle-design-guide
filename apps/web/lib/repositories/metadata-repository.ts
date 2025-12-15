@@ -102,7 +102,7 @@ export class MetadataRepository {
     mean_market_value?: number;
   }): Promise<Competition> {
     const supabase = await createServiceClient();
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+     
     // Using unknown instead of any for better type safety
     const { data: competition, error } = await (supabase as unknown as {
       schema: (schema: string) => {
