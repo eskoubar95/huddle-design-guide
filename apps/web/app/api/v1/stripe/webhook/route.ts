@@ -214,6 +214,59 @@ export async function POST(request: NextRequest) {
       const transactionId = paymentIntent.metadata?.transaction_id;
 
       if (transactionId) {
+        // Get transaction to verify totals (HUD-37)
+        const { data: transaction, error: queryError } = await supabase
+          .from("transactions")
+          .select("total_amount")
+          .eq("id", transactionId)
+          .single();
+
+        // Handle database query errors
+        if (queryError) {
+          Sentry.captureException(queryError, {
+            level: "warning",
+            tags: {
+              component: "stripe_webhook",
+              operation: "fetch_transaction_total",
+            },
+            extra: {
+              transactionIdPrefix: transactionId.slice(0, 8),
+              paymentIntentAmount: paymentIntent.amount,
+            },
+          });
+
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              `[STRIPE] Failed to fetch transaction ${transactionId.slice(0, 8)}... for reconciliation:`,
+              queryError
+            );
+          }
+          // Continue processing webhook even if transaction fetch fails
+          // (transaction might not exist yet or be in different state)
+        }
+
+        // Verify payment intent amount matches transaction total_amount (if set)
+        // Log warning if mismatch, but don't throw (allows manual reconciliation)
+        // Use != null to handle zero amounts correctly
+        if (transaction?.total_amount != null && paymentIntent.amount !== transaction.total_amount) {
+          Sentry.captureMessage("Payment intent amount mismatch with transaction total", {
+            level: "warning",
+            tags: { component: "stripe_webhook", event_type: event.type },
+            extra: {
+              transactionIdPrefix: transactionId.slice(0, 8),
+              paymentIntentAmount: paymentIntent.amount,
+              transactionTotalAmount: transaction.total_amount,
+              difference: paymentIntent.amount - transaction.total_amount,
+            },
+          });
+
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              `[STRIPE] Amount mismatch for transaction ${transactionId.slice(0, 8)}...: PaymentIntent=${paymentIntent.amount}, Transaction=${transaction.total_amount}`
+            );
+          }
+        }
+
         // Update transaction status to "completed"
         // Use event timestamp (when payment actually succeeded) instead of paymentIntent.created
         const { error: updateError } = await supabase

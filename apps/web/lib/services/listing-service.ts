@@ -24,6 +24,7 @@ export class ListingService {
     limit: number;
     cursor?: string;
     status?: string;
+    jerseyId?: string;
     sellerId?: string;
   }) {
     return await this.repository.findMany(params);

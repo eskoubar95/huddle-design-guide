@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       auctions: {
@@ -558,6 +583,39 @@ export type Database = {
           },
         ]
       }
+      platform_fees: {
+        Row: {
+          created_at: string
+          fee_percentage: number
+          fee_type: string
+          id: string
+          is_active: boolean
+          max_fee: number | null
+          min_fee: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fee_percentage: number
+          fee_type: string
+          id?: string
+          is_active?: boolean
+          max_fee?: number | null
+          min_fee?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fee_percentage?: number
+          fee_type?: string
+          id?: string
+          is_active?: boolean
+          max_fee?: number | null
+          min_fee?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       post_likes: {
         Row: {
           created_at: string
@@ -893,13 +951,19 @@ export type Database = {
           created_at: string | null
           currency: string | null
           id: string
+          item_amount: number | null
           listing_id: string
           listing_type: string
+          platform_fee_amount: number | null
+          seller_fee_amount: number | null
           seller_id: string
+          seller_payout_amount: number | null
+          shipping_amount: number | null
           status: string | null
           stripe_payment_intent_id: string | null
           stripe_refund_id: string | null
           stripe_transfer_id: string | null
+          total_amount: number | null
           updated_at: string | null
         }
         Insert: {
@@ -909,13 +973,19 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           id?: string
+          item_amount?: number | null
           listing_id: string
           listing_type: string
+          platform_fee_amount?: number | null
+          seller_fee_amount?: number | null
           seller_id: string
+          seller_payout_amount?: number | null
+          shipping_amount?: number | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_refund_id?: string | null
           stripe_transfer_id?: string | null
+          total_amount?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -925,13 +995,19 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           id?: string
+          item_amount?: number | null
           listing_id?: string
           listing_type?: string
+          platform_fee_amount?: number | null
+          seller_fee_amount?: number | null
           seller_id?: string
+          seller_payout_amount?: number | null
+          shipping_amount?: number | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_refund_id?: string | null
           stripe_transfer_id?: string | null
+          total_amount?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1113,6 +1189,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

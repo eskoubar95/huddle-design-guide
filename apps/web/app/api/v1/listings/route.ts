@@ -14,20 +14,32 @@ const handler = async (req: NextRequest) => {
       await optionalAuth(req);
       const searchParams = req.nextUrl.searchParams;
 
-      const query = listingListQuerySchema.parse({
-        limit: searchParams.get("limit"),
-        cursor: searchParams.get("cursor"),
-        status: searchParams.get("status"),
-        club: searchParams.get("club"),
-        minPrice: searchParams.get("minPrice"),
-        maxPrice: searchParams.get("maxPrice"),
-        country: searchParams.get("country"),
-        sort: searchParams.get("sort"),
-      });
+      // Convert null to undefined for optional params (searchParams.get returns null, Zod expects undefined)
+      const getParam = (key: string): string | undefined => {
+        const value = searchParams.get(key);
+        return value === null ? undefined : value;
+      };
+
+      let query;
+      try {
+        query = listingListQuerySchema.parse({
+          limit: getParam("limit"),
+          cursor: getParam("cursor"),
+          status: getParam("status"),
+          jerseyId: getParam("jerseyId"),
+          club: getParam("club"),
+          minPrice: getParam("minPrice"),
+          maxPrice: getParam("maxPrice"),
+          country: getParam("country"),
+          sort: getParam("sort"),
+        });
+      } catch (parseError) {
+        // Re-throw validation errors - handleApiError will handle them
+        throw parseError;
+      }
 
       const service = new ListingService();
       const result = await service.listListings(query);
-
       return paginatedResponse(result.items, result.nextCursor);
     }
 

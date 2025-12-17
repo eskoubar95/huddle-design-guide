@@ -1,8 +1,14 @@
 'use client'
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Gavel } from "lucide-react";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
+import { PriceBreakdown } from "@/components/checkout/PriceBreakdown";
+
+// Default fees (matches FeeService defaults)
+// Note: These are preview values. Actual fees are calculated server-side using FeeService.
+const DEFAULT_PLATFORM_FEE_PCT = 5.0; // 5%
 
 interface Listing {
   price: number;
@@ -34,6 +40,33 @@ export function JerseyMarketplaceInfo({
   onBid,
   onExpire,
 }: JerseyMarketplaceInfoProps) {
+  // Calculate fees using default percentages (client-side preview)
+  // Note: Actual fees are calculated server-side using FeeService during checkout
+  // This preview uses default fees (5% platform) for display purposes
+  const feeBreakdown = useMemo(() => {
+    if (!listing || isOwner) {
+      return null;
+    }
+
+    // Convert listing.price from major units (EUR) to cents
+    const itemCents = Math.round(listing.price * 100);
+
+    // Calculate platform fee in cents (matches FeeService logic)
+    // Fee = itemCents * (platformPct / 100), rounded to nearest cent
+    const platformFeeCents = Math.round(
+      (itemCents * DEFAULT_PLATFORM_FEE_PCT) / 100
+    );
+
+    // Calculate total in cents (item + platform fee, no shipping yet)
+    const totalCents = itemCents + platformFeeCents;
+
+    // Convert back to major units for PriceBreakdown
+    return {
+      platformFee: platformFeeCents / 100,
+      totalAmount: totalCents / 100,
+    };
+  }, [listing, isOwner]);
+
   if (!listing && !auction) return null;
 
   return (
@@ -55,6 +88,20 @@ export function JerseyMarketplaceInfo({
               </span>
             )}
           </p>
+          
+          {/* Platform Fee Preview (for buyers) */}
+          {!isOwner && feeBreakdown && (
+            <div className="mb-3 p-3 bg-secondary/50 rounded-lg border border-border">
+              <PriceBreakdown
+                itemPrice={listing.price}
+                platformFee={feeBreakdown.platformFee}
+                totalAmount={feeBreakdown.totalAmount}
+                currency={listing.currency || "€"}
+                showShipping={false} // Shipping not selected yet
+              />
+            </div>
+          )}
+          
           {!isOwner && onBuy && (
             <Button className="w-full" onClick={onBuy}>
               <ShoppingCart className="w-4 h-4 mr-2" />

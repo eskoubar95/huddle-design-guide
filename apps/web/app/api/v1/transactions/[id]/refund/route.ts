@@ -80,13 +80,25 @@ const handler = async (
     const body = await req.json();
     const input = refundSchema.parse(body);
 
-    // Validate partial refund amount doesn't exceed transaction total
-    if (input.amount && input.amount > transaction.amount) {
-      throw new ApiError(
-        "BAD_REQUEST",
-        `Refund amount (${input.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"}) cannot exceed transaction amount (${transaction.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"})`,
-        400
-      );
+    // Refund policy (HUD-37): Only seller fee can be refunded, platform fee is retained
+    // Default refund amount = seller_fee_amount
+    const maxRefundAmount = transaction.seller_fee_amount ?? transaction.amount; // Fallback for legacy transactions
+    
+    // Determine refund amount
+    let refundAmount: number;
+    if (input.amount) {
+      // Partial refund requested - clamp to max seller fee
+      if (input.amount > maxRefundAmount) {
+        throw new ApiError(
+          "BAD_REQUEST",
+          `Refund amount (${input.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"}) cannot exceed seller fee (${maxRefundAmount / 100} ${transaction.currency?.toUpperCase() || "EUR"}). Platform fee is non-refundable.`,
+          400
+        );
+      }
+      refundAmount = input.amount;
+    } else {
+      // Full refund = seller fee only (platform fee retained)
+      refundAmount = maxRefundAmount;
     }
 
     // Get payment intent ID
@@ -99,16 +111,18 @@ const handler = async (
     }
 
     // Create refund via StripeService
+    // Refund amount is seller fee only (platform fee retained)
     const stripeService = new StripeService();
     const refund = await stripeService.createRefund({
       paymentIntentId: transaction.stripe_payment_intent_id,
-      amount: input.amount, // undefined = full refund
+      amount: refundAmount, // Seller fee only (clamped to max seller fee)
       reason: input.reason || "requested_by_customer",
       metadata: {
         transaction_id: transactionId,
         buyer_id: transaction.buyer_id,
         seller_id: transaction.seller_id,
         refund_type: input.amount ? "partial" : "full",
+        refunded_amount_type: "seller_fee_only", // Platform fee retained
       },
     });
 
@@ -131,11 +145,13 @@ const handler = async (
     }
 
     // Create notification for seller
+    // Note: Refund amount is seller fee only (platform fee retained)
+    const refundAmountMajor = refundAmount / 100;
     await supabase.from("notifications").insert({
       user_id: transaction.seller_id,
       type: "refund_requested",
       title: "Refund Requested",
-      message: `A refund of ${input.amount ? input.amount / 100 : transaction.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"} has been processed for transaction ${transactionId.length > 8 ? transactionId.slice(0, 8) + "..." : transactionId}`,
+      message: `A refund of ${refundAmountMajor} ${transaction.currency?.toUpperCase() || "EUR"} (seller fee only) has been processed for transaction ${transactionId.length > 8 ? transactionId.slice(0, 8) + "..." : transactionId}. Platform fee is retained.`,
       read: false,
     });
 

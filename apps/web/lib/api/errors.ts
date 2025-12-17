@@ -39,7 +39,16 @@ export function handleApiError(
 
   // Capture unexpected errors with Sentry (per 24-observability_sentry.mdc)
   if (typeof window === "undefined") {
-    // Server-side only
+    // Server-side only - log error details first
+    // Don't log raw error object to avoid PII leakage (per coding guidelines)
+    console.error("[handleApiError] Unexpected error:", {
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      errorName: error instanceof Error ? error.name : undefined,
+      endpoint: req?.url || "unknown",
+      method: req?.method || "unknown",
+    });
+
     import("@sentry/nextjs")
       .then((Sentry) => {
         Sentry.captureException(error, {
@@ -51,8 +60,7 @@ export function handleApiError(
         });
       })
       .catch(() => {
-        // Sentry not available, log to console
-        console.error("Unexpected API error:", error);
+        // Sentry not available, already logged above
       });
   } else {
     console.error("Unexpected API error:", error);

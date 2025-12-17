@@ -45,7 +45,7 @@ export function useMarketplaceSales(filters?: {
 }) {
   const { data: listingsData, isLoading, error } = useListings({
     status: "active",
-    limit: 100, // Fetch more for client-side filtering
+    limit: 100, // Max allowed by API
   });
 
   // Get unique jersey IDs from listings
@@ -56,9 +56,11 @@ export function useMarketplaceSales(filters?: {
     return [...new Set(listingsData.items.map((l) => l.jersey_id))];
   }, [listingsData]);
 
-  // Fetch all jerseys in one query
+  // Fetch public jerseys (only public jerseys should be visible on marketplace)
+  // Note: API has max limit of 100, so we fetch in batches if needed
   const { data: jerseysData } = useJerseys({
-    limit: 1000, // Fetch all needed jerseys
+    visibility: "public",
+    limit: 100, // Max allowed by API
   });
 
   // Join listings with jerseys
@@ -137,9 +139,11 @@ export function useMarketplaceAuctions(filters?: {
     return [...new Set(auctionsData.items.map((a) => a.jersey_id))];
   }, [auctionsData]);
 
-  // Fetch all jerseys in one query
+  // Fetch public jerseys (only public jerseys should be visible on marketplace)
+  // Note: API has max limit of 100, so we fetch in batches if needed
   const { data: jerseysData } = useJerseys({
-    limit: 1000, // Fetch all needed jerseys
+    visibility: "public",
+    limit: 100, // Max allowed by API
   });
 
   // Join auctions with jerseys

@@ -26,7 +26,10 @@ const InputOTPSlot = React.forwardRef<
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
   // Type assertion needed due to React 19 type incompatibility with input-otp Context
-  const inputOTPContext = React.useContext(OTPInputContext as any) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inputOTPContext = React.useContext(OTPInputContext as any) as {
+    slots: Array<{ char: string; hasFakeCaret: boolean; isActive: boolean }>;
+  };
   const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index];
 
   return (

@@ -115,8 +115,23 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // If there's a winner, create transaction
+      // If there's a winner, create transaction with fee breakdown
       if (winnerId && winningAmount) {
+        // Calculate fees using FeeService logic
+        // Note: winningAmount is in major units (EUR), convert to cents
+        const itemCents = Math.round(winningAmount * 100)
+        
+        // Get active fee percentages (defaults: 5% platform, 1% seller)
+        // Since we're in Deno edge function, we'll calculate directly
+        // Platform fee: 5% of item
+        const platformFeeCents = Math.round((itemCents * 5.0) / 100)
+        // Seller fee: 1% of item
+        const sellerFeeCents = Math.round((itemCents * 1.0) / 100)
+        // Seller payout: item - seller fee
+        const sellerPayoutCents = itemCents - sellerFeeCents
+        
+        // For auctions: shipping_amount and total_amount are NULL until winner checkout
+        // amount (legacy) = item_amount (cents) until total_amount is set
         const { error: transactionError } = await supabaseClient
           .from('transactions')
           .insert({
@@ -124,9 +139,17 @@ Deno.serve(async (req) => {
             listing_type: 'auction',
             buyer_id: winnerId,
             seller_id: auction.seller_id,
-            amount: winningAmount,
+            amount: itemCents, // Legacy field = item_amount until total_amount is set
             currency: auction.currency,
-            status: 'pending'
+            status: 'pending',
+            // Fee breakdown fields (HUD-37)
+            item_amount: itemCents,
+            platform_fee_amount: platformFeeCents,
+            seller_fee_amount: sellerFeeCents,
+            seller_payout_amount: sellerPayoutCents,
+            // shipping_amount and total_amount are NULL until winner checkout/shipping selected
+            shipping_amount: null,
+            total_amount: null
           })
 
         if (transactionError) {

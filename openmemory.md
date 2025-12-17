@@ -21,6 +21,7 @@
 
 ## Implementation Plans
 - HUD-19: Email Verification Flow - Fix manglende email verification flow i sign up processen (.project/plans/HUD-19/implementation-plan-2025-11-28-HUD-19.md)
+- HUD-37: Transaction Fees (5% platform fee + 1% seller fee, refund kun seller fee, auction fees ved settlement) (.project/plans/HUD-37/implementation-plan-2025-12-17-HUD-37.md)
 
 ## User Defined Namespaces
 - frontend
