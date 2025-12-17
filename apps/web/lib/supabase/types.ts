@@ -790,6 +790,7 @@ export type Database = {
       }
       shipping_addresses: {
         Row: {
+          address_line_2: string | null
           city: string
           country: string
           created_at: string
@@ -798,11 +799,13 @@ export type Database = {
           is_default: boolean
           phone: string
           postal_code: string
+          state: string | null
           street: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          address_line_2?: string | null
           city: string
           country: string
           created_at?: string
@@ -811,11 +814,13 @@ export type Database = {
           is_default?: boolean
           phone: string
           postal_code: string
+          state?: string | null
           street: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          address_line_2?: string | null
           city?: string
           country?: string
           created_at?: string
@@ -824,6 +829,7 @@ export type Database = {
           is_default?: boolean
           phone?: string
           postal_code?: string
+          state?: string | null
           street?: string
           updated_at?: string
           user_id?: string
@@ -831,6 +837,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "shipping_addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_accounts: {
+        Row: {
+          charges_enabled: boolean | null
+          created_at: string | null
+          id: string
+          payouts_enabled: boolean | null
+          status: string
+          stripe_account_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          charges_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          payouts_enabled?: boolean | null
+          status?: string
+          stripe_account_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          charges_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          payouts_enabled?: boolean | null
+          status?: string
+          stripe_account_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_accounts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -850,6 +897,9 @@ export type Database = {
           listing_type: string
           seller_id: string
           status: string | null
+          stripe_payment_intent_id: string | null
+          stripe_refund_id: string | null
+          stripe_transfer_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -863,6 +913,9 @@ export type Database = {
           listing_type: string
           seller_id: string
           status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          stripe_transfer_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -876,7 +929,34 @@ export type Database = {
           listing_type?: string
           seller_id?: string
           status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
+          stripe_transfer_id?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          processed_at: string | null
+          stripe_event_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          processed_at?: string | null
+          stripe_event_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          processed_at?: string | null
+          stripe_event_id?: string
         }
         Relationships: []
       }

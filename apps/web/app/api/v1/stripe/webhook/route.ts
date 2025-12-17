@@ -24,12 +24,15 @@ function getStripe(): Stripe {
  * Handle Stripe webhook events
  *
  * Events handled:
- * - identity.verification_session.verified
- * - identity.verification_session.requires_input
- * - identity.verification_session.canceled
+ * - identity.verification_session.* (Identity verification)
+ * - payment_intent.succeeded (Payment success)
+ * - payment_intent.payment_failed (Payment failure)
+ * - transfer.created (Seller payouts)
+ * - account.updated (Connect account status updates)
  *
  * Security:
  * - Verifies webhook signature
+ * - Database-backed idempotency (webhook_events table)
  * - No PII in logs
  */
 export async function POST(request: NextRequest) {
@@ -77,6 +80,20 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createServiceClient();
+
+  // Database-backed idempotency: Check if event already processed
+  const { data: existingEvent } = await supabase
+    .from("webhook_events")
+    .select("id")
+    .eq("stripe_event_id", event.id)
+    .single();
+
+  if (existingEvent) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[STRIPE] Event ${event.id.slice(0, 8)}... already processed, skipping`);
+    }
+    return Response.json({ received: true, duplicate: true });
+  }
 
   try {
     // Handle Identity verification events
@@ -189,6 +206,305 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+    }
+
+    // Handle Payment Intent events
+    if (event.type === "payment_intent.succeeded") {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const transactionId = paymentIntent.metadata?.transaction_id;
+
+      if (transactionId) {
+        // Update transaction status to "completed"
+        // Use event timestamp (when payment actually succeeded) instead of paymentIntent.created
+        const { error: updateError } = await supabase
+          .from("transactions")
+          .update({
+            status: "completed",
+            stripe_payment_intent_id: paymentIntent.id,
+            completed_at: new Date(event.created * 1000).toISOString(), // When payment actually succeeded
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", transactionId);
+
+        if (updateError) {
+          Sentry.captureException(updateError, {
+            tags: { component: "stripe_webhook", event_type: event.type },
+            extra: { transactionIdPrefix: transactionId.slice(0, 8) },
+          });
+        }
+
+        // Update listing/auction status (if applicable)
+        const listingId = paymentIntent.metadata?.listing_id;
+        const listingType = paymentIntent.metadata?.listing_type;
+
+        if (listingId && listingType) {
+          if (listingType === "sale") {
+            const { error: listingError } = await supabase
+              .from("sale_listings")
+              .update({ status: "sold", sold_at: new Date().toISOString() })
+              .eq("id", listingId);
+            if (listingError) {
+              Sentry.captureException(listingError, {
+                tags: { component: "stripe_webhook", event_type: event.type },
+                extra: { listingId: listingId.slice(0, 8), listingType, transactionIdPrefix: transactionId.slice(0, 8) },
+              });
+            }
+          } else if (listingType === "auction") {
+            const { error: auctionError } = await supabase
+              .from("auctions")
+              .update({ status: "ended", ended_at: new Date().toISOString() })
+              .eq("id", listingId);
+            if (auctionError) {
+              Sentry.captureException(auctionError, {
+                tags: { component: "stripe_webhook", event_type: event.type },
+                extra: { listingId: listingId.slice(0, 8), listingType, transactionIdPrefix: transactionId.slice(0, 8) },
+              });
+            }
+          }
+        }
+
+        // Create notification for seller
+        const sellerId = paymentIntent.metadata?.seller_id;
+        if (sellerId) {
+          const { error: notifError } = await supabase.from("notifications").insert({
+            user_id: sellerId,
+            type: "payment_received",
+            title: "Payment Received",
+            message: `Payment of ${paymentIntent.amount / 100} ${paymentIntent.currency.toUpperCase()} received.`,
+            read: false,
+          });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                sellerIdPrefix: sellerId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `[STRIPE] Payment succeeded for transaction ${transactionId.slice(0, 8)}...`
+          );
+        }
+      }
+    }
+
+    if (event.type === "payment_intent.payment_failed") {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const transactionId = paymentIntent.metadata?.transaction_id;
+
+      if (transactionId) {
+        // Update transaction status to "cancelled"
+        const { error: updateError } = await supabase
+          .from("transactions")
+          .update({
+            status: "cancelled",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", transactionId);
+
+        if (updateError) {
+          Sentry.captureException(updateError, {
+            tags: { component: "stripe_webhook", event_type: event.type },
+          });
+        }
+
+        // Notify buyer of payment failure
+        const buyerId = paymentIntent.metadata?.buyer_id;
+        if (buyerId) {
+          const { error: notifError } = await supabase.from("notifications").insert({
+            user_id: buyerId,
+            type: "payment_failed",
+            title: "Payment Failed",
+            message: "Your payment could not be processed. Please try again.",
+            read: false,
+          });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                buyerIdPrefix: buyerId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `[STRIPE] Payment failed for transaction ${transactionId.slice(0, 8)}...`
+          );
+        }
+      }
+    }
+
+    // Handle Transfer events (seller payouts)
+    if (event.type === "transfer.created") {
+      const transfer = event.data.object as Stripe.Transfer;
+      const transactionId = transfer.metadata?.transaction_id;
+
+      if (transactionId) {
+        // Update transaction with transfer ID
+        const { error: updateError } = await supabase
+          .from("transactions")
+          .update({
+            stripe_transfer_id: transfer.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", transactionId);
+
+        if (updateError) {
+          Sentry.captureException(updateError, {
+            tags: { component: "stripe_webhook", event_type: event.type },
+          });
+        }
+
+        // Notify seller of payout
+        const sellerId = transfer.metadata?.seller_id;
+        if (sellerId) {
+          const { error: notifError } = await supabase.from("notifications").insert({
+            user_id: sellerId,
+            type: "payout_sent",
+            title: "Payout Sent",
+            message: `Payout of ${transfer.amount / 100} ${transfer.currency.toUpperCase()} has been sent to your account.`,
+            read: false,
+          });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                sellerIdPrefix: sellerId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `[STRIPE] Transfer created for transaction ${transactionId.slice(0, 8)}...`
+          );
+        }
+      }
+    }
+
+    // Handle Account events (Connect account status updates)
+    if (event.type === "account.updated") {
+      const account = event.data.object as Stripe.Account;
+      const userId = account.metadata?.user_id;
+
+      if (userId) {
+        // Determine status
+        let status = "pending";
+        if (account.details_submitted && account.charges_enabled && account.payouts_enabled) {
+          status = "active";
+        } else if (account.requirements?.currently_due && account.requirements.currently_due.length > 0) {
+          status = "restricted";
+        }
+
+        // Update stripe_accounts table
+        const { error: updateError } = await supabase
+          .from("stripe_accounts")
+          .update({
+            status,
+            payouts_enabled: account.payouts_enabled || false,
+            charges_enabled: account.charges_enabled || false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("stripe_account_id", account.id);
+
+        if (updateError) {
+          Sentry.captureException(updateError, {
+            tags: { component: "stripe_webhook", event_type: event.type },
+            extra: { accountIdPrefix: account.id.slice(0, 8) },
+          });
+        }
+
+        // Notify user of status change to active
+        if (status === "active") {
+          const { error: notifError } = await supabase.from("notifications").insert({
+            user_id: userId,
+            type: "stripe_account_activated",
+            title: "Stripe Account Activated",
+            message: "Your Stripe account is now active and ready to receive payouts.",
+            read: false,
+          });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                userIdPrefix: userId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `[STRIPE] Account ${account.id.slice(0, 8)}... updated → status: ${status}`
+          );
+        }
+      }
+    }
+
+    // Mark event as processed (idempotency)
+    const { error: insertError } = await supabase.from("webhook_events").insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+      processed_at: new Date().toISOString(),
+    });
+
+    if (insertError) {
+      // Log but don't fail the webhook - event was already processed successfully
+      Sentry.captureException(insertError, {
+        level: "warning",
+        tags: { component: "stripe_webhook", operation: "mark_processed" },
+        extra: { eventIdPrefix: event.id.slice(0, 8), eventType: event.type },
+      });
     }
 
     return Response.json({ received: true });
