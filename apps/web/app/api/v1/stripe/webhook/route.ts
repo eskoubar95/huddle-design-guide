@@ -81,6 +81,20 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createServiceClient();
 
+  // Database-backed idempotency: Check if event already processed
+  const { data: existingEvent } = await supabase
+    .from("webhook_events")
+    .select("id")
+    .eq("stripe_event_id", event.id)
+    .single();
+
+  if (existingEvent) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[STRIPE] Event ${event.id.slice(0, 8)}... already processed, skipping`);
+    }
+    return Response.json({ received: true, duplicate: true });
+  }
+
   try {
     // Handle Identity verification events
     if (event.type.startsWith("identity.verification_session.")) {
@@ -201,12 +215,13 @@ export async function POST(request: NextRequest) {
 
       if (transactionId) {
         // Update transaction status to "completed"
+        // Use event timestamp (when payment actually succeeded) instead of paymentIntent.created
         const { error: updateError } = await supabase
           .from("transactions")
           .update({
             status: "completed",
             stripe_payment_intent_id: paymentIntent.id,
-            completed_at: new Date(paymentIntent.created * 1000).toISOString(),
+            completed_at: new Date(event.created * 1000).toISOString(), // When payment actually succeeded
             updated_at: new Date().toISOString(),
           })
           .eq("id", transactionId);
@@ -224,15 +239,27 @@ export async function POST(request: NextRequest) {
 
         if (listingId && listingType) {
           if (listingType === "sale") {
-            await supabase
+            const { error: listingError } = await supabase
               .from("sale_listings")
               .update({ status: "sold", sold_at: new Date().toISOString() })
               .eq("id", listingId);
+            if (listingError) {
+              Sentry.captureException(listingError, {
+                tags: { component: "stripe_webhook", event_type: event.type },
+                extra: { listingId: listingId.slice(0, 8), listingType, transactionIdPrefix: transactionId.slice(0, 8) },
+              });
+            }
           } else if (listingType === "auction") {
-            await supabase
+            const { error: auctionError } = await supabase
               .from("auctions")
               .update({ status: "ended", ended_at: new Date().toISOString() })
               .eq("id", listingId);
+            if (auctionError) {
+              Sentry.captureException(auctionError, {
+                tags: { component: "stripe_webhook", event_type: event.type },
+                extra: { listingId: listingId.slice(0, 8), listingType, transactionIdPrefix: transactionId.slice(0, 8) },
+              });
+            }
           }
         }
 
@@ -387,6 +414,13 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    // Mark event as processed (idempotency)
+    await supabase.from("webhook_events").insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+      processed_at: new Date().toISOString(),
+    });
 
     return Response.json({ received: true });
   } catch (error) {

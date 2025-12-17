@@ -63,10 +63,10 @@ function ConnectStripePage() {
 
   // Show success/refresh messages
   useEffect(() => {
-    if (success && accountStatus) {
+    if (success) {
       toast({
         title: "Account Connected",
-        description: "Your Stripe account has been connected successfully. Verification may take a few minutes.",
+        description: "Your Stripe account setup is in progress. Verification may take a few minutes.",
       });
       // Clear query params
       router.replace("/seller/connect-stripe");
@@ -82,7 +82,7 @@ function ConnectStripePage() {
       router.replace("/seller/connect-stripe");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [success, refresh]); // Only depend on query params, not accountStatus/toast/router to avoid loops
+  }, [success, refresh]); // Only depend on query params
 
   const handleConnect = async () => {
     setConnecting(true);

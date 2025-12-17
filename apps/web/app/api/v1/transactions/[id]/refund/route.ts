@@ -126,7 +126,7 @@ const handler = async (
       user_id: transaction.seller_id,
       type: "refund_requested",
       title: "Refund Requested",
-      message: `A refund of ${input.amount ? input.amount / 100 : transaction.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"} has been processed for transaction ${transactionId.slice(0, 8)}...`,
+      message: `A refund of ${input.amount ? input.amount / 100 : transaction.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"} has been processed for transaction ${transactionId.length > 8 ? transactionId.slice(0, 8) + "..." : transactionId}`,
       read: false,
     });
 

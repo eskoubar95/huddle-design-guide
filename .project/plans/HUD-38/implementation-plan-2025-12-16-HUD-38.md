@@ -393,7 +393,6 @@ const handler = async (req: NextRequest) => {
           type: "express",
           country: "DE", // MVP: Use EUR country (Germany) for all sellers
           email: undefined, // Will be collected during onboarding
-          email: undefined, // Will be collected during onboarding
           capabilities: {
             card_payments: { requested: true },
             transfers: { requested: true },

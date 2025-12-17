@@ -29,11 +29,12 @@ function SellerPayoutsPage() {
     const fetchPayouts = async () => {
       try {
         const response = await apiRequest<{
-          data: { payouts: Payout[]; nextCursor: string | null };
+          payouts: Payout[];
+          nextCursor: string | null;
         }>("/seller/payouts?limit=50");
 
-        if (response.data?.payouts) {
-          const payoutList = response.data.payouts;
+        if (response.payouts) {
+          const payoutList = response.payouts;
           setPayouts(payoutList);
 
           // Calculate total earnings
@@ -139,7 +140,9 @@ function SellerPayoutsPage() {
                       {formatDate(payout.completed_at)}
                     </p>
                     <p className="text-xs text-muted-foreground font-mono">
-                      Transfer ID: {payout.stripe_transfer_id.slice(0, 16)}...
+                      Transfer ID: {payout.stripe_transfer_id && payout.stripe_transfer_id.length > 16
+                        ? `${payout.stripe_transfer_id.slice(0, 16)}...`
+                        : payout.stripe_transfer_id || "N/A"}
                     </p>
                   </div>
                   <div className="text-right">

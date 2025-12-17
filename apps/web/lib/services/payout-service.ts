@@ -82,14 +82,14 @@ export class PayoutService {
     const payoutAmount = transaction.amount; // in minor units
 
     try {
-      // Create transfer (payout)
+      // Create transfer (payout) with idempotency key to prevent duplicate transfers on retry
       // MVP: All payouts in EUR (hardcoded)
       // Future: Use transaction.currency
       const transfer = await this.stripeService.createTransfer({
         amount: payoutAmount,
         currency: "eur", // MVP: Hardcoded EUR, Future: transaction.currency || "eur"
         sellerStripeAccountId: sellerAccount.stripe_account_id,
-        transferGroup: `txn_${transactionId}`,
+        transferGroup: `txn_${transactionId}`, // Used as idempotency key
         metadata: {
           transaction_id: transactionId,
           seller_id: transaction.seller_id,
@@ -109,8 +109,16 @@ export class PayoutService {
       if (updateError) {
         Sentry.captureException(updateError, {
           tags: { component: "payout_service", operation: "update_transaction" },
+          extra: {
+            stripeTransferId: transfer.id, // Include for manual reconciliation
+            transactionIdPrefix: transactionId.slice(0, 8),
+          },
         });
-        throw updateError;
+        throw new ApiError(
+          "INTERNAL_SERVER_ERROR",
+          "Payout created but failed to update transaction record. Please contact support.",
+          500
+        );
       }
 
       // Notification will be created by webhook handler (transfer.created event)

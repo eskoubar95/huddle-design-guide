@@ -209,31 +209,45 @@ export class StripeService {
    */
   async createTransfer(params: CreateTransferParams): Promise<Stripe.Transfer> {
     try {
+      // Generate idempotency key to prevent duplicate transfers on retry
+      const idempotencyKey = params.transferGroup || `transfer_${Date.now()}`;
+
       // MVP: All transfers in EUR (hardcoded)
       // Future: Use params.currency from transaction
-      const transfer = await this.stripe.transfers.create({
-        amount: params.amount,
-        currency: "eur", // MVP: Hardcoded EUR, Future: params.currency
-        destination: params.sellerStripeAccountId,
-        transfer_group: params.transferGroup,
-        metadata: params.metadata,
-      });
+      const transfer = await this.stripe.transfers.create(
+        {
+          amount: params.amount,
+          currency: "eur", // MVP: Hardcoded EUR, Future: params.currency
+          destination: params.sellerStripeAccountId,
+          transfer_group: params.transferGroup,
+          metadata: params.metadata,
+        },
+        {
+          idempotencyKey,
+        }
+      );
 
       return transfer;
     } catch (error) {
       // Handle Stripe-specific errors
       if (error instanceof Stripe.errors.StripeError) {
         if (error.type === "StripeRateLimitError") {
-          // Retry once after short delay
+          // Retry once after short delay with same idempotency key
+          const idempotencyKey = params.transferGroup || `transfer_${Date.now()}`;
           await new Promise((resolve) => setTimeout(resolve, 1000));
           try {
-            return await this.stripe.transfers.create({
-              amount: params.amount,
-              currency: "eur", // MVP: Hardcoded EUR
-              destination: params.sellerStripeAccountId,
-              transfer_group: params.transferGroup,
-              metadata: params.metadata,
-            });
+            return await this.stripe.transfers.create(
+              {
+                amount: params.amount,
+                currency: "eur", // MVP: Hardcoded EUR, Future: params.currency
+                destination: params.sellerStripeAccountId,
+                transfer_group: params.transferGroup,
+                metadata: params.metadata,
+              },
+              {
+                idempotencyKey, // Same key ensures no duplicate
+              }
+            );
           } catch (retryError) {
             throw new ApiError(
               "RATE_LIMIT",
@@ -337,7 +351,11 @@ export class StripeService {
         tags: { component: "stripe_service", operation: "get_connect_account" },
         extra: { accountIdPrefix: accountId.slice(0, 8) },
       });
-      throw error;
+      throw new ApiError(
+        "EXTERNAL_SERVICE_ERROR",
+        "Failed to retrieve Stripe account information",
+        502
+      );
     }
   }
 }

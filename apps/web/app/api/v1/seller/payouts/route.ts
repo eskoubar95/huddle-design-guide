@@ -27,11 +27,13 @@ const handler = async (req: NextRequest) => {
     const cursor = searchParams.get("cursor") || undefined;
 
     // Get transactions where user is seller and has transfer_id (payout completed)
+    // Filter out NULL completed_at to ensure stable pagination
     let query = supabase
       .from("transactions")
       .select("*")
       .eq("seller_id", userId)
       .not("stripe_transfer_id", "is", null)
+      .not("completed_at", "is", null)
       .order("completed_at", { ascending: false })
       .limit(limit);
 
