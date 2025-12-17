@@ -41,7 +41,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     // Type assertion needed due to React 19 type incompatibility with @radix-ui/react-slot
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...(props as any)} />;
+    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...(props as Record<string, unknown>)} />;
   },
 );
 Button.displayName = "Button";
