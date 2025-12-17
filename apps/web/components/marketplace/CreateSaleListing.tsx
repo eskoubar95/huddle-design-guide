@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { createClient } from "@/lib/supabase/client";
+import { useApiRequest, ApiClientError } from "@/lib/api/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { PayoutBreakdown } from "@/components/seller/PayoutBreakdown";
 
 interface CreateSaleListingProps {
   isOpen: boolean;
@@ -30,6 +33,9 @@ const saleListingSchema = z.object({
 });
 
 export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: CreateSaleListingProps) => {
+  const { user, isLoaded } = useUser();
+  const apiRequest = useApiRequest();
+  const queryClient = useQueryClient();
   const [price, setPrice] = useState("");
   const [negotiable, setNegotiable] = useState(false);
   const [shippingWorldwide, setShippingWorldwide] = useState(true);
@@ -62,10 +68,16 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
 
       setIsSubmitting(true);
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Check authentication using Clerk
+      if (!isLoaded) {
+        toast({
+          title: "Loading",
+          description: "Please wait while we verify your authentication",
+          variant: "default",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       if (!user) {
         toast({
@@ -77,51 +89,39 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
         return;
       }
 
-      // Check if jersey already has active listing
-      const { data: existingListing } = await supabase
-        .from("sale_listings")
-        .select("id")
-        .eq("jersey_id", jerseyId)
-        .eq("status", "active")
-        .single();
-
-      if (existingListing) {
-        toast({
-          title: "Already Listed",
-          description: "This jersey already has an active listing",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const { error } = await supabase.from("sale_listings").insert({
-        jersey_id: validated.jerseyId,
-        seller_id: user.id,
-        price: validated.price,
-        currency: validated.currency,
+      // Use API route instead of direct Supabase insert to handle RLS properly
+      const requestBody = {
+        jerseyId: validated.jerseyId,
+        price: validated.price.toString(),
+        currency: validated.currency as "EUR" | "DKK" | "USD" | "GBP",
         negotiable: validated.negotiable,
-        shipping_worldwide: validated.shippingWorldwide,
-        shipping_local_only: validated.shippingLocalOnly,
-        shipping_cost_buyer: validated.shippingCostBuyer,
-        shipping_cost_seller: validated.shippingCostSeller,
-        shipping_free_in_country: validated.shippingFreeInCountry,
-      });
+        shipping: {
+          worldwide: validated.shippingWorldwide,
+          localOnly: validated.shippingLocalOnly,
+          costBuyer: validated.shippingCostBuyer,
+          costSeller: validated.shippingCostSeller,
+          freeInCountry: validated.shippingFreeInCountry,
+        },
+      };
 
-      if (error) {
-        if (error.code === "23505") {
-          // Unique constraint violation (jersey already listed)
-          toast({
-            title: "Already Listed",
-            description: "This jersey already has an active listing",
-            variant: "destructive",
-          });
-        } else {
-          throw error;
+      console.log("[CreateSaleListing] Sending request:", requestBody);
+
+      const listing = await apiRequest<{ id: string; price: number; currency: string | null }>(
+        "/listings",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
         }
-        setIsSubmitting(false);
-        return;
-      }
+      );
+
+      console.log("[CreateSaleListing] Listing created:", listing);
+
+      // Invalidate listings cache to refresh marketplace
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+      queryClient.invalidateQueries({ queryKey: ["jerseys"] });
 
       toast({
         title: "Listing Created!",
@@ -162,10 +162,45 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
           document.getElementById("price")?.focus();
         }
       } else {
+        // Log full error details for debugging
         console.error("Error creating listing:", error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to create listing. Please try again.";
+        
+        // Handle API client errors
+        let errorMessage = "Failed to create listing. Please try again.";
+        let errorTitle = "Error";
+        
+        // Check if it's an ApiClientError
+        if (error instanceof ApiClientError) {
+          errorMessage = error.message;
+          
+          // Map error codes to user-friendly messages
+          if (error.code === "VALIDATION_ERROR") {
+            errorTitle = "Validation Error";
+          } else if (error.code === "UNAUTHORIZED" || error.statusCode === 401) {
+            errorTitle = "Authentication Required";
+            errorMessage = "Please log in to create a listing";
+          } else if (error.code === "FORBIDDEN" || error.statusCode === 403) {
+            errorTitle = "Permission Denied";
+            errorMessage = "You don't have permission to create listings. Please verify your seller profile.";
+          } else if (error.code === "CONFLICT" || error.statusCode === 409) {
+            errorTitle = "Already Listed";
+            errorMessage = "This jersey already has an active listing";
+          } else if (error.code === "NOT_FOUND" || error.statusCode === 404) {
+            errorTitle = "Not Found";
+            errorMessage = "Jersey not found. Please refresh the page.";
+          } else if (error.code === "AUTH_NOT_LOADED") {
+            errorTitle = "Loading";
+            errorMessage = "Please wait while we verify your authentication";
+          } else if (error.code === "TOKEN_ERROR") {
+            errorTitle = "Authentication Error";
+            errorMessage = "Failed to get authentication token. Please sign in again.";
+          }
+        } else if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        
         toast({
-          title: "Error",
+          title: errorTitle,
           description: errorMessage,
           variant: "destructive",
         });
@@ -229,6 +264,18 @@ export const CreateSaleListing = ({ isOpen, onClose, jerseyId, onSuccess }: Crea
                 <p id="price-error" className="text-sm text-destructive mt-1" role="alert">
                   {errors.price}
                 </p>
+              )}
+              
+              {/* Seller Fee Preview */}
+              {price && parseFloat(price) > 0 && (
+                <div className="mt-4 p-4 bg-secondary/50 rounded-lg border border-border">
+                  <PayoutBreakdown
+                    itemPrice={parseFloat(price)}
+                    sellerFee={parseFloat(price) * 0.01} // 1% seller fee
+                    payoutAmount={parseFloat(price) * 0.99} // 99% payout
+                    currency="€"
+                  />
+                </div>
               )}
             </div>
 

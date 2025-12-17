@@ -26,7 +26,7 @@ export class ListingRepository extends BaseRepository {
   }
 
   async findMany(
-    params: PaginationParams & { status?: string; sellerId?: string }
+    params: PaginationParams & { status?: string; jerseyId?: string; sellerId?: string }
   ): Promise<PaginatedResult<SaleListing>> {
     const supabase = await this.getSupabase();
     let query = supabase
@@ -39,19 +39,40 @@ export class ListingRepository extends BaseRepository {
       query = query.eq("status", params.status);
     }
 
+    if (params.jerseyId) {
+      query = query.eq("jersey_id", params.jerseyId);
+    }
+
     if (params.sellerId) {
       query = query.eq("seller_id", params.sellerId);
     }
 
     if (params.cursor) {
-      const { id, createdAt } = this.decodeCursor(params.cursor);
-      query = query
-        .lt("created_at", createdAt)
-        .or(`created_at.eq.${createdAt},id.lt.${id}`);
+      try {
+        const { id, createdAt } = this.decodeCursor(params.cursor);
+        query = query
+          .lt("created_at", createdAt)
+          .or(`created_at.eq.${createdAt},id.lt.${id}`);
+      } catch (cursorError) {
+        console.error("[ListingRepository] Cursor decode error:", {
+          cursor: params.cursor,
+          error: cursorError,
+        });
+        throw cursorError;
+      }
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error("[ListingRepository] Query error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        params,
+      });
+      throw error;
+    }
 
     const items = data || [];
     const hasMore = items.length > params.limit;

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Gavel } from "lucide-react";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
+import { PriceBreakdown } from "@/components/checkout/PriceBreakdown";
 
 interface Listing {
   price: number;
@@ -55,6 +56,20 @@ export function JerseyMarketplaceInfo({
               </span>
             )}
           </p>
+          
+          {/* Platform Fee Preview (for buyers) */}
+          {!isOwner && (
+            <div className="mb-3 p-3 bg-secondary/50 rounded-lg border border-border">
+              <PriceBreakdown
+                itemPrice={listing.price}
+                platformFee={listing.price * 0.05} // 5% platform fee
+                totalAmount={listing.price * 1.05} // Item + platform fee (excl. shipping)
+                currency={listing.currency || "€"}
+                showShipping={false} // Shipping not selected yet
+              />
+            </div>
+          )}
+          
           {!isOwner && onBuy && (
             <Button className="w-full" onClick={onBuy}>
               <ShoppingCart className="w-4 h-4 mr-2" />

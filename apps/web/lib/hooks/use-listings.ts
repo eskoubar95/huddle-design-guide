@@ -14,6 +14,7 @@ interface ListingListResponse {
 
 export function useListings(params?: {
   status?: string;
+  jerseyId?: string;
   club?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -26,6 +27,7 @@ export function useListings(params?: {
 
   const queryParams = new URLSearchParams();
   if (params?.status) queryParams.set("status", params.status);
+  if (params?.jerseyId) queryParams.set("jerseyId", params.jerseyId);
   if (params?.club) queryParams.set("club", params.club);
   if (params?.minPrice) queryParams.set("minPrice", params.minPrice.toString());
   if (params?.maxPrice) queryParams.set("maxPrice", params.maxPrice.toString());

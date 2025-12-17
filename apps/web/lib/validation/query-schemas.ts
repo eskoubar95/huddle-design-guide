@@ -18,6 +18,7 @@ export const jerseyListQuerySchema = paginationSchema.extend({
 
 export const listingListQuerySchema = paginationSchema.extend({
   status: z.enum(["active", "sold", "cancelled"]).optional(),
+  jerseyId: z.string().uuid().optional(), // Filter by specific jersey
   club: z.string().optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),

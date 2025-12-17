@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { createClient } from "@/lib/supabase/client";
+import { useApiRequest } from "@/lib/api/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { PayoutBreakdown } from "@/components/seller/PayoutBreakdown";
 
 interface CreateAuctionProps {
   isOpen: boolean;
@@ -39,6 +41,8 @@ const auctionSchema = z.object({
 });
 
 export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAuctionProps) => {
+  const { user, isLoaded } = useUser();
+  const apiRequest = useApiRequest();
   const [startingBid, setStartingBid] = useState("");
   const [buyNowPrice, setBuyNowPrice] = useState("");
   const [duration, setDuration] = useState<24 | 48 | 72 | 168>(24);
@@ -74,10 +78,16 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
 
       setIsSubmitting(true);
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Check authentication using Clerk
+      if (!isLoaded) {
+        toast({
+          title: "Loading",
+          description: "Please wait while we verify your authentication",
+          variant: "default",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       if (!user) {
         toast({
@@ -89,56 +99,30 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
         return;
       }
 
-      // Check if jersey already has active auction
-      const { data: existingAuction } = await supabase
-        .from("auctions")
-        .select("id")
-        .eq("jersey_id", jerseyId)
-        .eq("status", "active")
-        .single();
-
-      if (existingAuction) {
-        toast({
-          title: "Already Listed",
-          description: "This jersey already has an active auction",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const endsAt = new Date();
-      endsAt.setHours(endsAt.getHours() + validated.durationHours);
-
-      const { error } = await supabase.from("auctions").insert({
-        jersey_id: validated.jerseyId,
-        seller_id: user.id,
-        starting_bid: validated.startingBid,
-        buy_now_price: validated.buyNowPrice || null,
-        duration_hours: validated.durationHours,
-        currency: validated.currency || null,
-        shipping_worldwide: validated.shippingWorldwide,
-        shipping_local_only: validated.shippingLocalOnly,
-        shipping_cost_buyer: validated.shippingCostBuyer,
-        shipping_cost_seller: validated.shippingCostSeller,
-        shipping_free_in_country: validated.shippingFreeInCountry,
-        ends_at: endsAt.toISOString(),
-        status: "active",
-      });
-
-      if (error) {
-        if (error.code === "23505") {
-          toast({
-            title: "Already Listed",
-            description: "This jersey already has an active auction",
-            variant: "destructive",
-          });
-        } else {
-          throw error;
+      // Use API route instead of direct Supabase insert to handle RLS properly
+      const auction = await apiRequest<{ id: string; starting_bid: number; currency: string | null }>(
+        "/auctions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jerseyId: validated.jerseyId,
+            startingBid: validated.startingBid.toString(),
+            buyNowPrice: validated.buyNowPrice?.toString(),
+            currency: validated.currency || "EUR",
+            durationHours: validated.durationHours.toString(),
+            shipping: {
+              worldwide: validated.shippingWorldwide,
+              localOnly: validated.shippingLocalOnly,
+              costBuyer: validated.shippingCostBuyer,
+              costSeller: validated.shippingCostSeller,
+              freeInCountry: validated.shippingFreeInCountry,
+            },
+          }),
         }
-        setIsSubmitting(false);
-        return;
-      }
+      );
 
       toast({
         title: "Auction Started!",
@@ -247,6 +231,18 @@ export const CreateAuction = ({ isOpen, onClose, jerseyId, onSuccess }: CreateAu
                 <p id="startingBid-error" className="text-sm text-destructive mt-1" role="alert">
                   {errors.startingBid}
                 </p>
+              )}
+              
+              {/* Seller Fee Preview (based on starting bid) */}
+              {startingBid && parseFloat(startingBid) > 0 && (
+                <div className="mt-4 p-4 bg-secondary/50 rounded-lg border border-border">
+                  <PayoutBreakdown
+                    itemPrice={parseFloat(startingBid)}
+                    sellerFee={parseFloat(startingBid) * 0.01} // 1% seller fee
+                    payoutAmount={parseFloat(startingBid) * 0.99} // 99% payout
+                    currency="€"
+                  />
+                </div>
               )}
             </div>
 

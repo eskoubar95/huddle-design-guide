@@ -89,19 +89,20 @@ const JerseyDetail = () => {
       }
     : null;
 
-  // Fetch sale listing (if exists)
-  // TODO (HUD-XX): Optimize by adding jersey_id parameter to listings API endpoint
-  // Currently fetches up to 1000 listings and filters client-side - inefficient for large datasets
-  // Preferred: const { data: listing } = useListingByJerseyId(jerseyId);
-  // Or: GET /api/v1/listings?jersey_id={jerseyId}&status=active
-  const { data: allListings } = useListings({ status: "active", limit: 1000 });
+  // Fetch sale listing (if exists) - optimized with jerseyId parameter
+  const { data: listingData } = useListings({ 
+    status: "active", 
+    jerseyId: jerseyId || undefined,
+    limit: 1 // Only need one result
+  });
   const listing = useMemo(() => {
-    if (!allListings?.items || !jerseyId) return null;
-    const found = allListings.items.find(
-      (l) => l.jersey_id === jerseyId && l.currency !== null
-    );
-    return found ? (found as unknown as Listing) : null;
-  }, [allListings, jerseyId]);
+    if (!listingData?.items || !jerseyId || listingData.items.length === 0) return null;
+    const found = listingData.items[0];
+    // Ensure it matches jerseyId and has currency (safety check)
+    return found && found.jersey_id === jerseyId && found.currency !== null
+      ? (found as unknown as Listing)
+      : null;
+  }, [listingData, jerseyId]);
 
   // Fetch auction (if exists)
   // TODO (HUD-XX): Optimize by adding jersey_id parameter to auctions API endpoint
