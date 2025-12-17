@@ -66,13 +66,14 @@ const handler = async (req: NextRequest) => {
 
     if (!existingAccount) {
       // Create new Express account FIRST
-      // MVP: All accounts in EUR country (DE) for simplicity
-      // Future: Can use seller's country for multi-currency support
+      // Don't specify country - let user choose their EU country during onboarding
+      // This allows all EU countries to be selected (EUR-compatible)
       let account: Stripe.Account;
       try {
         account = await stripe.accounts.create({
           type: "express",
-          country: "DE", // MVP: Use EUR country (Germany) for all sellers
+          // No country specified - user can choose any EU country during onboarding
+          business_type: "individual", // Explicitly set to individual (not company)
           capabilities: {
             card_payments: { requested: true },
             transfers: { requested: true },
