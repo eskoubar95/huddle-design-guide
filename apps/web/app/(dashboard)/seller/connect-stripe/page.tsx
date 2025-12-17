@@ -37,9 +37,12 @@ function ConnectStripePage() {
   useEffect(() => {
     const fetchAccountStatus = async () => {
       try {
-        const response = await apiRequest<{ data: StripeAccount | null }>("/seller/stripe-account");
-        if (response.data) {
-          setAccountStatus(response.data);
+        const response = await apiRequest<StripeAccount | null>("/seller/stripe-account");
+        // Handle null response (when no account exists)
+        if (response) {
+          setAccountStatus(response);
+        } else {
+          setAccountStatus(null);
         }
       } catch (error) {
         console.error("Failed to fetch account status:", error);
@@ -48,13 +51,15 @@ function ConnectStripePage() {
           description: "Failed to load account status. Please try again.",
           variant: "destructive",
         });
+        setAccountStatus(null);
       } finally {
         setLoading(false);
       }
     };
 
     fetchAccountStatus();
-  }, [apiRequest, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount - apiRequest and toast are stable references
 
   // Show success/refresh messages
   useEffect(() => {
@@ -76,18 +81,19 @@ function ConnectStripePage() {
       // Clear query params
       router.replace("/seller/connect-stripe");
     }
-  }, [success, refresh, accountStatus, toast, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [success, refresh]); // Only depend on query params, not accountStatus/toast/router to avoid loops
 
   const handleConnect = async () => {
     setConnecting(true);
     try {
-      const response = await apiRequest<{ data: { url: string } }>("/seller/stripe-account/connect", {
+      const response = await apiRequest<{ url: string }>("/seller/stripe-account/connect", {
         method: "POST",
       });
 
-      if (response.data?.url) {
+      if (response && response.url) {
         // Redirect to Stripe OAuth flow
-        window.location.href = response.data.url;
+        window.location.href = response.url;
       } else {
         throw new Error("No onboarding URL returned");
       }
