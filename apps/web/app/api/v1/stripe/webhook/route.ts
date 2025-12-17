@@ -266,13 +266,32 @@ export async function POST(request: NextRequest) {
         // Create notification for seller
         const sellerId = paymentIntent.metadata?.seller_id;
         if (sellerId) {
-          await supabase.from("notifications").insert({
+          const { error: notifError } = await supabase.from("notifications").insert({
             user_id: sellerId,
             type: "payment_received",
             title: "Payment Received",
             message: `Payment of ${paymentIntent.amount / 100} ${paymentIntent.currency.toUpperCase()} received.`,
             read: false,
           });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                sellerIdPrefix: sellerId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
         }
 
         if (process.env.NODE_ENV === "development") {
@@ -306,13 +325,32 @@ export async function POST(request: NextRequest) {
         // Notify buyer of payment failure
         const buyerId = paymentIntent.metadata?.buyer_id;
         if (buyerId) {
-          await supabase.from("notifications").insert({
+          const { error: notifError } = await supabase.from("notifications").insert({
             user_id: buyerId,
             type: "payment_failed",
             title: "Payment Failed",
             message: "Your payment could not be processed. Please try again.",
             read: false,
           });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                buyerIdPrefix: buyerId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
         }
 
         if (process.env.NODE_ENV === "development") {
@@ -347,13 +385,32 @@ export async function POST(request: NextRequest) {
         // Notify seller of payout
         const sellerId = transfer.metadata?.seller_id;
         if (sellerId) {
-          await supabase.from("notifications").insert({
+          const { error: notifError } = await supabase.from("notifications").insert({
             user_id: sellerId,
             type: "payout_sent",
             title: "Payout Sent",
             message: `Payout of ${transfer.amount / 100} ${transfer.currency.toUpperCase()} has been sent to your account.`,
             read: false,
           });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                sellerIdPrefix: sellerId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
         }
 
         if (process.env.NODE_ENV === "development") {
@@ -398,13 +455,32 @@ export async function POST(request: NextRequest) {
 
         // Notify user of status change to active
         if (status === "active") {
-          await supabase.from("notifications").insert({
+          const { error: notifError } = await supabase.from("notifications").insert({
             user_id: userId,
             type: "stripe_account_activated",
             title: "Stripe Account Activated",
             message: "Your Stripe account is now active and ready to receive payouts.",
             read: false,
           });
+
+          if (notifError) {
+            // Notification failure is not critical - log but don't throw
+            Sentry.captureException(notifError, {
+              level: "warning",
+              tags: {
+                component: "stripe_webhook",
+                operation: "create_notification",
+                event_type: event.type,
+              },
+              extra: {
+                userIdPrefix: userId.slice(0, 8),
+              },
+            });
+
+            if (process.env.NODE_ENV === "development") {
+              console.error("[STRIPE] Failed to create notification:", notifError);
+            }
+          }
         }
 
         if (process.env.NODE_ENV === "development") {
@@ -416,11 +492,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark event as processed (idempotency)
-    await supabase.from("webhook_events").insert({
+    const { error: insertError } = await supabase.from("webhook_events").insert({
       stripe_event_id: event.id,
       event_type: event.type,
       processed_at: new Date().toISOString(),
     });
+
+    if (insertError) {
+      // Log but don't fail the webhook - event was already processed successfully
+      Sentry.captureException(insertError, {
+        level: "warning",
+        tags: { component: "stripe_webhook", operation: "mark_processed" },
+        extra: { eventIdPrefix: event.id.slice(0, 8), eventType: event.type },
+      });
+    }
 
     return Response.json({ received: true });
   } catch (error) {

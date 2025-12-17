@@ -208,10 +208,10 @@ export class StripeService {
    * Transfer amount = item price - platform fee (calculated in HUD-37)
    */
   async createTransfer(params: CreateTransferParams): Promise<Stripe.Transfer> {
-    try {
-      // Generate idempotency key to prevent duplicate transfers on retry
-      const idempotencyKey = params.transferGroup || `transfer_${Date.now()}`;
+    // Generate idempotency key once to prevent duplicate transfers on retry
+    const idempotencyKey = params.transferGroup || `transfer_${Date.now()}`;
 
+    try {
       // MVP: All transfers in EUR (hardcoded)
       // Future: Use params.currency from transaction
       const transfer = await this.stripe.transfers.create(
@@ -233,7 +233,6 @@ export class StripeService {
       if (error instanceof Stripe.errors.StripeError) {
         if (error.type === "StripeRateLimitError") {
           // Retry once after short delay with same idempotency key
-          const idempotencyKey = params.transferGroup || `transfer_${Date.now()}`;
           await new Promise((resolve) => setTimeout(resolve, 1000));
           try {
             return await this.stripe.transfers.create(

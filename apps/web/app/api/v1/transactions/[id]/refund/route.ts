@@ -80,6 +80,15 @@ const handler = async (
     const body = await req.json();
     const input = refundSchema.parse(body);
 
+    // Validate partial refund amount doesn't exceed transaction total
+    if (input.amount && input.amount > transaction.amount) {
+      throw new ApiError(
+        "BAD_REQUEST",
+        `Refund amount (${input.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"}) cannot exceed transaction amount (${transaction.amount / 100} ${transaction.currency?.toUpperCase() || "EUR"})`,
+        400
+      );
+    }
+
     // Get payment intent ID
     if (!transaction.stripe_payment_intent_id) {
       throw new ApiError(

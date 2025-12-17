@@ -2,6 +2,14 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db/postgres-connection";
 
 export async function GET() {
+  // Only allow in development
+  if (process.env.NODE_ENV !== "development") {
+    return Response.json(
+      { success: false, error: "Not available in production" },
+      { status: 404 }
+    );
+  }
+
   try {
     // Check table columns
     const columns = await query<{

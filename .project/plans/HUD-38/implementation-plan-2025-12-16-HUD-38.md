@@ -1271,17 +1271,18 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createServiceClient();
 
-  // Webhook idempotency: Check if event already processed
-  // Store processed event IDs in a simple in-memory Set (for MVP)
-  // In production, use Redis or database for distributed systems
-  const processedEvents = new Set<string>();
-  
-  // Check if event already processed (idempotency)
-  if (processedEvents.has(event.id)) {
+  // Database-backed idempotency: Check if event already processed
+  const { data: existingEvent } = await supabase
+    .from("webhook_events")
+    .select("id")
+    .eq("stripe_event_id", event.id)
+    .single();
+
+  if (existingEvent) {
     if (process.env.NODE_ENV === "development") {
       console.log(`[STRIPE] Event ${event.id.slice(0, 8)}... already processed, skipping`);
     }
-    return Response.json({ received: true, skipped: "duplicate" });
+    return Response.json({ received: true, duplicate: true });
   }
 
   try {
