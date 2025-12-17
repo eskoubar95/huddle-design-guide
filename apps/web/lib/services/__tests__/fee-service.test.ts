@@ -19,11 +19,16 @@ import { FeeService } from "../fee-service";
 import { createServiceClient } from "@/lib/supabase/server";
 
 // Mock Supabase client
-if (typeof vi !== "undefined") {
-  vi.mock("@/lib/supabase/server", () => ({
-    createServiceClient: vi.fn(),
-  }));
-}
+vi.mock("@/lib/supabase/server", () => ({
+  createServiceClient: vi.fn(),
+}));
+
+// Mock Sentry to avoid side effects when error paths trigger Sentry.captureException
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+  init: vi.fn(),
+}));
 
 describe("FeeService", () => {
   let feeService: FeeService;
@@ -194,6 +199,27 @@ describe("FeeService", () => {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockRejectedValue(new Error("DB error")),
+      };
+
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
+
+      const result = await feeService.getActiveFeePercentages();
+
+      expect(result).toEqual({
+        platformPct: 5.0,
+        sellerPct: 1.0,
+      });
+    });
+
+    it("should return defaults when DB query returns error", async () => {
+      const mockSupabase = {
+        from: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: "Database connection failed" },
+        }),
       };
 
       vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
