@@ -41,8 +41,8 @@ const BreadcrumbLink = React.forwardRef<
 >(({ asChild, className, ...props }, ref) => {
   const Comp = asChild ? Slot : "a";
 
-  // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
-  return <Comp ref={ref} className={cn("transition-colors hover:text-foreground", className)} {...props} />;
+  // Type assertion needed due to React 19 type incompatibility with @radix-ui/react-slot
+  return <Comp ref={ref} className={cn("transition-colors hover:text-foreground", className)} {...(props as any)} />;
 });
 BreadcrumbLink.displayName = "BreadcrumbLink";
 
