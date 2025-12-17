@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Gavel } from "lucide-react";
 import { CountdownTimer } from "@/components/marketplace/CountdownTimer";
 import { PriceBreakdown } from "@/components/checkout/PriceBreakdown";
-import { FeeService } from "@/lib/services/fee-service";
+
+// Default fees (matches FeeService defaults)
+// Note: These are preview values. Actual fees are calculated server-side using FeeService.
+const DEFAULT_PLATFORM_FEE_PCT = 5.0; // 5%
 
 interface Listing {
   price: number;
@@ -37,55 +40,31 @@ export function JerseyMarketplaceInfo({
   onBid,
   onExpire,
 }: JerseyMarketplaceInfoProps) {
-  const [feeBreakdown, setFeeBreakdown] = useState<{
-    platformFee: number;
-    totalAmount: number;
-  } | null>(null);
-
-  // Calculate fees using FeeService (for consistency)
-  useEffect(() => {
+  // Calculate fees using default percentages (client-side preview)
+  // Note: Actual fees are calculated server-side using FeeService during checkout
+  // This preview uses default fees (5% platform) for display purposes
+  const feeBreakdown = useMemo(() => {
     if (!listing || isOwner) {
-      setFeeBreakdown(null);
-      return;
+      return null;
     }
 
-    const calculateFees = async () => {
-      try {
-        const feeService = new FeeService();
-        const { platformPct } = await feeService.getActiveFeePercentages();
+    // Convert listing.price from major units (EUR) to cents
+    const itemCents = Math.round(listing.price * 100);
 
-        // Convert listing.price from major units (EUR) to cents
-        const itemCents = Math.round(listing.price * 100);
+    // Calculate platform fee in cents (matches FeeService logic)
+    // Fee = itemCents * (platformPct / 100), rounded to nearest cent
+    const platformFeeCents = Math.round(
+      (itemCents * DEFAULT_PLATFORM_FEE_PCT) / 100
+    );
 
-        // Calculate platform fee in cents
-        const platformFeeCents = feeService.calculatePlatformFeeCents(
-          itemCents,
-          platformPct
-        );
+    // Calculate total in cents (item + platform fee, no shipping yet)
+    const totalCents = itemCents + platformFeeCents;
 
-        // Calculate total in cents (item + platform fee, no shipping yet)
-        const totalCents = feeService.calculateBuyerTotalCents({
-          itemCents,
-          shippingCents: 0, // Shipping not selected yet
-          platformFeeCents,
-        });
-
-        // Convert back to major units for PriceBreakdown
-        setFeeBreakdown({
-          platformFee: platformFeeCents / 100,
-          totalAmount: totalCents / 100,
-        });
-      } catch (error) {
-        // Fallback to default calculation if FeeService fails
-        console.error("Failed to calculate fees:", error);
-        setFeeBreakdown({
-          platformFee: listing.price * 0.05, // 5% fallback
-          totalAmount: listing.price * 1.05, // Item + 5% fallback
-        });
-      }
+    // Convert back to major units for PriceBreakdown
+    return {
+      platformFee: platformFeeCents / 100,
+      totalAmount: totalCents / 100,
     };
-
-    calculateFees();
   }, [listing, isOwner]);
 
   if (!listing && !auction) return null;
