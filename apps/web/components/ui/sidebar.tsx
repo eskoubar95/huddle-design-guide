@@ -357,7 +357,6 @@ const SidebarGroupLabel = React.forwardRef<HTMLDivElement, React.ComponentProps<
     const Comp = asChild ? Slot : "div";
 
     return (
-      // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
       <Comp
         ref={ref}
         data-sidebar="group-label"
@@ -366,7 +365,7 @@ const SidebarGroupLabel = React.forwardRef<HTMLDivElement, React.ComponentProps<
           "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
           className,
         )}
-        {...props}
+        {...(props as any)}
       />
     );
   },
@@ -378,7 +377,6 @@ const SidebarGroupAction = React.forwardRef<HTMLButtonElement, React.ComponentPr
     const Comp = asChild ? Slot : "button";
 
     return (
-      // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
       <Comp
         ref={ref}
         data-sidebar="group-action"
@@ -389,7 +387,7 @@ const SidebarGroupAction = React.forwardRef<HTMLButtonElement, React.ComponentPr
           "group-data-[collapsible=icon]:hidden",
           className,
         )}
-        {...props}
+        {...(props as any)}
       />
     );
   },
@@ -447,14 +445,13 @@ const SidebarMenuButton = React.forwardRef<
   const { isMobile, state } = useSidebar();
 
   const button = (
-    // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
     <Comp
       ref={ref}
       data-sidebar="menu-button"
       data-size={size}
       data-active={isActive}
       className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-      {...props}
+      {...(props as any)}
     />
   );
 
@@ -487,7 +484,6 @@ const SidebarMenuAction = React.forwardRef<
   const Comp = asChild ? Slot : "button";
 
   return (
-    // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
     <Comp
       ref={ref}
       data-sidebar="menu-action"
@@ -503,7 +499,7 @@ const SidebarMenuAction = React.forwardRef<
           "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0",
         className,
       )}
-      {...props}
+      {...(props as any)}
     />
   );
 });
@@ -594,7 +590,6 @@ const SidebarMenuSubButton = React.forwardRef<
   const Comp = asChild ? Slot : "a";
 
   return (
-    // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
     <Comp
       ref={ref}
       data-sidebar="menu-sub-button"
@@ -608,7 +603,7 @@ const SidebarMenuSubButton = React.forwardRef<
         "group-data-[collapsible=icon]:hidden",
         className,
       )}
-      {...props}
+      {...(props as any)}
     />
   );
 });

@@ -40,8 +40,8 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    // @ts-expect-error - React 19 type incompatibility with @radix-ui/react-slot
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    // Type assertion needed due to React 19 type incompatibility with @radix-ui/react-slot
+    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...(props as any)} />;
   },
 );
 Button.displayName = "Button";
