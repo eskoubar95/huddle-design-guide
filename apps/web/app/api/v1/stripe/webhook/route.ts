@@ -215,11 +215,35 @@ export async function POST(request: NextRequest) {
 
       if (transactionId) {
         // Get transaction to verify totals (HUD-37)
-        const { data: transaction } = await supabase
+        const { data: transaction, error: queryError } = await supabase
           .from("transactions")
           .select("total_amount")
           .eq("id", transactionId)
           .single();
+
+        // Handle database query errors
+        if (queryError) {
+          Sentry.captureException(queryError, {
+            level: "warning",
+            tags: {
+              component: "stripe_webhook",
+              operation: "fetch_transaction_total",
+            },
+            extra: {
+              transactionIdPrefix: transactionId.slice(0, 8),
+              paymentIntentAmount: paymentIntent.amount,
+            },
+          });
+
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              `[STRIPE] Failed to fetch transaction ${transactionId.slice(0, 8)}... for reconciliation:`,
+              queryError
+            );
+          }
+          // Continue processing webhook even if transaction fetch fails
+          // (transaction might not exist yet or be in different state)
+        }
 
         // Verify payment intent amount matches transaction total_amount (if set)
         // Log warning if mismatch, but don't throw (allows manual reconciliation)

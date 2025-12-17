@@ -196,7 +196,7 @@ describe("FeeService", () => {
         order: vi.fn().mockRejectedValue(new Error("DB error")),
       };
 
-      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as any);
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
 
       const result = await feeService.getActiveFeePercentages();
 
@@ -214,7 +214,7 @@ describe("FeeService", () => {
         order: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
 
-      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as any);
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
 
       const result = await feeService.getActiveFeePercentages();
 
@@ -238,7 +238,7 @@ describe("FeeService", () => {
         }),
       };
 
-      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as any);
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
 
       const result = await feeService.getActiveFeePercentages();
 
@@ -259,7 +259,7 @@ describe("FeeService", () => {
         }),
       };
 
-      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as any);
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
 
       const result = await feeService.getActiveFeePercentages();
 
@@ -286,7 +286,7 @@ describe("FeeService", () => {
         }),
       };
 
-      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as any);
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
 
       const result = await feeService.buildBreakdownFromMajorUnits({
         itemMajor: 100.0,
@@ -329,7 +329,7 @@ describe("FeeService", () => {
         }),
       };
 
-      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as any);
+      vi.mocked(createServiceClient).mockResolvedValue(mockSupabase as unknown as Awaited<ReturnType<typeof createServiceClient>>);
 
       const result = await feeService.buildBreakdownFromMajorUnits({
         itemMajor: 99.99,
