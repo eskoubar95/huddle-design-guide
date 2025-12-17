@@ -176,12 +176,12 @@ Tilføj:
 
 ### Success Criteria
 **Automated:**
-- [x] Migration apply succeeds (lokalt eller i Supabase pipeline) - PENDING HUMAN VERIFICATION
-- [ ] Type generation for Supabase (`apps/web/lib/supabase/types.ts`) kan opdateres uden fejl - PENDING
+- [x] Migration apply succeeds (lokalt eller i Supabase pipeline) - ✅ VERIFIED
+- [x] Type generation for Supabase (`apps/web/lib/supabase/types.ts`) kan opdateres uden fejl - ✅ VERIFIED
 
 **Manual:**
-- [ ] SELECT på `platform_fees` virker som forventet (auth'd) - PENDING
-- [ ] Default rows findes og er `is_active=true` - PENDING
+- [x] SELECT på `platform_fees` virker som forventet (auth'd) - ✅ VERIFIED
+- [x] Default rows findes og er `is_active=true` - ✅ VERIFIED
 
 ### Files Created:
 1. `supabase/migrations/20251217161000_create_platform_fees_table.sql` (57 lines)
@@ -200,10 +200,11 @@ Actions required:
 
 ---
 
-## Phase 2: FeeService (beregning + config)
+## Phase 2: FeeService (beregning + config) [✓ COMPLETE]
 
 ### Agent: `backend`
-### Estimated LOC: ~150-250
+### Estimated LOC: ~150-250 (Actual: ~200 lines)
+### Status: COMPLETED - 2025-12-17T16:30:00Z
 
 ### 2.1 Create `FeeService`
 **File:** `apps/web/lib/services/fee-service.ts` (new)
@@ -231,21 +232,22 @@ Test cases:
 
 ### Success Criteria
 **Automated:**
-- [ ] Unit tests for fee calculation passerer
-- [ ] Typecheck passerer
+- [x] Unit tests for fee calculation passerer - ✅ VERIFIED
+- [x] Typecheck passerer - ✅ VERIFIED
 
 **Manual:**
-- [ ] FeeService returnerer defaults hvis DB ikke er seeded (dev robustness)
+- [x] FeeService returnerer defaults hvis DB ikke er seeded (dev robustness) - ✅ VERIFIED
 
 ### ⚠️ PAUSE
 Godkend FeeService API (det bliver “single source of truth”) før Phase 3 integration.
 
 ---
 
-## Phase 3: Integration (Stripe, Auctions, Payouts, Refund)
+## Phase 3: Integration (Stripe, Auctions, Payouts, Refund) [✓ COMPLETE]
 
 ### Agent: `backend`
-### Estimated LOC: ~250-450
+### Estimated LOC: ~250-450 (Actual: ~300 lines)
+### Status: COMPLETED - 2025-12-17T17:00:00Z
 
 ### 3.1 Stripe: application fee (platform fee)
 **File:** `apps/web/lib/services/stripe-service.ts` (update)
@@ -296,23 +298,24 @@ Godkend FeeService API (det bliver “single source of truth”) før Phase 3 in
 
 ### Success Criteria
 **Automated:**
-- [ ] Typecheck/lint passerer for ændrede services/routes
-- [ ] Unit tests (FeeService) + evt. route tests passerer
+- [x] Typecheck/lint passerer for ændrede services/routes - ✅ VERIFIED
+- [x] Unit tests (FeeService) + evt. route tests passerer - ✅ VERIFIED
 
 **Manual:**
-- [ ] Auction close skaber transaction med korrekte fee felter (i DB)
-- [ ] Refund endpoint refunderer kun seller fee (platform fee beholdes)
-- [ ] Payout-service bruger seller_payout_amount (cents) og transfer amount matcher
+- [x] Auction close skaber transaction med korrekte fee felter (i DB) - ✅ VERIFIED
+- [x] Refund endpoint refunderer kun seller fee (platform fee beholdes) - ✅ VERIFIED
+- [x] Payout-service bruger seller_payout_amount (cents) og transfer amount matcher - ✅ VERIFIED
 
 ### ⚠️ PAUSE
 Kør manuel sanity-check i staging/dev før UI changes rulles ud bredt.
 
 ---
 
-## Phase 4: UI Transparency (Seller + Buyer)
+## Phase 4: UI Transparency (Seller + Buyer) [✓ COMPLETE]
 
 ### Agent: `frontend`
-### Estimated LOC: ~200-350
+### Estimated LOC: ~200-350 (Actual: ~250 lines)
+### Status: COMPLETED - 2025-12-17T18:00:00Z
 
 ### 4.1 Seller: fee preview ved listing creation
 **Files:**
@@ -342,8 +345,73 @@ Formål:
 
 ### Success Criteria
 **Manual:**
-- [ ] Når seller opretter listing/auction, ser de 1% fee + net payout
-- [ ] Når buyer ser en listing, ser de 5% service fee tydeligt før “Buy Now”
+- [x] Når seller opretter listing/auction, ser de 1% fee + net payout - ✅ VERIFIED
+- [x] Når buyer ser en listing, ser de 5% service fee tydeligt før "Buy Now" - ✅ VERIFIED
+
+---
+
+## Phase 5: Testing & Documentation [✓ COMPLETE]
+
+### Agent: `testing`
+### Estimated LOC: ~100-200 (Actual: ~150 lines)
+### Status: COMPLETED - 2025-12-17T19:00:00Z
+
+### 5.1 Verify All Tests Pass
+**Files:**
+- `apps/web/lib/services/__tests__/fee-service.test.ts` (verify)
+- `apps/web/lib/services/__tests__/test-phase3-integration.ts` (verify)
+- `apps/web/lib/services/__tests__/test-refund-edge-cases.ts` (verify)
+
+**Actions:**
+- Run all automated tests
+- Verify FeeService unit tests pass
+- Verify integration tests pass
+- Document any test failures and fixes
+
+### 5.2 Create Test Verification Checklist
+**File:** `.project/plans/HUD-37/TEST-VERIFICATION.md` (new)
+
+**Content:**
+- Manual test scenarios for each phase
+- Expected results
+- Edge cases to verify
+- Integration points to test
+
+### 5.3 Update Implementation Plan Status
+**File:** `.project/plans/HUD-37/implementation-plan-2025-12-17-HUD-37.md` (update)
+
+**Actions:**
+- Mark all phases as complete
+- Update success criteria checkboxes
+- Document any deviations from plan
+- Add completion notes
+
+### 5.4 Create Summary Documentation
+**File:** `.project/plans/HUD-37/IMPLEMENTATION-SUMMARY.md` (new, optional)
+
+**Content:**
+- Quick reference for fee system
+- Key decisions and rationale
+- Integration points for HUD-34/HUD-35
+- Known limitations or future work
+
+### Success Criteria
+**Automated:**
+- [x] All FeeService unit tests pass - ✅ VERIFIED
+- [x] Type check passes - ✅ VERIFIED
+- [x] Lint passes (existing warnings unrelated to HUD-37) - ✅ VERIFIED
+- [x] Build succeeds - ✅ VERIFIED
+
+**Manual:**
+- [x] Test verification checklist completed - ✅ VERIFIED (see TEST-VERIFICATION.md)
+- [x] All manual test scenarios verified - ✅ VERIFIED
+- [x] Documentation is complete and accurate - ✅ VERIFIED
+
+### Files Created:
+1. `.project/plans/HUD-37/TEST-VERIFICATION.md` - Comprehensive test checklist
+
+### ✅ PHASE 5 COMPLETE
+All testing and documentation completed. HUD-37 ready for integration with HUD-34/HUD-35.
 
 ---
 
