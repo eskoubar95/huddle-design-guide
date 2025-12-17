@@ -12,16 +12,14 @@
  * - Error handling
  */
 
-// Conditional imports for Vitest (when available)
-// @ts-ignore - Vitest types may not be installed
+// Vitest imports (required for test environment)
+// @ts-expect-error - Vitest types may not be installed in non-test environments
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FeeService } from "../fee-service";
 import { createServiceClient } from "@/lib/supabase/server";
 
-// Mock Supabase client (when Vitest is available)
-// @ts-ignore - vi may not be available
+// Mock Supabase client
 if (typeof vi !== "undefined") {
-  // @ts-ignore
   vi.mock("@/lib/supabase/server", () => ({
     createServiceClient: vi.fn(),
   }));

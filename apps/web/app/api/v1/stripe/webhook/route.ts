@@ -223,7 +223,8 @@ export async function POST(request: NextRequest) {
 
         // Verify payment intent amount matches transaction total_amount (if set)
         // Log warning if mismatch, but don't throw (allows manual reconciliation)
-        if (transaction?.total_amount && paymentIntent.amount !== transaction.total_amount) {
+        // Use != null to handle zero amounts correctly
+        if (transaction?.total_amount != null && paymentIntent.amount !== transaction.total_amount) {
           Sentry.captureMessage("Payment intent amount mismatch with transaction total", {
             level: "warning",
             tags: { component: "stripe_webhook", event_type: event.type },

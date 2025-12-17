@@ -56,7 +56,7 @@ export function PayoutBreakdown({
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Payout beregnes ekskl. evt. shipping, afhænger af shipping model
+          Payout calculated excl. shipping, depends on shipping method
         </p>
       </div>
     </div>

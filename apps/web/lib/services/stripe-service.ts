@@ -113,13 +113,15 @@ export class StripeService {
         );
       } else {
         // Fallback: Calculate from total amount (assumes item + shipping, no fee yet)
-        // This is less accurate but maintains backward compatibility
-        // Note: This assumes amount = item + shipping, and we need to calculate fee
-        // For better accuracy, callers should provide breakdown
+        // WARNING: This fallback is inaccurate - callers should provide breakdown
+        Sentry.addBreadcrumb({
+          message: "Using fallback fee calculation - breakdown not provided",
+          level: "warning",
+          data: { amount: params.amount },
+        });
         const { platformPct } = await feeService.getActiveFeePercentages();
-        // Estimate item amount (rough approximation: assume shipping is ~10% of total)
-        // This is a fallback - proper implementation should provide breakdown
-        const estimatedItemCents = Math.round(params.amount * 0.9);
+        // Conservative: calculate fee on full amount to avoid undercharging platform
+        const estimatedItemCents = params.amount;
         platformFeeCents = feeService.calculatePlatformFeeCents(
           estimatedItemCents,
           platformPct
