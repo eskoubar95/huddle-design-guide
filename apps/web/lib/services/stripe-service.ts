@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase/server";
 import { ApiError } from "@/lib/api/errors";
 import * as Sentry from "@sentry/nextjs";
+import { FeeService } from "./fee-service";
 
 // Lazy-initialize Stripe client
 let stripeClient: Stripe | null = null;
@@ -19,11 +20,17 @@ function getStripe(): Stripe {
 }
 
 export interface CreatePaymentIntentParams {
-  amount: number; // in minor units (cents for EUR)
+  amount: number; // in minor units (cents for EUR) - total amount buyer pays
   currency: string; // MVP: "eur" (hardcoded), Future: from listing currency
   buyerId: string; // Clerk user ID
   sellerId: string; // Clerk user ID
   metadata?: Record<string, string>; // transaction_id, listing_id, etc.
+  // Optional breakdown for fee calculation (if not provided, amount is assumed to be total)
+  breakdown?: {
+    itemCents: number; // Item price in cents
+    shippingCents: number; // Shipping cost in cents
+    platformFeeCents?: number; // Pre-calculated platform fee (optional, will be calculated if not provided)
+  };
 }
 
 export interface CreateTransferParams {
@@ -89,14 +96,45 @@ export class StripeService {
         );
       }
 
+      // Calculate platform fee using FeeService
+      // Platform fee (5%) includes Stripe processing fee - no extra "card fee" line item
+      const feeService = new FeeService();
+      let platformFeeCents: number;
+
+      if (params.breakdown?.platformFeeCents !== undefined) {
+        // Use pre-calculated platform fee if provided
+        platformFeeCents = params.breakdown.platformFeeCents;
+      } else if (params.breakdown) {
+        // Calculate platform fee from breakdown
+        const { platformPct } = await feeService.getActiveFeePercentages();
+        platformFeeCents = feeService.calculatePlatformFeeCents(
+          params.breakdown.itemCents,
+          platformPct
+        );
+      } else {
+        // Fallback: Calculate from total amount (assumes item + shipping, no fee yet)
+        // This is less accurate but maintains backward compatibility
+        // Note: This assumes amount = item + shipping, and we need to calculate fee
+        // For better accuracy, callers should provide breakdown
+        const { platformPct } = await feeService.getActiveFeePercentages();
+        // Estimate item amount (rough approximation: assume shipping is ~10% of total)
+        // This is a fallback - proper implementation should provide breakdown
+        const estimatedItemCents = Math.round(params.amount * 0.9);
+        platformFeeCents = feeService.calculatePlatformFeeCents(
+          estimatedItemCents,
+          platformPct
+        );
+      }
+
       // Create Payment Intent with application fee (platform fee)
-      // Note: Application fee will be calculated in HUD-37 (Transaction Fees)
+      // Platform fee (5%) is all-in and includes Stripe processing fee
+      // Buyer pays: item + shipping + platform fee (total)
       // MVP: All payments in EUR (hardcoded)
       // Future: Use params.currency from listing
       const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: params.amount,
+        amount: params.amount, // Total amount buyer pays (item + shipping + platform fee)
         currency: "eur", // MVP: Hardcoded EUR, Future: params.currency
-        application_fee_amount: undefined, // Will be set in HUD-37
+        application_fee_amount: platformFeeCents, // Platform fee (5% all-in)
         transfer_data: {
           destination: sellerAccount.stripe_account_id,
         },

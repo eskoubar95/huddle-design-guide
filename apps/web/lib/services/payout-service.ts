@@ -76,10 +76,26 @@ export class PayoutService {
       );
     }
 
-    // Calculate payout amount (item price - platform fee)
-    // TODO: Platform fee calculation will be in HUD-37
-    // For now, use full amount (fee calculation will be added later)
-    const payoutAmount = transaction.amount; // in minor units
+    // Calculate payout amount using seller_payout_amount field
+    // seller_payout_amount = item_amount - seller_fee_amount (calculated in HUD-37)
+    // Fallback to legacy amount if seller_payout_amount is not set (for backward compatibility)
+    let payoutAmount: number;
+    
+    if (transaction.seller_payout_amount !== null && transaction.seller_payout_amount !== undefined) {
+      payoutAmount = transaction.seller_payout_amount; // in minor units (cents)
+    } else {
+      // Fallback for transactions created before HUD-37
+      // Log to Sentry so we can track migration progress
+      Sentry.addBreadcrumb({
+        message: "Using legacy transaction.amount for payout (seller_payout_amount missing)",
+        level: "warning",
+        data: {
+          transactionIdPrefix: transactionId.slice(0, 8),
+          hasSellerPayoutAmount: false,
+        },
+      });
+      payoutAmount = transaction.amount; // in minor units (legacy fallback)
+    }
 
     try {
       // Create transfer (payout) with idempotency key to prevent duplicate transfers on retry

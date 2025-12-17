@@ -214,6 +214,34 @@ export async function POST(request: NextRequest) {
       const transactionId = paymentIntent.metadata?.transaction_id;
 
       if (transactionId) {
+        // Get transaction to verify totals (HUD-37)
+        const { data: transaction } = await supabase
+          .from("transactions")
+          .select("total_amount")
+          .eq("id", transactionId)
+          .single();
+
+        // Verify payment intent amount matches transaction total_amount (if set)
+        // Log warning if mismatch, but don't throw (allows manual reconciliation)
+        if (transaction?.total_amount && paymentIntent.amount !== transaction.total_amount) {
+          Sentry.captureMessage("Payment intent amount mismatch with transaction total", {
+            level: "warning",
+            tags: { component: "stripe_webhook", event_type: event.type },
+            extra: {
+              transactionIdPrefix: transactionId.slice(0, 8),
+              paymentIntentAmount: paymentIntent.amount,
+              transactionTotalAmount: transaction.total_amount,
+              difference: paymentIntent.amount - transaction.total_amount,
+            },
+          });
+
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              `[STRIPE] Amount mismatch for transaction ${transactionId.slice(0, 8)}...: PaymentIntent=${paymentIntent.amount}, Transaction=${transaction.total_amount}`
+            );
+          }
+        }
+
         // Update transaction status to "completed"
         // Use event timestamp (when payment actually succeeded) instead of paymentIntent.created
         const { error: updateError } = await supabase
