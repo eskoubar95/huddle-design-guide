@@ -105,40 +105,56 @@ export class ShippingService {
       if (input.serviceType === "pickup_point") {
         // Pickup point: Currently not supported (PUDO API issue)
         // Return empty array - frontend should default to home_delivery
-        console.log("[SHIPPING] Pickup point requested but not yet supported (PUDO API issue)");
+        Sentry.captureMessage(
+          "[SHIPPING] Pickup point requested but not yet supported (PUDO API issue)",
+          {
+            level: "info",
+            tags: {
+              component: "shipping_service",
+              operation: "calculate_shipping",
+            },
+          }
+        );
         return [];
       }
-      
-      // Home delivery: Try Eurosender first, fallback to Medusa
-        try {
-          const eurosenderOptions = await this.calculateEurosenderRates(
-            sellerCountry,
-            input.shippingAddress,
-            weightKg,
-            "home_delivery"
-          );
 
-          if (eurosenderOptions.length > 0) {
-            return eurosenderOptions;
-          }
-        } catch (error) {
-          // Log but continue to fallback
-          console.log(
-            "[SHIPPING] Eurosender failed for home_delivery, falling back to Medusa:",
-            error instanceof Error ? error.message : String(error)
-          );
-          Sentry.captureException(error, {
+      // Home delivery: Try Eurosender first, fallback to Medusa
+      try {
+        const eurosenderOptions = await this.calculateEurosenderRates(
+          sellerCountry,
+          input.shippingAddress,
+          weightKg,
+          "home_delivery"
+        );
+
+        if (eurosenderOptions.length > 0) {
+          return eurosenderOptions;
+        }
+      } catch (error) {
+        // Log but continue to fallback
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        Sentry.captureMessage(
+          `[SHIPPING] Eurosender failed for home_delivery, falling back to Medusa: ${errorMessage}`,
+          {
+            level: "warning",
             tags: {
               component: "shipping_service",
               operation: "calculate_shipping_home_delivery",
             },
             extra: { sellerCountry, buyerCountry: buyerCountry },
-          });
-        }
-
-        // Fallback to Medusa rates
-        return await this.calculateMedusaRates(region.id, "home_delivery");
+          }
+        );
+        Sentry.captureException(error, {
+          tags: {
+            component: "shipping_service",
+            operation: "calculate_shipping_home_delivery",
+          },
+          extra: { sellerCountry, buyerCountry: buyerCountry },
+        });
       }
+
+      // Fallback to Medusa rates
+      return await this.calculateMedusaRates(region.id, "home_delivery");
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;

@@ -11,6 +11,7 @@
 
 import { useState } from 'react'
 import { ShippingMethodSelector } from '@/components/checkout/ShippingMethodSelector'
+import type { ShippingOption } from '@/lib/services/shipping-service'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +20,7 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function ShippingTestPage() {
   const { toast } = useToast()
-  const [selectedOption, setSelectedOption] = useState<any>(null)
+  const [selectedOption, setSelectedOption] = useState<ShippingOption | null>(null)
   
   // Test data - you can modify these
   const [listingId, setListingId] = useState<string>('')
@@ -33,7 +34,7 @@ export default function ShippingTestPage() {
   })
   const [serviceType, setServiceType] = useState<'home_delivery' | 'pickup_point'>('home_delivery')
 
-  const handleSelect = (option: any) => {
+  const handleSelect = (option: ShippingOption) => {
     setSelectedOption(option)
     toast({
       title: 'Shipping option selected',

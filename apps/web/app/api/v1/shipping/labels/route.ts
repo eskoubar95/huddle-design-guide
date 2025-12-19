@@ -3,6 +3,7 @@ import { rateLimitMiddleware } from "@/lib/api/rate-limit";
 import { requireAuth } from "@/lib/auth";
 import { handleApiError } from "@/lib/api/errors";
 import { EurosenderService } from "@/lib/services/eurosender-service";
+import { createServiceClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
 
@@ -62,6 +63,7 @@ const createLabelSchema = z.object({
   labelFormat: z.enum(["pdf", "zpl"]).optional(),
   pudoPointCode: z.string().optional(), // For pickup point delivery
   pickupDate: z.string().optional(), // RFC 3339 format
+  transactionId: z.string().uuid().optional(), // Transaction ID for authorization check
 });
 
 const handler = async (req: NextRequest) => {
@@ -74,6 +76,40 @@ const handler = async (req: NextRequest) => {
 
     const body = await req.json();
     const validated = createLabelSchema.parse(body);
+
+    // Authorization: If transactionId provided, verify user is seller
+    if (validated.transactionId) {
+      const supabase = await createServiceClient();
+      const { data: transaction, error: txError } = await supabase
+        .from("transactions")
+        .select("seller_id")
+        .eq("id", validated.transactionId)
+        .single();
+
+      if (txError || !transaction) {
+        return Response.json(
+          {
+            error: {
+              code: "NOT_FOUND",
+              message: "Transaction not found",
+            },
+          },
+          { status: 404 }
+        );
+      }
+
+      if (transaction.seller_id !== userId) {
+        return Response.json(
+          {
+            error: {
+              code: "FORBIDDEN",
+              message: "Access denied: You must be the seller to create shipping labels",
+            },
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const eurosenderService = new EurosenderService();
 

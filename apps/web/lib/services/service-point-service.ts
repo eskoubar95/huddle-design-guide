@@ -106,6 +106,11 @@ export class ServicePointService {
         .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0))
         .slice(0, limit);
     } catch (error) {
+      // Re-throw ApiError as-is to preserve original error code
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       Sentry.captureException(error, {
         tags: {
@@ -182,6 +187,11 @@ export class ServicePointService {
 
       return points;
     } catch (error) {
+      // Re-throw ApiError as-is to preserve original error code
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       Sentry.captureException(error, {
         tags: {
