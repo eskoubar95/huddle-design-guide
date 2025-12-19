@@ -9,7 +9,7 @@
 
 ## 📋 Overview
 
-Marketplace Features projektet implementerer den komplette e-commerce infrastruktur for Huddle, inkluderet sale listings, auctions, checkout flows, payment integration (Stripe Connect), shipping (Shippo), og order management (MedusaJS).
+Marketplace Features projektet implementerer den komplette e-commerce infrastruktur for Huddle, inkluderet sale listings, auctions, checkout flows, payment integration (Stripe Connect), shipping (Eurosender), og order management (MedusaJS).
 
 ---
 
@@ -18,7 +18,7 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
 ### Primary Objectives
 1. **Complete Checkout Flow** - Fuld checkout flow for både sale listings og auctions
 2. **Payment Infrastructure** - Stripe Connect integration for P2P payments
-3. **Shipping Integration** - Shippo integration med service points/pickup points (Vinted-style)
+3. **Shipping Integration** - Eurosender integration med service points/pickup points (Vinted-style)
 4. **Order Management** - MedusaJS integration for order lifecycle
 5. **User Validation** - Profile completeness og Stripe Identity verification
 
@@ -55,8 +55,8 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
 - **[HUD-43]** Service Point Picker UI (Vinted-style)
   - Map view, list view, search, filters
   - **Status:** Backlog | **Priority:** High | **Estimate:** 12-16h
-- **[HUD-42]** Shipping Label Generation Integration (Shippo)
-  - Pay-per-label model (no subscription)
+- **[HUD-42]** Shipping Label Generation Integration (Eurosender)
+  - Order-based label generation via Eurosender API
   - **Status:** Backlog | **Priority:** High | **Estimate:** 12-14h
 
 ### Phase 3: Order Management
@@ -83,24 +83,25 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
 
 ## 🏗️ Architecture Decisions
 
-### Shipping Provider: **Shippo**
+### Shipping Provider: **Eurosender**
 **Rationale:**
-- ✅ Pay-per-label model (no monthly subscription)
-- ✅ 30 free labels per month included
-- ✅ $0.07 per label after free tier
-- ✅ 85+ carriers (DHL, UPS, FedEx, etc.)
-- ✅ European market support
-- ✅ Good API documentation
+- ✅ European-focused shipping provider
+- ✅ Unified API for all carriers (simpler than managing multiple carrier accounts)
+- ✅ Built-in PUDO (Pick-Up Drop-Off) point search via `/v1/pudo/list` endpoint
+- ✅ Simpler API flow (Quote → Order, 2 steps vs Shippo's 3-step process)
+- ✅ Better EU coverage and pricing for European routes
+- ✅ Dedicated sandbox environment for testing
+- ✅ Currency: EUR only (prices converted for display)
 
 **Alternative Considered:**
-- Sendcloud (rejected - subscription-based for unlimited labels)
+- Shippo (replaced - Eurosender provides better EU focus and unified PUDO API)
 
 ### Service Point Integration
-**Carrier APIs:**
-- DHL Service Points API
-- PostNord Service Points API (Nordic countries)
-- GLS ParcelShop API
-- DPD Pickup Points API
+**Eurosender PUDO API:**
+- Eurosender provides unified PUDO (Pick-Up Drop-Off) point search via `/v1/pudo/list` endpoint
+- Requires courierId from quote response to search service points
+- Returns service points with address, coordinates, opening hours
+- Service points cached in database for performance
 
 **Frontend UX Inspiration:**
 - Vinted-style service point picker
@@ -181,9 +182,9 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
    ↓
 3. Backend:
    - Fetch order details (address or service point)
-   - Create Shippo shipment
+   - Create Eurosender order (via quote)
    - Format service point address (if pickup point)
-   - Purchase label via Shippo
+   - Retrieve label URL from Eurosender order response
    - Store label URL in database
    ↓
 4. Seller receives label PDF
@@ -210,7 +211,7 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
 - `shipping_methods` - Shipping methods (standard, express, etc.)
 - `shipping_addresses` - User shipping addresses
 - `service_points` - Cached service points (pickup points)
-- `shipping_labels` - Generated shipping labels (Shippo)
+- `shipping_labels` - Generated shipping labels (Eurosender)
 
 **Profile & Verification:**
 - `profile_verifications` - Stripe Identity verification status
@@ -257,7 +258,7 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
 - **Supabase** (database, storage, Edge Functions)
 - **MedusaJS** (order management)
 - **Stripe Connect** (payments, identity verification)
-- **Shippo API** (shipping labels)
+- **Eurosender API** (shipping labels, quotes, PUDO points)
 
 ### Frontend
 - **Next.js 15** (App Router)
@@ -268,8 +269,7 @@ Marketplace Features projektet implementerer den komplette e-commerce infrastruk
 - **Framer Motion** (animations)
 
 ### External Services
-- **Shippo** - Shipping label generation
-- **Carrier APIs** - Service point lookup (DHL, PostNord, GLS, DPD)
+- **Eurosender** - Shipping quotes, label generation, PUDO point search
 - **Stripe** - Payments, Identity verification
 - **MedusaJS** - Order management
 
@@ -283,7 +283,7 @@ apps/web/lib/services/
 ├── checkout-service.ts          # Checkout orchestration
 ├── shipping-service.ts          # Shipping calculation
 ├── service-point-service.ts     # Service point API integration
-├── shipping-label-service.ts    # Shippo label generation
+├── eurosender-service.ts        # Eurosender API integration (quotes, orders, labels, PUDO)
 ├── stripe-service.ts            # Stripe Connect integration
 ├── fee-service.ts               # Transaction fee calculation
 ├── medusa-order-service.ts      # Medusa order management
@@ -368,7 +368,7 @@ supabase/migrations/
    - Frontend service point selection
    - Can be built in parallel with HUD-36
 6. **HUD-42** - Shipping Label Generation
-   - Shippo integration
+   - Eurosender integration
 
 ### Phase 3: Order Management
 7. **HUD-39** - Medusa Order Integration
@@ -389,19 +389,21 @@ supabase/migrations/
 ## 📝 Important Notes
 
 ### Cross-Border Shipping
-- Shippo handles customs documentation automatically
+- Eurosender handles customs documentation automatically
 - Different shipping zones for domestic vs international
 - Visual indicators ("International Shipping" badge)
 - Longer estimated delivery times
 
 ### Service Points (Pickup Points)
-- Shippo provides data via API
+- Eurosender provides unified PUDO point search via `/v1/pudo/list` API endpoint
+- Requires `courierId` from quote response to search service points
 - We build UI for service point selection (HUD-43)
-- Service point address must be formatted correctly for Shippo
+- Service point address must be formatted correctly for Eurosender order creation
 - Cache service points in database for performance
 
 ### Pricing Model
-- **Shippo:** 30 free labels/month, then $0.07/label (no subscription)
+- **Eurosender:** Quote-based pricing (varies by route, weight, service type)
+- **Currency:** All prices in EUR (converted for display)
 - **Stripe Connect:** Standard Stripe fees (2.9% + $0.30 per transaction)
 - **Platform Fee:** Configurable percentage (stored in `platform_fees` table)
 
@@ -456,5 +458,6 @@ supabase/migrations/
 
 ---
 
-**Last Updated:** 2025-01-13  
-**Maintained by:** Development Team
+**Last Updated:** 2025-01-18  
+**Maintained by:** Development Team  
+**Note:** Shipping provider changed from Shippo to Eurosender (HUD-36 implementation)
