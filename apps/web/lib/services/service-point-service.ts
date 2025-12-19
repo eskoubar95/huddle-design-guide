@@ -4,11 +4,15 @@ import * as Sentry from "@sentry/nextjs";
 import { EurosenderService } from "./eurosender-service";
 
 export interface ServicePointOpeningHours {
-  openingHours?: Record<string, string>; // e.g., { "monday": "09:00-17:00" }
-  shippingCutOffTime?: string;
+  openingHours?: Array<{
+    dayNameLong: string;
+    dayNameShort: string;
+    times: Array<{ from: string; to: string }>;
+  }>;
+  shippingCutOffTime?: string | null;
   features?: string[];
-  pointEmail?: string;
-  pointPhone?: string;
+  pointEmail?: string | null;
+  pointPhone?: string | null;
   holidayDates?: string[];
 }
 
@@ -54,8 +58,11 @@ export interface ServicePointSearchParams {
  */
 export class ServicePointService {
   private eurosenderService: EurosenderService;
+  private logger;
 
   constructor() {
+    const { logger } = Sentry;
+    this.logger = logger;
     this.eurosenderService = new EurosenderService();
   }
   /**
@@ -108,7 +115,9 @@ export class ServicePointService {
       }
 
       // 3. Return cached points only (no direct carrier APIs)
-      console.log("[SERVICE_POINTS] Returning cached points only (courierId required for Eurosender PUDO search)");
+      this.logger.info(
+        this.logger.fmt`[SERVICE_POINTS] Returning cached points only (courierId required for Eurosender PUDO search)`
+      );
       
       // Return cached points (sorted by distance)
       return cached
@@ -154,8 +163,8 @@ export class ServicePointService {
       // TODO: Geocode postal code to get coordinates, then call searchEurosenderPudoPoints
       // For now, return cached points only when courierId is provided with postal code
       if (courierId) {
-        console.log(
-          "[SERVICE_POINTS] Postal code search with courierId requires geocoding (not yet implemented). Returning cached points only."
+        this.logger.info(
+          this.logger.fmt`[SERVICE_POINTS] Postal code search with courierId requires geocoding (not yet implemented). Returning cached points only.`
         );
         // Could throw error here, but for now return cached points as fallback
         // throw new ApiError(
@@ -296,14 +305,9 @@ export class ServicePointService {
         parcelHeight = 5,
       } = params;
 
-      console.log("[SERVICE_POINTS] Searching Eurosender PUDO points:", {
-        courierId,
-        country,
-        latitude,
-        longitude,
-        radiusKm,
-        limit,
-      });
+      this.logger.debug(
+        this.logger.fmt`[SERVICE_POINTS] Searching Eurosender PUDO points: courierId=${courierId}, country=${country}, lat=${latitude}, lng=${longitude}, radiusKm=${radiusKm}, limit=${limit}`
+      );
 
       // Call Eurosender PUDO API
       // Parcels structure: Nested object with parcels array (as per implementation plan)
@@ -327,9 +331,9 @@ export class ServicePointService {
         resultsLimit: limit,
       });
 
-      console.log("[SERVICE_POINTS] Eurosender PUDO response:", {
-        pointsCount: pudoResponse.points.length,
-      });
+      this.logger.debug(
+        this.logger.fmt`[SERVICE_POINTS] Eurosender PUDO response: pointsCount=${pudoResponse.points.length}`
+      );
 
       // Map to ServicePoint format with enhanced fields
       const points: ServicePoint[] = pudoResponse.points.map((pudo) => {
@@ -364,7 +368,7 @@ export class ServicePointService {
           country,
           latitude: pudo.geolocation.latitude,
           longitude: pudo.geolocation.longitude,
-          type: "service_point", // Default type (could be enhanced to detect locker/store from features)
+          type: "service_point" as const, // Default type (could be enhanced to detect locker/store from features)
           opening_hours: openingHours,
           distance_km: distanceKm,
         };
@@ -375,7 +379,11 @@ export class ServicePointService {
         await this.cachePoints(points, latitude, longitude);
       } catch (cacheError) {
         // Log but don't fail the request
-        console.error("[SERVICE_POINTS] Failed to cache points:", cacheError);
+        const errorMessage = cacheError instanceof Error ? cacheError.message : String(cacheError);
+        this.logger.error(
+          this.logger.fmt`[SERVICE_POINTS] Failed to cache points: ${errorMessage}`,
+          { pointsCount: points.length, courierId }
+        );
         Sentry.captureException(cacheError, {
           tags: {
             component: "service_point_service",
@@ -393,7 +401,15 @@ export class ServicePointService {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("[SERVICE_POINTS] Eurosender PUDO search failed:", errorMessage);
+      this.logger.error(
+        this.logger.fmt`[SERVICE_POINTS] Eurosender PUDO search failed: ${errorMessage}`,
+        {
+          courierId: params.courierId,
+          country: params.country,
+          latitude: params.latitude,
+          longitude: params.longitude,
+        }
+      );
 
       Sentry.captureException(error, {
         tags: {
