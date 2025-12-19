@@ -176,7 +176,7 @@ export default function ShippingTestPage() {
             <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-950 rounded text-sm">
               <p className="font-medium">Note:</p>
               <p className="text-xs mt-1">
-                If you see "No shipping options available", it might be because:
+                If you see &quot;No shipping options available&quot;, it might be because:
                 <br />• Eurosender sandbox API key required (add EUROSENDER_API_KEY to .env.local)
                 <br />• No Medusa shipping options configured yet
                 <br />• Shipping not available to the selected country

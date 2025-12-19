@@ -3,6 +3,15 @@ import { ApiError } from "@/lib/api/errors";
 import * as Sentry from "@sentry/nextjs";
 import { EurosenderService } from "./eurosender-service";
 
+export interface ServicePointOpeningHours {
+  openingHours?: Record<string, string>; // e.g., { "monday": "09:00-17:00" }
+  shippingCutOffTime?: string;
+  features?: string[];
+  pointEmail?: string;
+  pointPhone?: string;
+  holidayDates?: string[];
+}
+
 export interface ServicePoint {
   id: string;
   provider: "gls" | "dhl" | "postnord" | "dpd" | "eurosender";
@@ -15,7 +24,7 @@ export interface ServicePoint {
   latitude: number;
   longitude: number;
   type: "service_point" | "locker" | "store";
-  opening_hours: Record<string, any> | null;
+  opening_hours: ServicePointOpeningHours | null;
   distance_km: number | null;
 }
 
