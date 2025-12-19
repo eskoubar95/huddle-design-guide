@@ -88,6 +88,24 @@
 - **Where to find:** Medusa Admin Dashboard → Settings → Developer → Secret API Keys
 - **Note:** Use **Secret API key** (not Publishable key). Secret keys are for Admin API, publishable keys are for Store API.
 
+### `EUROSENDER_API_KEY`
+- **Type:** String
+- **Required:** Yes (for shipping calculation and label generation - HUD-36)
+- **Description:** Eurosender API key for shipping quotes, PUDO point search, and label generation
+- **Example:** `ce5fe737-00bb-498a-881e-8k453k0b1166`
+- **Security:** ⚠️ Server-side only, never commit to git
+- **Where to find:** Eurosender Dashboard → New Order → Public API tab
+- **Note:** Separate keys for sandbox and production environments
+
+### `EUROSENDER_API_URL`
+- **Type:** String
+- **Required:** No (defaults to `https://sandbox-api.eurosender.com`)
+- **Description:** Eurosender API base URL
+- **Options:**
+  - `https://sandbox-api.eurosender.com` (testing/sandbox - default)
+  - `https://api.eurosender.com` (production)
+- **Note:** Only set this if you need to override the default sandbox URL
+
 ### `NEXT_PUBLIC_FEATURED_AUCTION_ID`
 - **Type:** String
 - **Required:** No

@@ -7,9 +7,9 @@ module.exports = defineConfig({
     databaseUrl: process.env.DATABASE_URL,
     databaseSchema: process.env.DATABASE_SCHEMA || "medusa",
     http: {
-      storeCors: process.env.STORE_CORS!,
-      adminCors: process.env.ADMIN_CORS!,
-      authCors: process.env.AUTH_CORS!,
+      storeCors: process.env.STORE_CORS || "http://localhost:8000,http://localhost:3000",
+      adminCors: process.env.ADMIN_CORS || "http://localhost:9000,http://localhost:7001",
+      authCors: process.env.AUTH_CORS || "http://localhost:9000,http://localhost:7001",
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }

@@ -3,6 +3,11 @@ import {
   MedusaRegion,
   MedusaShippingOption,
 } from "./medusa-shipping-service";
+import {
+  EurosenderService,
+  EurosenderAddress,
+  EurosenderQuoteRequest,
+} from "./eurosender-service";
 import { createServiceClient } from "@/lib/supabase/server";
 import { ApiError } from "@/lib/api/errors";
 import * as Sentry from "@sentry/nextjs";
@@ -29,20 +34,30 @@ export interface ShippingOption {
   serviceType: "home_delivery" | "pickup_point";
   provider: string; // "manual" (Medusa) or "eurosender"
   method: string; // "standard", "express", etc.
+  metadata?: {
+    /**
+     * Eurosender courierId for PUDO point search
+     * 
+     * When serviceType is "pickup_point" and provider is "eurosender",
+     * frontend should use this courierId to search for PUDO points via
+     * GET /api/v1/shipping/service-points?courier_id={courierId}&lat={lat}&lng={lng}&country={country}
+     */
+    courierId?: number;
+  };
 }
 
 /**
  * ShippingService - Orchestrates shipping calculation
  *
  * Combines Medusa (regions/zones) + Eurosender (dynamic rates) for shipping calculation
- * 
- * Note: Shippo integration removed. Eurosender integration in progress (Phase 1-3).
  */
 export class ShippingService {
   private medusaService: MedusaShippingService;
+  private eurosenderService: EurosenderService;
 
   constructor() {
     this.medusaService = new MedusaShippingService();
+    this.eurosenderService = new EurosenderService();
   }
 
   /**
@@ -85,17 +100,43 @@ export class ShippingService {
       }
 
       // 4. Get shipping options based on service type
+      // NOTE: PUDO (pickup_point) is deferred - focusing on home delivery for MVP
+      // See: .project/plans/HUD-36/PUDO-API-ISSUE.md
       if (input.serviceType === "pickup_point") {
-        // TODO: Implement Eurosender PUDO API in Phase 3
-        throw new ApiError(
-          "NOT_IMPLEMENTED",
-          "Pickup point shipping not yet implemented with Eurosender.",
-          501
-        );
-      } else {
-        // Home delivery: Use Medusa fallback only (temporarily)
-        // TODO: Implement EurosenderService in Phase 3
-        console.log("[SHIPPING] Using Medusa fallback rates (Eurosender integration in progress)");
+        // Pickup point: Currently not supported (PUDO API issue)
+        // Return empty array - frontend should default to home_delivery
+        console.log("[SHIPPING] Pickup point requested but not yet supported (PUDO API issue)");
+        return [];
+      }
+      
+      // Home delivery: Try Eurosender first, fallback to Medusa
+        try {
+          const eurosenderOptions = await this.calculateEurosenderRates(
+            sellerCountry,
+            input.shippingAddress,
+            weightKg,
+            "home_delivery"
+          );
+
+          if (eurosenderOptions.length > 0) {
+            return eurosenderOptions;
+          }
+        } catch (error) {
+          // Log but continue to fallback
+          console.log(
+            "[SHIPPING] Eurosender failed for home_delivery, falling back to Medusa:",
+            error instanceof Error ? error.message : String(error)
+          );
+          Sentry.captureException(error, {
+            tags: {
+              component: "shipping_service",
+              operation: "calculate_shipping_home_delivery",
+            },
+            extra: { sellerCountry, buyerCountry: buyerCountry },
+          });
+        }
+
+        // Fallback to Medusa rates
         return await this.calculateMedusaRates(region.id, "home_delivery");
       }
     } catch (error) {
@@ -185,9 +226,6 @@ export class ShippingService {
 
   /**
    * Calculate shipping using Eurosender API
-   * 
-   * TODO: Replace with EurosenderService in Phase 3
-   * This method is temporarily stubbed after Shippo removal.
    */
   private async calculateEurosenderRates(
     sellerCountry: string,
@@ -195,12 +233,158 @@ export class ShippingService {
     weightKg: number,
     serviceType: "home_delivery" | "pickup_point"
   ): Promise<ShippingOption[]> {
-    // TODO: Implement EurosenderService integration in Phase 3
-    throw new ApiError(
-      "NOT_IMPLEMENTED",
-      "Shippo integration removed. Eurosender integration in progress.",
-      501
-    );
+    try {
+      // 1. Build Eurosender addresses
+      const pickupAddress = this.mapToEurosenderAddress(
+        sellerCountry,
+        "Rosenborggade 1", // Default seller address (TODO: get from seller profile)
+        "Copenhagen",
+        "1130",
+        sellerCountry
+      );
+      const deliveryAddress = this.mapToEurosenderAddress(
+        buyerAddress.country,
+        buyerAddress.street,
+        buyerAddress.city,
+        buyerAddress.postal_code,
+        buyerAddress.country,
+        buyerAddress.state
+      );
+
+      // 2. Build parcels (default jersey dimensions)
+      const parcels: EurosenderQuoteRequest["parcels"] = {
+        packages: [
+          {
+            parcelId: "A00001",
+            quantity: 1,
+            width: 30, // cm
+            height: 5, // cm
+            length: 20, // cm
+            weight: weightKg,
+            content: "jersey",
+            value: 100, // EUR - TODO: get from listing/auction
+          },
+        ],
+      };
+
+      // 3. Get quotes from Eurosender
+      const pickupDate = new Date();
+      pickupDate.setDate(pickupDate.getDate() + 1); // Tomorrow
+      const quoteRequest: EurosenderQuoteRequest = {
+        shipment: {
+          pickupAddress,
+          deliveryAddress,
+          pickupDate: pickupDate.toISOString().split("T")[0] + "T00:00:00Z",
+        },
+        parcels,
+        paymentMethod: "deferred",
+        currencyCode: "EUR",
+      };
+
+      const quote = await this.eurosenderService.getQuotes(quoteRequest);
+
+      // 4. Map to ShippingOption format
+      const options = quote.options.serviceTypes
+        .filter((st) => {
+          // Filter by service type preference
+          if (serviceType === "pickup_point") {
+            // PUDO points available for all service types
+            return true;
+          }
+          // For home delivery, only show primary service types
+          return ["flexi", "regular_plus", "express"].includes(st.serviceType);
+        })
+        .map((st) => ({
+          id: `${st.serviceType}-${st.courierId}`, // Unique ID
+          name: this.mapServiceTypeName(st.serviceType),
+          price: Math.round(st.price.original.gross * 100), // Convert EUR to cents
+          estimatedDays: this.parseEstimatedDays(st.edt),
+          serviceType,
+          provider: "eurosender",
+          method: st.serviceType,
+          metadata: {
+            courierId: st.courierId, // Store for PUDO search
+          },
+        }))
+        .sort((a, b) => a.price - b.price);
+
+      return options;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Sentry.captureException(error, {
+        tags: {
+          component: "shipping_service",
+          operation: "calculate_eurosender_rates",
+        },
+        extra: { errorMessage, sellerCountry, buyerCountry: buyerAddress.country },
+      });
+
+      throw new ApiError(
+        "EXTERNAL_SERVICE_ERROR",
+        "Failed to calculate Eurosender shipping rates",
+        502
+      );
+    }
+  }
+
+  /**
+   * Map Huddle address format to Eurosender address format
+   */
+  private mapToEurosenderAddress(
+    country: string,
+    street: string,
+    city: string,
+    postalCode: string,
+    countryCode: string,
+    state?: string
+  ): EurosenderAddress {
+    return {
+      country: countryCode.toUpperCase(),
+      zip: postalCode,
+      city,
+      street,
+      ...(state && { region: state }), // Include state if provided (required for some countries)
+    };
+  }
+
+  /**
+   * Map Eurosender service type to user-friendly name
+   */
+  private mapServiceTypeName(serviceType: string): string {
+    const nameMap: Record<string, string> = {
+      flexi: "Standard Shipping",
+      regular_plus: "Priority Shipping",
+      express: "Express Shipping",
+      selection: "Standard Shipping",
+      freight: "Freight Shipping",
+      van: "Van Delivery",
+      ftl: "FTL Transport",
+    };
+    return nameMap[serviceType] || serviceType;
+  }
+
+  /**
+   * Parse estimated delivery time string to number of days
+   * Examples: "2-3 days" -> 3, "1 day" -> 1, "2-3 business days" -> 3
+   */
+  private parseEstimatedDays(edt?: string): number | null {
+    if (!edt) {
+      return null;
+    }
+
+    // Extract numbers from EDT string (e.g., "2-3 days" -> [2, 3])
+    const numbers = edt.match(/\d+/g);
+    if (!numbers || numbers.length === 0) {
+      return null;
+    }
+
+    // Return the highest number (worst case)
+    const maxDays = Math.max(...numbers.map(Number));
+    return maxDays;
   }
 
   /**

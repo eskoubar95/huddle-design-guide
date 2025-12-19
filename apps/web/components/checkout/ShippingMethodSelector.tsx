@@ -14,6 +14,9 @@ interface ShippingOption {
   serviceType: "home_delivery" | "pickup_point";
   provider: string;
   method: string;
+  metadata?: {
+    courierId?: number; // Eurosender courierId for PUDO point search (when provider is "eurosender")
+  };
 }
 
 interface ShippingMethodSelectorProps {
@@ -83,19 +86,22 @@ export function ShippingMethodSelector({
         setError(null);
 
         try {
-          const data = await apiRequest<{ options: ShippingOption[] }>(
-            "/shipping/calculate",
-            {
-              method: "POST",
-              body: JSON.stringify({
-                listingId,
-                auctionId,
-                shippingAddress,
-                serviceType,
-              }),
-              signal: abortControllerRef.current.signal,
-            }
-          );
+      // Default to home_delivery if not specified (PUDO not yet supported)
+      const effectiveServiceType = serviceType || "home_delivery";
+      
+      const data = await apiRequest<{ options: ShippingOption[] }>(
+        "/shipping/calculate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            listingId,
+            auctionId,
+            shippingAddress,
+            serviceType: effectiveServiceType,
+          }),
+          signal: abortControllerRef.current.signal,
+        }
+      );
 
           // Only update if request wasn't aborted
           if (!abortControllerRef.current.signal.aborted) {
