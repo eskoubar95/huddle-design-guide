@@ -107,9 +107,12 @@ export function ShippingMethodSelector({
           if (!abortControllerRef.current.signal.aborted) {
             setOptions(data.options || []);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           // Ignore abort errors
-          if (err.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+          if (
+            (err instanceof Error && err.name === 'AbortError') ||
+            abortControllerRef.current?.signal.aborted
+          ) {
             return;
           }
 

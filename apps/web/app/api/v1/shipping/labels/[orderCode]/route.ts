@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { handleApiError } from "@/lib/api/errors";
 import { EurosenderService } from "@/lib/services/eurosender-service";
 import { createServiceClient } from "@/lib/supabase/server";
+import { query } from "@/lib/db/postgres-connection";
 import * as Sentry from "@sentry/nextjs";
 
 const handler = async (
@@ -32,14 +33,13 @@ const handler = async (
     }
 
     // Verify order ownership via shipping_labels -> transaction
-    const supabase = await createServiceClient();
-    const { data: label, error: dbError } = await supabase
-      .from("shipping_labels")
-      .select("transaction_id")
-      .eq("external_order_id", orderCode)
-      .single();
+    // Use direct SQL query since shipping_labels table is not in Supabase types yet
+    const labels = await query<{ transaction_id: string | null }>(
+      `SELECT transaction_id FROM public.shipping_labels WHERE external_order_id = $1 LIMIT 1`,
+      [orderCode]
+    );
 
-    if (dbError || !label) {
+    if (!labels || labels.length === 0) {
       return Response.json(
         {
           error: {
@@ -51,8 +51,11 @@ const handler = async (
       );
     }
 
+    const label = labels[0];
+
     // If label has transaction_id, verify the transaction belongs to the user
     if (label.transaction_id) {
+      const supabase = await createServiceClient();
       const { data: transaction, error: txError } = await supabase
         .from("transactions")
         .select("seller_id, buyer_id")
