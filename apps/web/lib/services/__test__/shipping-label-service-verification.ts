@@ -8,18 +8,11 @@
 import { ShippingLabelService as ServiceClass } from "../shipping-label-service";
 import { retryWithBackoff as retryFn } from "../../utils/retry";
 
-// Type checking - verify class structure
-type ServiceType = typeof ServiceClass;
-type ServiceInstance = InstanceType<ServiceType>;
-
 console.log("✅ Test 1: Imports successful");
 console.log("   - ShippingLabelService type:", typeof ServiceClass);
 console.log("   - retryWithBackoff type:", typeof retryFn);
 
 // Test 2: Type checking - verify class structure
-type ServiceType = typeof ServiceClass;
-type ServiceInstance = InstanceType<ServiceType>;
-
 // Check that methods exist on the class prototype
 const servicePrototype = ServiceClass.prototype;
 const requiredMethods = [
