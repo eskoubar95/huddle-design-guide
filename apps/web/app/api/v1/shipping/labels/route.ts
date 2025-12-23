@@ -2,12 +2,20 @@ import { NextRequest } from "next/server";
 import { rateLimitMiddleware } from "@/lib/api/rate-limit";
 import { requireAuth } from "@/lib/auth";
 import { handleApiError } from "@/lib/api/errors";
-import { EurosenderService } from "@/lib/services/eurosender-service";
+import { ShippingLabelService } from "@/lib/services/shipping-label-service";
 import { createServiceClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
 
 const createLabelSchema = z.object({
+  // Transaction ID (required for validation)
+  // Note: PostgreSQL UUID type is more lenient than Zod's strict UUID validator
+  // We accept any string that PostgreSQL would accept as UUID
+  transactionId: z.string().regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Transaction ID must be a valid UUID format"
+  ),
+  
   // Quote information (from previous quote request)
   serviceType: z.string(), // e.g., "flexi", "regular_plus", "express"
   quoteId: z.string().optional(), // Optional quote ID reference
@@ -59,11 +67,11 @@ const createLabelSchema = z.object({
   }),
 
   // Optional fields
-  paymentMethod: z.enum(["credit", "deferred"]).default("deferred"),
+  // Note: "credit" uses prepaid credit on Huddle's Eurosender account
+  // "deferred" requires invoicing setup and is not available in sandbox
+  paymentMethod: z.enum(["credit", "deferred"]).default("credit"),
   labelFormat: z.enum(["pdf", "zpl"]).optional(),
-  pudoPointCode: z.string().optional(), // For pickup point delivery
-  pickupDate: z.string().optional(), // RFC 3339 format
-  transactionId: z.string().uuid().optional(), // Transaction ID for authorization check
+  shippingMethodType: z.enum(["home_delivery", "pickup_point"]).default("home_delivery"),
 });
 
 const handler = async (req: NextRequest) => {
@@ -75,67 +83,84 @@ const handler = async (req: NextRequest) => {
     const { userId } = await requireAuth(req);
 
     const body = await req.json();
-    const validated = createLabelSchema.parse(body);
-
-    // Authorization: If transactionId provided, verify user is seller
-    if (validated.transactionId) {
-      const supabase = await createServiceClient();
-      const { data: transaction, error: txError } = await supabase
-        .from("transactions")
-        .select("seller_id")
-        .eq("id", validated.transactionId)
-        .single();
-
-      if (txError || !transaction) {
-        return Response.json(
-          {
-            error: {
-              code: "NOT_FOUND",
-              message: "Transaction not found",
+    
+    // Validate request body with better error messages
+    let validated;
+    try {
+      validated = createLabelSchema.parse(body);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        // Check if transactionId validation failed
+        const transactionIdError = error.issues.find((e) => e.path.includes("transactionId"));
+        if (transactionIdError) {
+          return Response.json(
+            {
+              error: {
+                code: "VALIDATION_ERROR",
+                message: `Invalid transaction ID format: ${transactionIdError.message}. Transaction ID must be a valid UUID (e.g., 550e8400-e29b-41d4-a716-446655440000).`,
+              },
             },
-          },
-          { status: 404 }
-        );
+            { status: 400 }
+          );
+        }
       }
-
-      if (transaction.seller_id !== userId) {
-        return Response.json(
-          {
-            error: {
-              code: "FORBIDDEN",
-              message: "Access denied: You must be the seller to create shipping labels",
-            },
-          },
-          { status: 403 }
-        );
-      }
+      throw error; // Re-throw if not a transactionId error
     }
 
-    const eurosenderService = new EurosenderService();
+    // Verify user is seller (via transaction ownership)
+    const supabase = await createServiceClient();
+    const { data: transaction, error: txError } = await supabase
+      .from("transactions")
+      .select("seller_id")
+      .eq("id", validated.transactionId)
+      .single();
 
-    // Create order (which generates label)
-    const order = await eurosenderService.createOrder({
-      shipment: {
-        pickupAddress: validated.pickupAddress,
-        deliveryAddress: validated.deliveryAddress,
-        pickupDate: validated.pickupDate,
-      },
-      parcels: validated.parcels,
+    if (txError || !transaction) {
+      return Response.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: "Transaction not found",
+          },
+        },
+        { status: 404 }
+      );
+    }
+
+    if (transaction.seller_id !== userId) {
+      return Response.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: "Access denied: You must be the seller to create shipping labels",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
+    // Create label via ShippingLabelService
+    const labelService = new ShippingLabelService();
+    const result = await labelService.createLabel({
+      transactionId: validated.transactionId,
       serviceType: validated.serviceType,
-      paymentMethod: validated.paymentMethod,
+      pickupAddress: validated.pickupAddress,
+      deliveryAddress: validated.deliveryAddress,
+      parcels: validated.parcels,
       pickupContact: validated.pickupContact,
       deliveryContact: validated.deliveryContact,
-      labelFormat: validated.labelFormat || "pdf",
+      paymentMethod: validated.paymentMethod,
+      labelFormat: validated.labelFormat,
       quoteId: validated.quoteId,
-      pudoPointCode: validated.pudoPointCode,
+      shippingMethodType: validated.shippingMethodType,
     });
 
     return Response.json({
-      orderCode: order.orderCode,
-      status: order.status,
-      labelUrl: order.labelUrl,
-      trackingNumber: order.trackingNumber,
-      price: order.price,
+      orderCode: result.orderCode,
+      status: "purchased",
+      labelUrl: result.labelUrl,
+      trackingNumber: result.trackingNumber,
+      alreadyExisted: result.alreadyExisted, // Indicate if label was already generated
     });
   } catch (error) {
     Sentry.captureException(error, {
