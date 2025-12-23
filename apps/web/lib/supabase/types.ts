@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       auctions: {
@@ -374,6 +349,7 @@ export type Database = {
           id: string
           images: string[]
           jersey_type: string
+          medusa_product_id: string | null
           notes: string | null
           owner_id: string
           player_id: string | null
@@ -396,6 +372,7 @@ export type Database = {
           id?: string
           images: string[]
           jersey_type: string
+          medusa_product_id?: string | null
           notes?: string | null
           owner_id: string
           player_id?: string | null
@@ -418,6 +395,7 @@ export type Database = {
           id?: string
           images?: string[]
           jersey_type?: string
+          medusa_product_id?: string | null
           notes?: string | null
           owner_id?: string
           player_id?: string | null
@@ -737,6 +715,7 @@ export type Database = {
           currency: string | null
           id: string
           jersey_id: string
+          medusa_product_id: string | null
           negotiable: boolean | null
           price: number
           seller_id: string
@@ -755,6 +734,7 @@ export type Database = {
           currency?: string | null
           id?: string
           jersey_id: string
+          medusa_product_id?: string | null
           negotiable?: boolean | null
           price: number
           seller_id: string
@@ -773,6 +753,7 @@ export type Database = {
           currency?: string | null
           id?: string
           jersey_id?: string
+          medusa_product_id?: string | null
           negotiable?: boolean | null
           price?: number
           seller_id?: string
@@ -846,6 +827,60 @@ export type Database = {
         }
         Relationships: []
       }
+      service_points: {
+        Row: {
+          address: string
+          city: string
+          country: string
+          created_at: string
+          distance_km: number | null
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          opening_hours: Json | null
+          postal_code: string
+          provider: string
+          provider_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          city: string
+          country: string
+          created_at?: string
+          distance_km?: number | null
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          opening_hours?: Json | null
+          postal_code: string
+          provider: string
+          provider_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          country?: string
+          created_at?: string
+          distance_km?: number | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          opening_hours?: Json | null
+          postal_code?: string
+          provider?: string
+          provider_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shipping_addresses: {
         Row: {
           address_line_2: string | null
@@ -902,6 +937,110 @@ export type Database = {
           },
         ]
       }
+      shipping_label_status_history: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          shipping_label_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          shipping_label_id: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          shipping_label_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipping_label_status_history_shipping_label_id_fkey"
+            columns: ["shipping_label_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipping_labels: {
+        Row: {
+          created_at: string
+          external_label_id: string
+          external_order_id: string
+          id: string
+          label_url: string
+          order_id: string | null
+          price_currency: string | null
+          price_gross: number | null
+          price_net: number | null
+          price_vat: number | null
+          service_point_id: string | null
+          shipping_method_type: string
+          status: string
+          tracking_number: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_label_id: string
+          external_order_id: string
+          id?: string
+          label_url: string
+          order_id?: string | null
+          price_currency?: string | null
+          price_gross?: number | null
+          price_net?: number | null
+          price_vat?: number | null
+          service_point_id?: string | null
+          shipping_method_type: string
+          status?: string
+          tracking_number?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_label_id?: string
+          external_order_id?: string
+          id?: string
+          label_url?: string
+          order_id?: string | null
+          price_currency?: string | null
+          price_gross?: number | null
+          price_net?: number | null
+          price_vat?: number | null
+          service_point_id?: string | null
+          shipping_method_type?: string
+          status?: string
+          tracking_number?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipping_labels_service_point_id_fkey"
+            columns: ["service_point_id"]
+            isOneToOne: false
+            referencedRelation: "service_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_labels_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_accounts: {
         Row: {
           charges_enabled: boolean | null
@@ -954,6 +1093,7 @@ export type Database = {
           item_amount: number | null
           listing_id: string
           listing_type: string
+          medusa_order_id: string | null
           platform_fee_amount: number | null
           seller_fee_amount: number | null
           seller_id: string
@@ -976,6 +1116,7 @@ export type Database = {
           item_amount?: number | null
           listing_id: string
           listing_type: string
+          medusa_order_id?: string | null
           platform_fee_amount?: number | null
           seller_fee_amount?: number | null
           seller_id: string
@@ -998,6 +1139,7 @@ export type Database = {
           item_amount?: number | null
           listing_id?: string
           listing_type?: string
+          medusa_order_id?: string | null
           platform_fee_amount?: number | null
           seller_fee_amount?: number | null
           seller_id?: string
@@ -1052,12 +1194,48 @@ export type Database = {
         Args: { p_email: string; p_first_name?: string; p_last_name?: string }
         Returns: string
       }
+      create_medusa_order: {
+        Args: {
+          p_customer_id: string
+          p_metadata?: Json
+          p_product_id: string
+          p_shipping_address: Json
+          p_shipping_cost: number
+          p_shipping_method_name: string
+          p_subtotal: number
+          p_total: number
+        }
+        Returns: string
+      }
+      create_medusa_product: {
+        Args: {
+          p_currency?: string
+          p_description?: string
+          p_jersey_id?: string
+          p_price_cents: number
+          p_sale_listing_id?: string
+          p_title: string
+        }
+        Returns: string
+      }
       update_medusa_customer: {
         Args: {
           p_customer_id: string
           p_email: string
           p_first_name?: string
           p_last_name?: string
+        }
+        Returns: undefined
+      }
+      update_medusa_order_status: {
+        Args: { p_order_id: string; p_status: string }
+        Returns: undefined
+      }
+      update_medusa_order_tracking: {
+        Args: {
+          p_order_id: string
+          p_shipping_provider: string
+          p_tracking_number: string
         }
         Returns: undefined
       }
@@ -1189,9 +1367,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

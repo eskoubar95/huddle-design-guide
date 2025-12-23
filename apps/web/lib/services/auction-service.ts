@@ -2,6 +2,8 @@ import { AuctionRepository } from "@/lib/repositories/auction-repository";
 import { auctionCreateSchema } from "@/lib/validation/auction-schemas";
 import { ApiError } from "@/lib/api/errors";
 import type { AuctionCreateInput } from "@/lib/validation/auction-schemas";
+import { MedusaOrderService } from "./medusa-order-service";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Service for auction business logic
@@ -37,7 +39,7 @@ export class AuctionService {
     endsAt.setHours(endsAt.getHours() + validated.durationHours);
 
     // Transform camelCase to snake_case and shipping object to flat fields
-    return await this.repository.create({
+    const auction = await this.repository.create({
       jersey_id: validated.jerseyId,
       starting_bid: parseFloat(validated.startingBid),
       buy_now_price: validated.buyNowPrice ? parseFloat(validated.buyNowPrice) : null,
@@ -52,6 +54,37 @@ export class AuctionService {
       status: "active",
       ends_at: endsAt.toISOString(),
     });
+
+    // Create Medusa product asynchronously (non-blocking)
+    // Product creation should not fail auction creation
+    const medusaOrderService = new MedusaOrderService();
+    medusaOrderService
+      .ensureMedusaProduct(validated.jerseyId)
+      .then((productId) => {
+        // Product created successfully - ensureMedusaProduct already updates jerseys.medusa_product_id
+        console.log(`[AUCTION-SERVICE] Medusa product created for jersey ${validated.jerseyId}: ${productId}`);
+      })
+      .catch((error) => {
+        // Log error but don't throw - auction creation succeeded
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        Sentry.captureException(error, {
+          tags: {
+            component: "auction_service",
+            operation: "create_medusa_product_async",
+          },
+          extra: {
+            auctionId: auction.id,
+            jerseyId: validated.jerseyId,
+            errorMessage,
+          },
+        });
+        console.error(
+          `[AUCTION-SERVICE] Failed to create Medusa product for jersey ${validated.jerseyId}:`,
+          errorMessage
+        );
+      });
+
+    return auction;
   }
 
   async updateAuction(id: string, data: Partial<AuctionCreateInput>, sellerId: string) {

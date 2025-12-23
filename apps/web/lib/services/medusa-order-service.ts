@@ -1,5 +1,4 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { query } from "@/lib/db/postgres-connection";
 import { ApiError } from "@/lib/api/errors";
 import * as Sentry from "@sentry/nextjs";
 
@@ -52,73 +51,118 @@ export class MedusaOrderService {
       const supabase = await createServiceClient();
 
       // Check if product already exists
-      // Note: medusa_product_id columns will be added in future migration
-      // For now, we'll query directly with raw SQL to check for existing products
       if (jerseyId) {
-        const existingProduct = await query<{ medusa_product_id: string }>(
-          `SELECT medusa_product_id FROM jerseys WHERE id = $1 AND medusa_product_id IS NOT NULL`,
-          [jerseyId]
-        );
+        const { data: jersey, error: jerseyError } = await supabase
+          .from("jerseys")
+          .select("medusa_product_id, club, season, jersey_type, player_name, condition_rating")
+          .eq("id", jerseyId)
+          .single();
 
-        if (existingProduct && existingProduct.length > 0 && existingProduct[0].medusa_product_id) {
-          return existingProduct[0].medusa_product_id;
+        if (jerseyError) {
+          throw new Error(`Failed to fetch jersey: ${jerseyError.message}`);
+        }
+
+        // Return existing product ID if present
+        if (jersey.medusa_product_id) {
+          return jersey.medusa_product_id;
+        }
+
+        // Create product if missing
+        if (jersey) {
+          // For jersey-only (auction case), we need a reference price
+          // Use 0 as placeholder - actual price will be set when order is created from auction
+          const { data: productId, error: rpcError } = await (supabase.rpc as unknown as {
+            (name: string, args: Record<string, unknown>): Promise<{
+              data: string | null;
+              error: { code?: string; message: string } | null;
+            }>;
+          })('create_medusa_product', {
+            p_price_cents: 0, // Placeholder - actual price set when order created from auction
+            p_title: `${jersey.club} ${jersey.season}${jersey.player_name ? ` - ${jersey.player_name}` : ''}`,
+            p_jersey_id: jerseyId,
+            p_currency: 'eur',
+            p_description: `Jersey: ${jersey.club}, Season: ${jersey.season}, Type: ${jersey.jersey_type}, Condition: ${jersey.condition_rating}`,
+          });
+
+          if (rpcError || !productId) {
+            throw new Error(`Failed to create Medusa product: ${rpcError?.message || 'No ID returned'}`);
+          }
+
+          // Update jersey with product ID
+          const { error: updateError } = await supabase
+            .from("jerseys")
+            .update({ medusa_product_id: productId })
+            .eq("id", jerseyId);
+
+          if (updateError) {
+            throw new Error(`Failed to update jersey with product ID: ${updateError.message}`);
+          }
+
+          return productId;
         }
       }
 
       if (saleListingId) {
-        const existingProduct = await query<{ medusa_product_id: string | null; jersey_id: string }>(
-          `SELECT medusa_product_id, jersey_id FROM sale_listings WHERE id = $1`,
-          [saleListingId]
-        );
+        const { data: listing, error: listingError } = await supabase
+          .from("sale_listings")
+          .select("medusa_product_id, jersey_id, price")
+          .eq("id", saleListingId)
+          .single();
 
-        if (existingProduct && existingProduct.length > 0) {
-          const listing = existingProduct[0];
-          if (listing.medusa_product_id) {
-            return listing.medusa_product_id;
+        if (listingError) {
+          throw new Error(`Failed to fetch sale listing: ${listingError.message}`);
+        }
+
+        // Return existing product ID if present
+        if (listing.medusa_product_id) {
+          return listing.medusa_product_id;
+        }
+
+        // Get jersey data for product creation
+        if (listing.jersey_id) {
+          const { data: jersey, error: jerseyError } = await supabase
+            .from("jerseys")
+            .select("club, season, jersey_type, player_name, condition_rating")
+            .eq("id", listing.jersey_id)
+            .single();
+
+          if (jerseyError) {
+            throw new Error(`Failed to fetch jersey: ${jerseyError.message}`);
           }
 
-          // Get jersey data for product creation
-          if (listing.jersey_id) {
-            const { data: jersey } = await supabase
-              .from("jerseys")
-              .select("club, season, jersey_type, player_name, condition_rating")
-              .eq("id", listing.jersey_id)
-              .single();
+          if (jersey) {
+            // Convert price from DECIMAL to cents (integer)
+            const priceCents = Math.round((listing.price || 0) * 100);
 
-            if (jersey) {
-              // Get listing price
-              const { data: listingData } = await supabase
-                .from("sale_listings")
-                .select("price")
-                .eq("id", saleListingId)
-                .single();
-
-              // Create product via RPC
-              const { data: productId, error } = await (supabase.rpc as unknown as {
-                (name: string, args: Record<string, unknown>): Promise<{
-                  data: string | null;
-                  error: { code?: string; message: string } | null;
-                }>;
+            // Create product via RPC
+            const { data: productId, error: rpcError } = await (supabase.rpc as unknown as {
+              (name: string, args: Record<string, unknown>): Promise<{
+                data: string | null;
+                error: { code?: string; message: string } | null;
+              }>;
             })('create_medusa_product', {
-              p_price_cents: listingData?.price || 0,
+              p_price_cents: priceCents,
               p_title: `${jersey.club} ${jersey.season}${jersey.player_name ? ` - ${jersey.player_name}` : ''}`,
               p_sale_listing_id: saleListingId,
               p_currency: 'eur',
               p_description: `Jersey: ${jersey.club}, Season: ${jersey.season}, Type: ${jersey.jersey_type}, Condition: ${jersey.condition_rating}`,
             });
 
-              if (error || !productId) {
-                throw new Error(`Failed to create Medusa product: ${error?.message || 'No ID returned'}`);
-              }
-
-              // Update sale_listing with product ID (using raw SQL until migration adds column)
-              await query(
-                `UPDATE sale_listings SET medusa_product_id = $1 WHERE id = $2`,
-                [productId, saleListingId]
-              );
-
-              return productId;
+            if (rpcError || !productId) {
+              throw new Error(`Failed to create Medusa product: ${rpcError?.message || 'No ID returned'}`);
             }
+
+            // Update sale_listing with product ID
+            const { error: updateError } = await supabase
+              .from("sale_listings")
+              .update({ medusa_product_id: productId })
+              .eq("id", saleListingId);
+
+            if (updateError) {
+              throw new Error(`Failed to update sale listing with product ID: ${updateError.message}`);
+            }
+
+            return productId;
           }
         }
       }

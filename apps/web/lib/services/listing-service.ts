@@ -2,6 +2,8 @@ import { ListingRepository } from "@/lib/repositories/listing-repository";
 import { saleListingCreateSchema, saleListingUpdateSchema } from "@/lib/validation/listing-schemas";
 import { ApiError } from "@/lib/api/errors";
 import type { SaleListingCreateInput, SaleListingUpdateInput } from "@/lib/validation/listing-schemas";
+import { MedusaOrderService } from "./medusa-order-service";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Service for sale listing business logic
@@ -34,7 +36,7 @@ export class ListingService {
     const validated = saleListingCreateSchema.parse(input);
 
     // Transform camelCase to snake_case and shipping object to flat fields
-    return await this.repository.create({
+    const listing = await this.repository.create({
       jersey_id: validated.jerseyId,
       price: parseFloat(validated.price),
       currency: validated.currency,
@@ -47,6 +49,37 @@ export class ListingService {
       seller_id: sellerId,
       status: "active",
     });
+
+    // Create Medusa product asynchronously (non-blocking)
+    // Product creation should not fail listing creation
+    const medusaOrderService = new MedusaOrderService();
+    medusaOrderService
+      .ensureMedusaProduct(undefined, listing.id)
+      .then((productId) => {
+        // Product created successfully - ensureMedusaProduct already updates sale_listings.medusa_product_id
+        console.log(`[LISTING-SERVICE] Medusa product created for listing ${listing.id}: ${productId}`);
+      })
+      .catch((error) => {
+        // Log error but don't throw - listing creation succeeded
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        Sentry.captureException(error, {
+          tags: {
+            component: "listing_service",
+            operation: "create_medusa_product_async",
+          },
+          extra: {
+            listingId: listing.id,
+            jerseyId: validated.jerseyId,
+            errorMessage,
+          },
+        });
+        console.error(
+          `[LISTING-SERVICE] Failed to create Medusa product for listing ${listing.id}:`,
+          errorMessage
+        );
+      });
+
+    return listing;
   }
 
   async updateListing(id: string, input: SaleListingUpdateInput, sellerId: string) {
