@@ -364,7 +364,30 @@ export class EurosenderService {
         serviceType: params.serviceType || "all",
       });
 
-      const response = await this.request<EurosenderQuoteResponse>(
+      // Eurosender API returns a different structure than our interface
+      // API returns: { name: "selection", courierId: 3, ... }
+      // We need: { serviceType: "selection", id: "...", courierId: 3, ... }
+      interface RawServiceType {
+        name: string;
+        serviceSubtype?: string;
+        courierId: number;
+        price: {
+          original: {
+            currencyCode: string;
+            gross: number;
+            net: number;
+          };
+        };
+        edt?: string;
+        minPickupDate?: string;
+        insurances?: Array<{ id: number; coverage: number; text: string; price: { original: { gross: number; net: number } } }>;
+        pickupExcludedDates?: string[];
+        addOns?: unknown[];
+        isCallRequired?: boolean;
+        isLabelRequired?: boolean;
+      }
+
+      const rawResponse = await this.request<{ options: { serviceTypes: RawServiceType[] } }>(
         "/v1/quotes",
         {
           method: "POST",
@@ -372,19 +395,45 @@ export class EurosenderService {
         }
       );
 
+      // Map the raw response to our expected interface
+      const mappedServiceTypes: EurosenderQuoteOption[] = (rawResponse.options?.serviceTypes || []).map((st, index) => ({
+        id: `quote-${st.name}-${st.courierId}-${index}`, // Generate unique ID
+        serviceType: st.name, // Map 'name' to 'serviceType'
+        courierId: st.courierId,
+        price: {
+          original: {
+            gross: st.price.original.gross,
+            net: st.price.original.net,
+            vat: st.price.original.gross - st.price.original.net,
+          },
+        },
+        edt: st.edt,
+      }));
+
       console.log("[EUROSENDER] Quotes received:", {
-        count: response.options?.serviceTypes?.length || 0,
-        serviceTypes: response.options?.serviceTypes?.map((st) => st.serviceType),
+        count: mappedServiceTypes.length,
+        serviceTypes: mappedServiceTypes.map((st) => st.serviceType),
+        firstOption: mappedServiceTypes[0] ? { 
+          id: mappedServiceTypes[0].id,
+          serviceType: mappedServiceTypes[0].serviceType,
+          price: mappedServiceTypes[0].price.original.gross 
+        } : null,
       });
 
       // Validate response has options
-      if (!response.options?.serviceTypes || response.options.serviceTypes.length === 0) {
+      if (mappedServiceTypes.length === 0) {
         throw new ApiError(
           "NO_SHIPPING_RATES",
           "No shipping quotes available for this address",
           404
         );
       }
+
+      const response: EurosenderQuoteResponse = {
+        options: {
+          serviceTypes: mappedServiceTypes,
+        },
+      };
 
       return response;
     } catch (error) {
@@ -423,11 +472,43 @@ export class EurosenderService {
         hasPudoPoint: !!params.pudoPointCode,
       });
 
+      // Eurosender API requires orderContact (use pickupContact as orderContact)
+      // pickupContact, deliveryContact and quoteId are removed from top level
+      // quoteId is not a valid Eurosender API field - it's only used internally
+      const { pickupContact, deliveryContact, quoteId, ...requestBody } = params;
+      
+      // Validate pickupContact exists and has required fields (needed for orderContact)
+      if (!pickupContact) {
+        throw new ApiError(
+          "BAD_REQUEST",
+          "pickupContact is required for order creation. Please provide contact information for the pickup address.",
+          400
+        );
+      }
+
+      if (!pickupContact.name || !pickupContact.phone || !pickupContact.email) {
+        throw new ApiError(
+          "BAD_REQUEST",
+          "pickupContact must include name, phone, and email fields.",
+          400
+        );
+      }
+      
+      // Add orderContact (required by API) - use pickupContact as orderContact
+      const requestBodyWithOrderContact = {
+        ...requestBody,
+        orderContact: {
+          name: pickupContact.name.trim(),
+          phone: pickupContact.phone.trim(),
+          email: pickupContact.email.trim(),
+        },
+      };
+
       const response = await this.request<EurosenderOrderResponse>(
         "/v1/orders",
         {
           method: "POST",
-          body: params,
+          body: requestBodyWithOrderContact,
         }
       );
 
@@ -469,12 +550,25 @@ export class EurosenderService {
     orderCode: string
   ): Promise<EurosenderOrderDetails> {
     try {
+      console.log("[EUROSENDER] Getting order details:", { orderCode });
+      
       const response = await this.request<EurosenderOrderDetails>(
         `/v1/orders/${orderCode}`,
         {
           method: "GET",
         }
       );
+
+      console.log("[EUROSENDER] Order details received:", {
+        orderCode: response.orderCode,
+        status: response.status,
+        hasLabelUrl: !!response.labelUrl,
+        hasTrackingNumber: !!response.trackingNumber,
+        labelUrl: response.labelUrl || "Not available",
+        trackingNumber: response.trackingNumber || "Not available",
+        serviceType: response.serviceType,
+        courierId: response.courierId,
+      });
 
       return response;
     } catch (error) {

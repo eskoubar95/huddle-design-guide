@@ -293,7 +293,7 @@ export class ShippingService {
           pickupDate: pickupDate.toISOString().split("T")[0] + "T00:00:00Z",
         },
         parcels,
-        paymentMethod: "deferred",
+        paymentMethod: "credit", // Use prepaid credit on Huddle's Eurosender account
         currencyCode: "EUR",
       };
 

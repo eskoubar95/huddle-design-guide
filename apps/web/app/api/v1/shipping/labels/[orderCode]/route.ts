@@ -7,6 +7,43 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { query } from "@/lib/db/postgres-connection";
 import * as Sentry from "@sentry/nextjs";
 
+/**
+ * Map Eurosender order status to our database status values
+ * 
+ * Database status meanings:
+ * - 'pending': Order not yet created/accepted
+ * - 'purchased': Order accepted/confirmed by Eurosender (equivalent to "Confirmed")
+ * - 'cancelled': Order cancelled
+ * - 'error': Order creation failed or error occurred
+ * 
+ * Eurosender status meanings:
+ * - 'Confirmed': Order accepted and being processed (maps to 'purchased')
+ * - 'Cancelled': Order cancelled (maps to 'cancelled')
+ * - 'Error'/'Failed': Order creation failed (maps to 'error')
+ * - Other statuses (e.g., 'In Transit', 'Delivered'): Order is active (maps to 'purchased')
+ * 
+ * Note: "Confirmed" and "purchased" represent the same concept - order is accepted.
+ * The label may still be generated asynchronously, but the order itself is confirmed.
+ */
+function mapEurosenderStatusToDbStatus(eurosenderStatus: string): "pending" | "purchased" | "cancelled" | "error" {
+  const statusLower = eurosenderStatus.toLowerCase();
+  
+  if (statusLower.includes("cancel")) {
+    return "cancelled";
+  }
+  if (statusLower.includes("error") || statusLower.includes("fail")) {
+    return "error";
+  }
+  // "Confirmed" from Eurosender = order accepted = "purchased" in our database
+  if (statusLower.includes("confirm") || statusLower.includes("purchased") || statusLower.includes("active")) {
+    return "purchased";
+  }
+  
+  // Default to purchased for any other status (e.g., "In Transit", "Delivered", etc.)
+  // since order was successfully created and is active
+  return "purchased";
+}
+
 const handler = async (
   req: NextRequest,
   context: { params: Promise<{ orderCode: string }> }
@@ -34,8 +71,19 @@ const handler = async (
 
     // Verify order ownership via shipping_labels -> transaction
     // Use direct SQL query since shipping_labels table is not in Supabase types yet
-    const labels = await query<{ transaction_id: string | null }>(
-      `SELECT transaction_id FROM public.shipping_labels WHERE external_order_id = $1 LIMIT 1`,
+    const labels = await query<{ 
+      id: string;
+      transaction_id: string | null;
+      label_url: string;
+      tracking_number: string | null;
+      status: string;
+      price_gross: number | null;
+      price_net: number | null;
+      price_vat: number | null;
+    }>(
+      `SELECT id, transaction_id, label_url, tracking_number, status, price_gross, price_net, price_vat 
+       FROM public.shipping_labels 
+       WHERE external_order_id = $1 LIMIT 1`,
       [orderCode]
     );
 
@@ -92,6 +140,94 @@ const handler = async (
 
     // Get order details (includes label URL if available)
     const orderDetails = await eurosenderService.getOrderDetails(orderCode);
+
+    // Map Eurosender status to our database status
+    const dbStatus = mapEurosenderStatusToDbStatus(orderDetails.status);
+
+    // Update shipping_labels table with latest data from Eurosender
+    // This ensures our database stays in sync, especially for async label generation
+    const updates: string[] = [];
+    const updateValues: (string | number | null)[] = [];
+    let paramIndex = 1;
+
+    // Update status if it changed
+    if (label.status !== dbStatus) {
+      updates.push(`status = $${paramIndex}`);
+      updateValues.push(dbStatus);
+      paramIndex++;
+    }
+
+    // Update label_url if it became available (was empty/null before)
+    if (orderDetails.labelUrl && (!label.label_url || label.label_url === "" || orderDetails.labelUrl !== label.label_url)) {
+      updates.push(`label_url = $${paramIndex}`);
+      updateValues.push(orderDetails.labelUrl);
+      paramIndex++;
+    }
+
+    // Update tracking_number if it became available (was null before)
+    if (orderDetails.trackingNumber && (!label.tracking_number || orderDetails.trackingNumber !== label.tracking_number)) {
+      updates.push(`tracking_number = $${paramIndex}`);
+      updateValues.push(orderDetails.trackingNumber);
+      paramIndex++;
+    }
+
+    // Update price fields if they're missing or changed
+    const priceGross = orderDetails.price?.original?.gross;
+    const priceNet = orderDetails.price?.original?.net;
+    const priceVat = orderDetails.price?.original?.vat;
+
+    if (priceGross !== undefined && priceGross !== null) {
+      // Update price_gross if missing or changed
+      if (label.price_gross === null || Math.abs(label.price_gross - priceGross) > 0.01) {
+        updates.push(`price_gross = $${paramIndex}`);
+        updateValues.push(priceGross);
+        paramIndex++;
+      }
+      // Update price_net if missing or changed
+      if (priceNet !== undefined && priceNet !== null) {
+        if (label.price_net === null || Math.abs((label.price_net || 0) - priceNet) > 0.01) {
+          updates.push(`price_net = $${paramIndex}`);
+          updateValues.push(priceNet);
+          paramIndex++;
+        }
+      }
+      // Update price_vat if missing or changed
+      if (priceVat !== undefined && priceVat !== null) {
+        if (label.price_vat === null || Math.abs((label.price_vat || 0) - priceVat) > 0.01) {
+          updates.push(`price_vat = $${paramIndex}`);
+          updateValues.push(priceVat);
+          paramIndex++;
+        }
+      }
+    }
+
+    // Only update if there are changes
+    if (updates.length > 0) {
+      updateValues.push(orderCode); // For WHERE clause
+      await query(
+        `UPDATE public.shipping_labels 
+         SET ${updates.join(", ")}, updated_at = NOW() 
+         WHERE external_order_id = $${paramIndex}`,
+        updateValues
+      );
+      
+      // Log status history if status was updated
+      if (label.status !== dbStatus) {
+        await query(
+          `INSERT INTO public.shipping_label_status_history 
+           (shipping_label_id, status, error_message) 
+           VALUES ($1, $2, NULL)`,
+          [label.id, dbStatus]
+        );
+      }
+      
+      console.log(`[SHIPPING_LABEL] Updated shipping_labels for orderCode ${orderCode}:`, {
+        updates,
+        oldStatus: label.status,
+        newStatus: dbStatus,
+        eurosenderStatus: orderDetails.status,
+      });
+    }
 
     return Response.json({
       orderCode: orderDetails.orderCode,

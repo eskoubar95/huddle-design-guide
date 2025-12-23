@@ -29,6 +29,10 @@ interface ShippingLabel {
   status: "pending" | "purchased" | "cancelled" | "error";
   service_point_id: string | null;
   shipping_method_type: "home_delivery" | "pickup_point";
+  price_gross: number | null;
+  price_net: number | null;
+  price_vat: number | null;
+  price_currency: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -97,7 +101,7 @@ export class ShippingLabelService {
       );
     }
 
-    // Format validation
+    // Format validation - country must be 2 characters (will be normalized to uppercase)
     if (address.country.length !== 2) {
       throw new ApiError(
         "INVALID_ADDRESS",
@@ -110,6 +114,23 @@ export class ShippingLabelService {
     if (address.postal_code.trim().length === 0) {
       throw new ApiError("INVALID_ADDRESS", "Postal code cannot be empty", 400);
     }
+  }
+
+  /**
+   * Normalize address for Eurosender API
+   * - Converts country code to uppercase (ISO 3166-1 alpha-2 requirement)
+   * - Ensures all required fields are present
+   */
+  private normalizeAddressForEurosender(
+    address: EurosenderOrderRequest["shipment"]["pickupAddress"] | EurosenderOrderRequest["shipment"]["deliveryAddress"]
+  ): EurosenderOrderRequest["shipment"]["pickupAddress"] {
+    return {
+      ...address,
+      country: address.country.toUpperCase(), // Eurosender API requires uppercase ISO-2 codes
+      zip: address.zip.trim(),
+      city: address.city.trim(),
+      street: address.street.trim(),
+    };
   }
 
   /**
@@ -222,8 +243,12 @@ export class ShippingLabelService {
         tracking_number,
         status,
         shipping_method_type,
-        service_point_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        service_point_id,
+        price_gross,
+        price_net,
+        price_vat,
+        price_currency
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
         params.transactionId,
@@ -234,6 +259,10 @@ export class ShippingLabelService {
         "purchased",
         params.shippingMethodType,
         null, // service_point_id (not relevant now)
+        eurosenderResponse.price?.original?.gross || null,
+        eurosenderResponse.price?.original?.net || null,
+        eurosenderResponse.price?.original?.vat || null,
+        "EUR", // Eurosender always uses EUR
       ]
     );
 
@@ -292,18 +321,22 @@ export class ShippingLabelService {
       };
     }
 
-    // 4. Create label with retry logic
+    // 4. Normalize addresses for Eurosender API (country codes must be uppercase)
+    const normalizedPickupAddress = this.normalizeAddressForEurosender(params.pickupAddress);
+    const normalizedDeliveryAddress = this.normalizeAddressForEurosender(params.deliveryAddress);
+
+    // 5. Create label with retry logic
     // Note: Database constraint prevents race conditions (unique index on transaction_id where status='purchased')
     const eurosenderResponse = await retryWithBackoff(
       async () => {
         return await this.eurosenderService.createOrder({
           shipment: {
-            pickupAddress: params.pickupAddress,
-            deliveryAddress: params.deliveryAddress,
+            pickupAddress: normalizedPickupAddress,
+            deliveryAddress: normalizedDeliveryAddress,
           },
           parcels: params.parcels,
           serviceType: params.serviceType,
-          paymentMethod: params.paymentMethod || "deferred",
+          paymentMethod: params.paymentMethod || "credit", // Default to credit (prepaid account)
           pickupContact: params.pickupContact,
           deliveryContact: params.deliveryContact,
           labelFormat: params.labelFormat || "pdf",

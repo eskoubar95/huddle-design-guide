@@ -1,10 +1,77 @@
 # Shipping Label Generation Integration - Eurosender Implementation Plan
 
 **Linear Issue:** [HUD-42](https://linear.app/huddle-world/issue/HUD-42/feature-shipping-label-generation-integration-eurosender)  
-**Status:** In Progress  
+**Status:** ✅ Core Implementation Complete | ⏳ Awaiting Production for Label Testing | ⏳ Frontend UI Integration Pending  
 **Priority:** High  
 **Estimated Time:** 8-10 timer  
-**Estimated LOC:** ~600 LOC
+**Estimated LOC:** ~600 LOC  
+**Last Updated:** 2025-12-20
+
+---
+
+## 🎯 Current Implementation Status (2025-12-19)
+
+### ✅ Completed
+
+**1. Order Creation Flow**
+- ✅ Quote-first approach implemented (`/api/v1/shipping/quotes`)
+- ✅ Dynamic service type selection from available quotes
+- ✅ Order creation via Eurosender API (`POST /api/v1/shipping/labels`)
+- ✅ Country code normalization (uppercase ISO 3166-1 alpha-2)
+- ✅ Payment method: "credit" (Huddle account credit)
+- ✅ `orderContact` field correctly implemented
+- ✅ Address normalization for Eurosender API
+- ✅ Error handling and retry logic
+- ✅ Database storage of order details (`shipping_labels` table)
+
+**2. Order Retrieval & Database Sync**
+- ✅ `GET /api/v1/shipping/labels/[orderCode]` endpoint working
+- ✅ Order details fetching from Eurosender API
+- ✅ Ownership verification (seller/buyer check)
+- ✅ **Automatic database sync** - Updates `label_url`, `tracking_number`, `status`, `price_gross`, `price_net`, `price_vat` when order details are fetched
+- ✅ Status mapping from Eurosender to database (Confirmed → purchased)
+- ✅ Test UI for manual testing (`/seller/test-shipping-label`)
+
+**3. Services**
+- ✅ `EurosenderService.createOrder()` - Working
+- ✅ `EurosenderService.getQuotes()` - Working with proper mapping
+- ✅ `EurosenderService.getOrderDetails()` - Working
+- ✅ `ShippingLabelService.createLabel()` - Complete with validation
+- ✅ Address normalization helpers
+- ✅ Price storage in database (`price_gross`, `price_net`, `price_vat`, `price_currency`)
+
+**4. Frontend**
+- ✅ `ShippingLabelGenerator` component with quote-first flow
+- ✅ Test page for manual testing
+- ✅ Error handling and user feedback
+
+### ⚠️ Known Limitations (Sandbox Mode)
+
+**Label Generation:**
+- ⚠️ Labels are NOT generated in Eurosender sandbox mode
+- ⚠️ `labelUrl` and `trackingNumber` remain empty/null in sandbox
+- ⚠️ Order status: "Confirmed" but label not available
+- ✅ Order creation works correctly (tested with orderCode: `311525-25`)
+
+### 🔄 Pending for Production
+
+**1. Label Generation Testing**
+- ⏳ Test actual label PDF generation in production
+- ⏳ Verify `labelUrl` is populated when label is ready
+- ⏳ Verify `trackingNumber` is populated
+- ⏳ Test label download functionality
+
+**2. Asynchronous Label Handling**
+- ✅ **Database sync implemented** - GET endpoint automatically updates database when label becomes available
+- ⏳ Implement polling mechanism for label status (optional - can be done via periodic GET requests)
+- ⏳ Or implement webhook handler (if Eurosender supports webhooks - optional)
+- ✅ Update database when label becomes available (done via GET endpoint sync)
+
+**3. Production Readiness**
+- ⏳ Verify production API credentials
+- ⏳ Test with real shipping addresses
+- ⏳ Monitor error rates and retry logic
+- ⏳ Set up monitoring/alerts for failed label generations
 
 ---
 
@@ -32,16 +99,19 @@ Implementer shipping label generation via Eurosender API, så sælgere kan gener
 - Error handling: ApiError pattern med Sentry logging
 - API key management: Lazy-initialized
 
-**2. Database Schema (Ready)**
+**2. Database Schema (Complete)**
 - Location: `supabase/migrations/20251217101000_create_shipping_labels.sql`
 - Tabel: `shipping_labels` med alle nødvendige kolonner
-- Indexes: På `order_id`, `transaction_id`, `status`
+- ✅ Price fields added: `price_gross`, `price_net`, `price_vat`, `price_currency` (migration: `20251220000000_add_price_fields_to_shipping_labels.sql`)
+- ✅ Status history table: `shipping_label_status_history` for audit trail
+- Indexes: På `order_id`, `transaction_id`, `status`, `price_gross`
 - RLS: Enabled (service-role only access)
 
-**3. API Endpoints (Partially Implemented)**
-- `POST /api/v1/shipping/labels` - Eksisterer, men mangler validation og database storage
-- `GET /api/v1/shipping/labels/[orderCode]` - Komplet implementeret ✅
-- `POST /api/v1/shipping/labels/[orderCode]/cancel` - Mangler
+**3. API Endpoints**
+- ✅ `POST /api/v1/shipping/labels` - Komplet med validation, database storage, og price fields
+- ✅ `GET /api/v1/shipping/labels/[orderCode]` - Komplet med database sync (status, label_url, tracking_number, price)
+- ✅ `POST /api/v1/shipping/quotes` - Quote-first approach for service type selection
+- ⏳ `POST /api/v1/shipping/labels/[orderCode]/cancel` - Mangler (optional feature)
 
 **4. Retry Patterns (Available)**
 - Location: `supabase/functions/_shared/utils/retry.ts`
