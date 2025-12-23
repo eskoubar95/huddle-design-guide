@@ -1,0 +1,228 @@
+import { createServiceClient } from "@/lib/supabase/server";
+import { query } from "@/lib/db/postgres-connection";
+import { ApiError } from "@/lib/api/errors";
+import * as Sentry from "@sentry/nextjs";
+
+/**
+ * MedusaOrderService - Manages Medusa orders and products
+ *
+ * Uses Supabase RPC functions (pattern from MedusaCustomerService) for order/product creation
+ * Direct SQL queries for read operations (pattern from MedusaShippingService)
+ *
+ * ⚠️ IMPORTANT: Shipping method stored as TEXT in metadata, NOT shipping option ID
+ * (Medusa shipping profiles are NOT configured - we use Eurosender directly)
+ */
+
+export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled';
+
+export interface ShippingAddress {
+  street: string;
+  city: string;
+  postal_code: string;
+  country: string;
+  state?: string;
+  address_line2?: string;
+}
+
+export interface MedusaOrder {
+  id: string;
+  status: OrderStatus;
+  customer_id: string;
+  items: Array<{ product_id: string; quantity: number; price: number }>;
+  shipping_address: ShippingAddress;
+  shipping_method?: string; // Text, e.g. "Eurosender Standard"
+  shipping_cost?: number; // In cents
+  totals: { subtotal: number; shipping: number; total: number };
+  metadata?: Record<string, unknown>; // For tracking number, shipping provider, etc.
+  created_at: string;
+  updated_at: string;
+}
+
+export class MedusaOrderService {
+  /**
+   * Ensure Medusa product exists for jersey or sale listing
+   * Creates product if missing, returns existing if present
+   * Idempotent operation
+   */
+  async ensureMedusaProduct(
+    jerseyId?: string,
+    saleListingId?: string
+  ): Promise<string> { // Returns TEXT ID (Medusa v2 format: prod_xxx)
+    try {
+      const supabase = await createServiceClient();
+
+      // Check if product already exists
+      // Note: medusa_product_id columns will be added in future migration
+      // For now, we'll query directly with raw SQL to check for existing products
+      if (jerseyId) {
+        const existingProduct = await query<{ medusa_product_id: string }>(
+          `SELECT medusa_product_id FROM jerseys WHERE id = $1 AND medusa_product_id IS NOT NULL`,
+          [jerseyId]
+        );
+
+        if (existingProduct && existingProduct.length > 0 && existingProduct[0].medusa_product_id) {
+          return existingProduct[0].medusa_product_id;
+        }
+      }
+
+      if (saleListingId) {
+        const existingProduct = await query<{ medusa_product_id: string | null; jersey_id: string }>(
+          `SELECT medusa_product_id, jersey_id FROM sale_listings WHERE id = $1`,
+          [saleListingId]
+        );
+
+        if (existingProduct && existingProduct.length > 0) {
+          const listing = existingProduct[0];
+          if (listing.medusa_product_id) {
+            return listing.medusa_product_id;
+          }
+
+          // Get jersey data for product creation
+          if (listing.jersey_id) {
+            const { data: jersey } = await supabase
+              .from("jerseys")
+              .select("club, season, jersey_type, player_name, condition_rating")
+              .eq("id", listing.jersey_id)
+              .single();
+
+            if (jersey) {
+              // Get listing price
+              const { data: listingData } = await supabase
+                .from("sale_listings")
+                .select("price")
+                .eq("id", saleListingId)
+                .single();
+
+              // Create product via RPC
+              const { data: productId, error } = await (supabase.rpc as unknown as {
+                (name: string, args: Record<string, unknown>): Promise<{
+                  data: string | null;
+                  error: { code?: string; message: string } | null;
+                }>;
+            })('create_medusa_product', {
+              p_price_cents: listingData?.price || 0,
+              p_title: `${jersey.club} ${jersey.season}${jersey.player_name ? ` - ${jersey.player_name}` : ''}`,
+              p_sale_listing_id: saleListingId,
+              p_currency: 'eur',
+              p_description: `Jersey: ${jersey.club}, Season: ${jersey.season}, Type: ${jersey.jersey_type}, Condition: ${jersey.condition_rating}`,
+            });
+
+              if (error || !productId) {
+                throw new Error(`Failed to create Medusa product: ${error?.message || 'No ID returned'}`);
+              }
+
+              // Update sale_listing with product ID (using raw SQL until migration adds column)
+              await query(
+                `UPDATE sale_listings SET medusa_product_id = $1 WHERE id = $2`,
+                [productId, saleListingId]
+              );
+
+              return productId;
+            }
+          }
+        }
+      }
+
+      throw new Error("Either jerseyId or saleListingId must be provided");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Sentry.captureException(error, {
+        tags: { component: "medusa_order_service", operation: "ensure_medusa_product" },
+        extra: { jerseyId, saleListingId, errorMessage },
+      });
+      throw new ApiError(
+        "EXTERNAL_SERVICE_ERROR",
+        `Failed to ensure Medusa product: ${errorMessage}`,
+        502
+      );
+    }
+  }
+
+  /**
+   * Create order from sale listing
+   * Shipping method is TEXT (e.g. "Eurosender Standard"), NOT shipping option ID
+   */
+  async createOrderFromSale(
+    listingId: string,
+    buyerId: string,
+    shippingAddress: ShippingAddress,
+    shippingMethodName: string,
+    shippingCost: number // In cents
+  ): Promise<MedusaOrder> {
+    // TODO: Implement in Phase 3
+    throw new Error("Not implemented yet - Phase 3");
+  }
+
+  /**
+   * Create order from auction
+   * Shipping method is TEXT (e.g. "Eurosender Standard"), NOT shipping option ID
+   */
+  async createOrderFromAuction(
+    auctionId: string,
+    buyerId: string,
+    shippingAddress: ShippingAddress,
+    shippingMethodName: string,
+    shippingCost: number // In cents
+  ): Promise<MedusaOrder> {
+    // TODO: Implement in Phase 3
+    throw new Error("Not implemented yet - Phase 3");
+  }
+
+  /**
+   * Get order by ID
+   */
+  async getOrder(orderId: string): Promise<MedusaOrder> {
+    // TODO: Implement in Phase 4
+    throw new Error("Not implemented yet - Phase 4");
+  }
+
+  /**
+   * Update order status
+   */
+  async updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
+    // TODO: Implement in Phase 4
+    throw new Error("Not implemented yet - Phase 4");
+  }
+
+  /**
+   * Cancel order
+   */
+  async cancelOrder(orderId: string): Promise<void> {
+    // TODO: Implement in Phase 4
+    throw new Error("Not implemented yet - Phase 4");
+  }
+
+  /**
+   * Update tracking number in order metadata
+   */
+  async updateTrackingNumber(
+    orderId: string,
+    trackingNumber: string,
+    shippingProvider: string
+  ): Promise<void> {
+    // TODO: Implement in Phase 4
+    throw new Error("Not implemented yet - Phase 4");
+  }
+
+  /**
+   * Get transaction by Medusa order ID (helper for payout integration)
+   */
+  private async getTransactionByOrderId(orderId: string): Promise<{ id: string } | null> {
+    try {
+      const supabase = await createServiceClient();
+      const { data: transaction } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('medusa_order_id', orderId)
+        .single();
+      return transaction || null;
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: { component: "medusa_order_service", operation: "get_transaction_by_order_id" },
+        extra: { orderId },
+      });
+      return null;
+    }
+  }
+}
+
