@@ -9,11 +9,11 @@
 
 ## Problem
 
-Marketplace Features mangler transactional email notifications til brugere. I øjeblikket sendes kun in-app notifications, men brugere skal også modtage email notifications for vigtige events som order confirmations, shipping updates, payment reminders, osv.
+Marketplace Features mangler transaktionelle e-mail-notifikationer til brugerne. I øjeblikket sendes kun in-app-notifikationer, men brugerne skal også modtage e-mail-notifikationer for vigtige events som ordrebekræftelser, forsendelsesajourering, betalingspåmindelser osv.
 
 ## Solution
 
-Implementer transactional email service der sender emails til brugere for alle vigtige marketplace events. Emails skal være professionelle, informative, og inkludere klare call-to-actions.
+Implementer en transactional e-mail-service, der sender e-mails til brugerne for alle vigtige marketplace-events. E-mails skal være professionelle, informative og inkludere klare call-to-action-elementer.
 
 ---
 

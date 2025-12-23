@@ -28,8 +28,8 @@ async function verifyMigration() {
     }
     console.log('✅ shipping_label_status_history table exists');
 
-    // Check if unique constraint exists
-    const constraintCheck = await query<{ exists: boolean }>(
+    // Check if unique index exists
+    const indexCheck = await query<{ exists: boolean }>(
       `
       SELECT EXISTS (
         SELECT FROM pg_indexes 
@@ -39,11 +39,11 @@ async function verifyMigration() {
       `
     );
 
-    if (!constraintCheck[0]?.exists) {
-      console.error('❌ shipping_labels_transaction_purchased_unique constraint does not exist');
+    if (!indexCheck[0]?.exists) {
+      console.error('❌ shipping_labels_transaction_purchased_unique index does not exist');
       process.exit(1);
     }
-    console.log('✅ shipping_labels_transaction_purchased_unique constraint exists');
+    console.log('✅ shipping_labels_transaction_purchased_unique index exists');
 
     // Check table columns
     const columnsCheck = await query<{ column_name: string; data_type: string }>(
