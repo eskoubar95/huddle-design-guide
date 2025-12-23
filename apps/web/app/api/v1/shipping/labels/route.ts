@@ -160,7 +160,7 @@ const handler = async (req: NextRequest) => {
       status: "purchased",
       labelUrl: result.labelUrl,
       trackingNumber: result.trackingNumber,
-      alreadyExisted: !!result.label.id, // Indicate if label was already generated
+      alreadyExisted: result.alreadyExisted, // Indicate if label was already generated
     });
   } catch (error) {
     Sentry.captureException(error, {

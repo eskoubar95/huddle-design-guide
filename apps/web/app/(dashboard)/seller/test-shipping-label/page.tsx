@@ -8,12 +8,23 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useApiRequest } from "@/lib/api/client";
 
+interface OrderDetails {
+  orderCode?: string;
+  status?: string;
+  labelUrl?: string;
+  trackingNumber?: string;
+  price?: { original: { gross: number; net: number; vat: number } };
+  courierId?: number;
+  serviceType?: string;
+  error?: string;
+}
+
 export default function TestShippingLabelPage() {
   const [transactionId, setTransactionId] = useState("11111111-1111-1111-1111-111111111111"); // Note: This UUID format is invalid - use a real transaction ID from your database
   const [orderCode, setOrderCode] = useState("311525-25"); // Pre-fill with our test order code
   const [existingLabelUrl, setExistingLabelUrl] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
-  const [orderDetails, setOrderDetails] = useState<any>(null);
+  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const apiRequest = useApiRequest();
 
@@ -209,7 +220,7 @@ ON CONFLICT (id) DO UPDATE SET
                   <p><strong>1. Basic Test:</strong></p>
                   <ul className="list-disc list-inside ml-4 space-y-1">
                     <li>Enter a valid transaction ID where you are the seller</li>
-                    <li>Click "Generate Shipping Label"</li>
+                    <li>Click &quot;Generate Shipping Label&quot;</li>
                     <li>Verify loading state appears</li>
                     <li>Check for success/error toast</li>
                   </ul>
@@ -217,14 +228,14 @@ ON CONFLICT (id) DO UPDATE SET
           <p className="mt-4"><strong>2. Retrieve Test:</strong></p>
           <ul className="list-disc list-inside ml-4 space-y-1">
             <li>Enter an order code from existing label</li>
-            <li>Click "Retrieve Existing Label"</li>
+            <li>Click &quot;Retrieve Existing Label&quot;</li>
             <li>Verify label URL is loaded</li>
           </ul>
           
           <p className="mt-4"><strong>3. Download Test:</strong></p>
           <ul className="list-disc list-inside ml-4 space-y-1">
             <li>After generating/retrieving label</li>
-            <li>Click "Download Label" button</li>
+            <li>Click &quot;Download Label&quot; button</li>
             <li>Verify PDF opens in new tab</li>
           </ul>
           

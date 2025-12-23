@@ -284,6 +284,7 @@ export class ShippingLabelService {
     orderCode: string;
     labelUrl: string;
     trackingNumber?: string;
+    alreadyExisted: boolean;
   }> {
     // 1. Validate transaction status
     await this.validateTransactionStatus(params.transactionId);
@@ -318,6 +319,7 @@ export class ShippingLabelService {
         orderCode: existing.external_order_id,
         labelUrl: existing.label_url,
         trackingNumber: existing.tracking_number || undefined,
+        alreadyExisted: true,
       };
     }
 
@@ -355,6 +357,7 @@ export class ShippingLabelService {
         orderCode: eurosenderResponse.orderCode,
         labelUrl: eurosenderResponse.labelUrl || label.label_url,
         trackingNumber: eurosenderResponse.trackingNumber || undefined,
+        alreadyExisted: false,
       };
     } catch (error) {
       // Handle race condition: if unique constraint violation, return existing label
@@ -369,6 +372,7 @@ export class ShippingLabelService {
             orderCode: existing.external_order_id,
             labelUrl: existing.label_url,
             trackingNumber: existing.tracking_number || undefined,
+            alreadyExisted: true,
           };
         }
       }
@@ -378,9 +382,12 @@ export class ShippingLabelService {
 
   /**
    * Cancel shipping label
+   * 
+   * Note: Ownership verification must be performed by the caller (route handler).
+   * This method only verifies that the transaction exists.
    */
-  async cancelLabel(orderCode: string, transactionId: string): Promise<void> {
-    // Verify transaction ownership
+  async cancelLabel(orderCode: string, transactionId: string, userId: string): Promise<void> {
+    // Verify transaction exists and user is the seller
     const supabase = await createServiceClient();
     const { data: transaction } = await supabase
       .from("transactions")
@@ -390,6 +397,10 @@ export class ShippingLabelService {
 
     if (!transaction) {
       throw new ApiError("NOT_FOUND", "Transaction not found", 404);
+    }
+
+    if (transaction.seller_id !== userId) {
+      throw new ApiError("FORBIDDEN", "Not authorized to cancel this label", 403);
     }
 
     // Get label from database

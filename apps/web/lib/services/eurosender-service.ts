@@ -472,13 +472,8 @@ export class EurosenderService {
         hasPudoPoint: !!params.pudoPointCode,
       });
 
-      // Eurosender API requires orderContact (use pickupContact as orderContact)
-      // pickupContact, deliveryContact and quoteId are removed from top level
-      // quoteId is not a valid Eurosender API field - it's only used internally
-      const { pickupContact, deliveryContact, quoteId, ...requestBody } = params;
-      
       // Validate pickupContact exists and has required fields (needed for orderContact)
-      if (!pickupContact) {
+      if (!params.pickupContact) {
         throw new ApiError(
           "BAD_REQUEST",
           "pickupContact is required for order creation. Please provide contact information for the pickup address.",
@@ -486,7 +481,7 @@ export class EurosenderService {
         );
       }
 
-      if (!pickupContact.name || !pickupContact.phone || !pickupContact.email) {
+      if (!params.pickupContact.name || !params.pickupContact.phone || !params.pickupContact.email) {
         throw new ApiError(
           "BAD_REQUEST",
           "pickupContact must include name, phone, and email fields.",
@@ -494,13 +489,18 @@ export class EurosenderService {
         );
       }
       
+      // Remove quoteId (not a valid Eurosender API field - only used internally)
+      // Keep pickupContact and deliveryContact as they are required by API
+      const { quoteId, ...requestBodyWithoutQuoteId } = params;
+      
       // Add orderContact (required by API) - use pickupContact as orderContact
+      // Note: pickupContact and deliveryContact remain in request body as they are required
       const requestBodyWithOrderContact = {
-        ...requestBody,
+        ...requestBodyWithoutQuoteId,
         orderContact: {
-          name: pickupContact.name.trim(),
-          phone: pickupContact.phone.trim(),
-          email: pickupContact.email.trim(),
+          name: params.pickupContact.name.trim(),
+          phone: params.pickupContact.phone.trim(),
+          email: params.pickupContact.email.trim(),
         },
       };
 

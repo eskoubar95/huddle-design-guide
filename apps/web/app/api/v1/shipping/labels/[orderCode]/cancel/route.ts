@@ -98,7 +98,7 @@ const handler = async (
 
     // Cancel label via ShippingLabelService
     const labelService = new ShippingLabelService();
-    await labelService.cancelLabel(orderCode, label.transaction_id);
+    await labelService.cancelLabel(orderCode, label.transaction_id, userId);
 
     return Response.json({
       success: true,
