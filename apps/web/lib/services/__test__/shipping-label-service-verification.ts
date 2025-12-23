@@ -4,13 +4,13 @@
  * Note: Actual instantiation requires EUROSENDER_API_KEY env var, so we only verify structure
  */
 
-// Test 1: Import verification (compile-time check)
-import type { ShippingLabelService } from "../shipping-label-service";
-import type { retryWithBackoff } from "../../utils/retry";
-
 // Import actual values for type checking
 import { ShippingLabelService as ServiceClass } from "../shipping-label-service";
 import { retryWithBackoff as retryFn } from "../../utils/retry";
+
+// Type checking - verify class structure
+type ServiceType = typeof ServiceClass;
+type ServiceInstance = InstanceType<ServiceType>;
 
 console.log("✅ Test 1: Imports successful");
 console.log("   - ShippingLabelService type:", typeof ServiceClass);

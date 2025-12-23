@@ -48,7 +48,7 @@ const handler = async (req: NextRequest) => {
       return new Response(null, { status: 405 });
     }
 
-    const { userId } = await requireAuth(req);
+    await requireAuth(req); // Verify authentication
 
     const body = await req.json();
     const validated = quoteSchema.parse(body);

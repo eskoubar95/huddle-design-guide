@@ -14,7 +14,7 @@ const handler = async (
       return new Response(null, { status: 405 });
     }
 
-    const { userId } = await requireAuth(req);
+    await requireAuth(req); // Verify authentication
 
     const { orderCode } = await context.params;
 
