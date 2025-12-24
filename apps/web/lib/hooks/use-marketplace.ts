@@ -11,7 +11,7 @@ type _SaleListing = Database["public"]["Tables"]["sale_listings"]["Row"];
 type _Auction = Database["public"]["Tables"]["auctions"]["Row"];
 type Jersey = Database["public"]["Tables"]["jerseys"]["Row"];
 
-interface SaleListingWithJersey extends Omit<Jersey, 'status' | 'vision_confidence' | 'vision_raw'> {
+interface SaleListingWithJersey extends Omit<Jersey, 'status' | 'vision_confidence' | 'vision_raw' | 'medusa_product_id'> {
   listing_id: string;
   price: number;
   currency: string | null;
@@ -19,9 +19,10 @@ interface SaleListingWithJersey extends Omit<Jersey, 'status' | 'vision_confiden
   status?: string | null;
   vision_confidence?: number | null;
   vision_raw?: unknown | null;
+  medusa_product_id?: string | null;
 }
 
-export interface AuctionWithJersey extends Omit<Jersey, 'status' | 'vision_confidence' | 'vision_raw'> {
+export interface AuctionWithJersey extends Omit<Jersey, 'status' | 'vision_confidence' | 'vision_raw' | 'medusa_product_id'> {
   auction_id: string;
   current_bid?: number;
   starting_bid: number;
@@ -31,6 +32,7 @@ export interface AuctionWithJersey extends Omit<Jersey, 'status' | 'vision_confi
   status?: string | null;
   vision_confidence?: number | null;
   vision_raw?: unknown | null;
+  medusa_product_id?: string | null;
 }
 
 /**
