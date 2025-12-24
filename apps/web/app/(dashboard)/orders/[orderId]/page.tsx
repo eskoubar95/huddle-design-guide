@@ -277,9 +277,12 @@ function OrderDetailPage() {
   const isBuyer = transaction.buyer_id === user?.id;
   const canShip = isSeller && order.status === "paid";
   const canComplete = isBuyer && order.status === "shipped";
+  // Explicit allowed statuses per role for cancellation
+  const buyerAllowedStatuses: OrderStatus[] = ["pending", "paid"];
+  const sellerAllowedStatuses: OrderStatus[] = ["pending", "paid"];
   const canCancel =
-    (isBuyer && order.status !== "shipped" && order.status !== "completed") ||
-    (isSeller && order.status !== "completed");
+    (isBuyer && buyerAllowedStatuses.includes(order.status)) ||
+    (isSeller && sellerAllowedStatuses.includes(order.status));
 
   const jerseyImages = jersey?.images || [];
   const primaryImage = jerseyImages.length > 0 ? jerseyImages[0] : null;

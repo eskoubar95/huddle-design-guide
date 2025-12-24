@@ -153,7 +153,7 @@ BEGIN
     0, -- Written off quantity
     '{"value": "0"}'::jsonb, -- Raw written off quantity
     0, -- Delivered quantity
-    '{"value": "0"}'::jsonb -- Raw delivered quantity
+    '{"value": "0"}'::jsonb, -- Raw delivered quantity
     NOW(),
     NOW()
   );

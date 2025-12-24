@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import * as Sentry from "@sentry/nextjs";
 import { useApiRequest } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,7 +71,10 @@ function PurchasesPage() {
         setOrders(data.items || []);
         setNextCursor(data.nextCursor);
       } catch (error) {
-        console.error("Failed to fetch orders:", error);
+        Sentry.captureException(error, {
+          tags: { component: "PurchasesPage", operation: "fetch_purchases" },
+          extra: { userId: user?.id, statusFilter },
+        });
         toast({
           title: "Error",
           description: "Failed to load purchases. Please try again.",
@@ -102,7 +106,10 @@ function PurchasesPage() {
       setOrders((prev) => [...prev, ...(data.items || [])]);
       setNextCursor(data.nextCursor);
     } catch (error) {
-      console.error("Failed to load more orders:", error);
+      Sentry.captureException(error, {
+        tags: { component: "PurchasesPage", operation: "load_more_purchases" },
+        extra: { userId: user?.id, statusFilter, cursor: nextCursor },
+      });
       toast({
         title: "Error",
         description: "Failed to load more purchases. Please try again.",

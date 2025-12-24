@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { MedusaOrderService } from "@/lib/services/medusa-order-service";
 import { createServiceClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/auth";
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -24,12 +25,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { auctionId, buyerId, shippingMethodName = "Eurosender Standard", shippingCost = 1500 } = body;
+    // Verify authentication even in test environments
+    const auth = await requireAuth(request);
+    const authenticatedBuyerId = auth.userId;
 
-    if (!auctionId || !buyerId) {
+    const body = await request.json();
+    const { auctionId, shippingMethodName = "Eurosender Standard", shippingCost = 1500 } = body;
+    
+    // Use authenticated userId instead of accepting buyerId from client
+    const buyerId = authenticatedBuyerId;
+
+    if (!auctionId) {
       return Response.json(
-        { error: "Missing required fields: auctionId, buyerId" },
+        { error: "Missing required field: auctionId" },
         { status: 400 }
       );
     }
