@@ -105,7 +105,7 @@ const handler = async (req: NextRequest) => {
         );
         // Use lt for created_at comparison (cursor-based pagination)
         transactionsQuery = transactionsQuery.lt("created_at", cursorData.createdAt);
-      } catch (cursorError) {
+      } catch {
         throw new ApiError("BAD_REQUEST", "Invalid cursor", 400);
       }
     }

@@ -5,13 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useApiRequest } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,6 +18,7 @@ import {
 import { Loader2, Package, CheckCircle2 } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { OrderStatus } from "@/lib/services/medusa-order-service";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 
 interface Order {
   id: string;
@@ -118,21 +113,6 @@ function PurchasesPage() {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase() || "EUR",
-    }).format(amount / 100);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const getStatusBadgeVariant = (status: OrderStatus): "default" | "secondary" | "destructive" => {
     switch (status) {
       case "completed":
@@ -215,7 +195,7 @@ function PurchasesPage() {
                         <div>
                           <p className="font-medium">Order #{order.id.slice(0, 8)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(order.createdAt)}
+                            {formatDate(order.createdAt, 'medium')}
                           </p>
                         </div>
                         <Badge variant={getStatusBadgeVariant(order.status)}>
@@ -228,7 +208,7 @@ function PurchasesPage() {
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="text-lg font-semibold">
-                          {formatCurrency(order.totalAmount, order.currency)}
+                          {formatCurrency(order.totalAmount, order.currency, { isMinorUnits: true })}
                         </span>
                       </div>
                     </div>

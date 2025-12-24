@@ -7,15 +7,14 @@ import { useApiRequest } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { OrderStatusTimeline } from "@/components/orders/OrderStatusTimeline";
 import { OrderStatus } from "@/lib/services/medusa-order-service";
+import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,7 +40,6 @@ import {
 import {
   Loader2,
   ArrowLeft,
-  Package,
   Truck,
   CheckCircle2,
   XCircle,
@@ -49,7 +47,6 @@ import {
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
-import { getImageUrls, getImageVariant } from "@/lib/utils/image";
 
 interface OrderDetailResponse {
   order: {
@@ -251,23 +248,6 @@ function OrderDetailPage() {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase() || "EUR",
-    }).format(amount / 100);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   if (loading) {
     return (
       <div className="container max-w-4xl py-8">
@@ -364,14 +344,15 @@ function OrderDetailPage() {
                 <div className="space-y-2 border-t pt-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Item Price</span>
-                    <span>{formatCurrency(transaction.item_amount, transaction.currency)}</span>
+                    <span>{formatCurrency(transaction.item_amount, transaction.currency, { isMinorUnits: true })}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Shipping</span>
                     <span>
                       {formatCurrency(
                         transaction.shipping_amount || 0,
-                        transaction.currency
+                        transaction.currency,
+                        { isMinorUnits: true }
                       )}
                     </span>
                   </div>
@@ -381,7 +362,8 @@ function OrderDetailPage() {
                       <span>
                         {formatCurrency(
                           transaction.platform_fee_amount,
-                          transaction.currency
+                          transaction.currency,
+                          { isMinorUnits: true }
                         )}
                       </span>
                     </div>
@@ -392,14 +374,15 @@ function OrderDetailPage() {
                       <span>
                         {formatCurrency(
                           transaction.seller_fee_amount,
-                          transaction.currency
+                          transaction.currency,
+                          { isMinorUnits: true }
                         )}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between border-t pt-2 font-semibold">
                     <span>Total</span>
-                    <span>{formatCurrency(transaction.total_amount, transaction.currency)}</span>
+                    <span>{formatCurrency(transaction.total_amount, transaction.currency, { isMinorUnits: true })}</span>
                   </div>
                   {isSeller && transaction.seller_payout_amount && (
                     <div className="flex justify-between text-sm text-green-600">
@@ -407,7 +390,8 @@ function OrderDetailPage() {
                       <span>
                         {formatCurrency(
                           transaction.seller_payout_amount,
-                          transaction.currency
+                          transaction.currency,
+                          { isMinorUnits: true }
                         )}
                       </span>
                     </div>
@@ -454,7 +438,8 @@ function OrderDetailPage() {
                   <p className="text-sm text-muted-foreground">
                     {formatCurrency(
                       order.shipping_cost || transaction.shipping_amount || 0,
-                      transaction.currency
+                      transaction.currency,
+                      { isMinorUnits: true }
                     )}
                   </p>
                 </div>
@@ -504,7 +489,7 @@ function OrderDetailPage() {
                 {transaction.completed_at && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Payment Date</span>
-                    <span>{formatDate(transaction.completed_at)}</span>
+                    <span>{formatDateTime(transaction.completed_at)}</span>
                   </div>
                 )}
                 {isSeller && transaction.stripe_transfer_id && (

@@ -3,15 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import * as Sentry from "@sentry/nextjs";
 import { useApiRequest } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,6 +19,7 @@ import {
 import { Loader2, Package, Truck } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { OrderStatus } from "@/lib/services/medusa-order-service";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 
 interface Order {
   id: string;
@@ -75,7 +71,10 @@ function SellerOrdersPage() {
         setOrders(data.items || []);
         setNextCursor(data.nextCursor);
       } catch (error) {
-        console.error("Failed to fetch orders:", error);
+        Sentry.captureException(error, {
+          tags: { operation: "fetch_seller_orders" },
+          extra: { userId: user.id, statusFilter },
+        });
         toast({
           title: "Error",
           description: "Failed to load orders. Please try again.",
@@ -107,7 +106,10 @@ function SellerOrdersPage() {
       setOrders((prev) => [...prev, ...(data.items || [])]);
       setNextCursor(data.nextCursor);
     } catch (error) {
-      console.error("Failed to load more orders:", error);
+      Sentry.captureException(error, {
+        tags: { operation: "load_more_seller_orders" },
+        extra: { userId: user.id, statusFilter, cursor: nextCursor },
+      });
       toast({
         title: "Error",
         description: "Failed to load more orders. Please try again.",
@@ -116,21 +118,6 @@ function SellerOrdersPage() {
     } finally {
       setLoadingMore(false);
     }
-  };
-
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase() || "EUR",
-    }).format(amount / 100);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
   };
 
   const getStatusBadgeVariant = (status: OrderStatus): "default" | "secondary" | "destructive" => {
@@ -147,20 +134,17 @@ function SellerOrdersPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container max-w-6xl py-8">
-        <Card>
-          <CardContent className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <ProtectedRoute>
+      {loading ? (
+        <div className="container max-w-6xl py-8">
+          <Card>
+            <CardContent className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
       <div className="container max-w-6xl py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -215,7 +199,7 @@ function SellerOrdersPage() {
                         <div>
                           <p className="font-medium">Order #{order.id.slice(0, 8)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(order.createdAt)}
+                            {formatDate(order.createdAt, 'medium')}
                           </p>
                         </div>
                         <Badge variant={getStatusBadgeVariant(order.status)}>
@@ -228,7 +212,7 @@ function SellerOrdersPage() {
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="text-lg font-semibold">
-                          {formatCurrency(order.totalAmount, order.currency)}
+                          {formatCurrency(order.totalAmount, order.currency, { isMinorUnits: true })}
                         </span>
                       </div>
                     </div>
@@ -241,11 +225,11 @@ function SellerOrdersPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/orders/${order.id}`);
+                            router.push(`/orders/${order.id}#shipping`);
                           }}
                         >
                           <Truck className="h-4 w-4 mr-2" />
-                          Ship Order
+                          Manage Shipping
                         </Button>
                       )}
                       <Button
@@ -282,6 +266,7 @@ function SellerOrdersPage() {
           </div>
         )}
       </div>
+      )}
     </ProtectedRoute>
   );
 }

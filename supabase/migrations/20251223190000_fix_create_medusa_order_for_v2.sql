@@ -139,21 +139,21 @@ BEGIN
     1, -- Version: start at 1
     v_order_line_item_id, -- item_id: reference to order_line_item.id
     1, -- Quantity: always 1 for marketplace items
-    '{"value": "1", "precision": 20}'::jsonb, -- Raw quantity
+    '{"value": "1"}'::jsonb, -- Raw quantity (BigNumberRawValue: only value, no precision)
     0, -- Fulfilled quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw fulfilled quantity
+    '{"value": "0"}'::jsonb, -- Raw fulfilled quantity
     0, -- Shipped quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw shipped quantity
+    '{"value": "0"}'::jsonb, -- Raw shipped quantity
     0, -- Return requested quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw return requested quantity
+    '{"value": "0"}'::jsonb, -- Raw return requested quantity
     0, -- Return received quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw return received quantity
+    '{"value": "0"}'::jsonb, -- Raw return received quantity
     0, -- Return dismissed quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw return dismissed quantity
+    '{"value": "0"}'::jsonb, -- Raw return dismissed quantity
     0, -- Written off quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw written off quantity
+    '{"value": "0"}'::jsonb, -- Raw written off quantity
     0, -- Delivered quantity
-    '{"value": "0", "precision": 20}'::jsonb, -- Raw delivered quantity
+    '{"value": "0"}'::jsonb -- Raw delivered quantity
     NOW(),
     NOW()
   );
@@ -177,7 +177,7 @@ BEGIN
     p_product_id,
     (SELECT id FROM medusa.product_variant WHERE product_id = p_product_id LIMIT 1), -- First variant
     v_subtotal_eur, -- Unit price in major units (EUR) - Medusa Admin expects this format
-    jsonb_build_object('value', v_subtotal_eur::TEXT, 'precision', 20), -- Raw price: same format as raw_quantity
+    jsonb_build_object('value', v_subtotal_eur::TEXT), -- Raw price: BigNumberRawValue (only value, no precision)
     NOW(),
     NOW()
   );
@@ -196,25 +196,25 @@ BEGIN
     v_order_id,
     1,
     jsonb_build_object(
-      'subtotal', jsonb_build_object('value', v_subtotal_eur::TEXT, 'precision', 20),
-      'shipping_total', jsonb_build_object('value', v_shipping_cost_eur::TEXT, 'precision', 20),
-      'total', jsonb_build_object('value', v_total_eur::TEXT, 'precision', 20),
-      'item_total', jsonb_build_object('value', v_subtotal_eur::TEXT, 'precision', 20),
-      'item_subtotal', jsonb_build_object('value', v_subtotal_eur::TEXT, 'precision', 20),
-      'item_tax_total', jsonb_build_object('value', '0', 'precision', 20),
-      'shipping_subtotal', jsonb_build_object('value', v_shipping_cost_eur::TEXT, 'precision', 20),
-      'shipping_tax_total', jsonb_build_object('value', '0', 'precision', 20),
-      'tax_total', jsonb_build_object('value', '0', 'precision', 20),
-      'discount_total', jsonb_build_object('value', '0', 'precision', 20),
-      'discount_subtotal', jsonb_build_object('value', '0', 'precision', 20),
-      'item_discount_total', jsonb_build_object('value', '0', 'precision', 20),
-      'shipping_discount_total', jsonb_build_object('value', '0', 'precision', 20),
-      'refundable_total', jsonb_build_object('value', v_total_eur::TEXT, 'precision', 20),
-      'original_total', jsonb_build_object('value', v_total_eur::TEXT, 'precision', 20),
-      'original_tax_total', jsonb_build_object('value', '0', 'precision', 20),
-      'original_shipping_tax_total', jsonb_build_object('value', '0', 'precision', 20),
-      'original_item_tax_total', jsonb_build_object('value', '0', 'precision', 20),
-      'credit_line_total', jsonb_build_object('value', '0', 'precision', 20)
+      'subtotal', jsonb_build_object('value', v_subtotal_eur::TEXT),
+      'shipping_total', jsonb_build_object('value', v_shipping_cost_eur::TEXT),
+      'total', jsonb_build_object('value', v_total_eur::TEXT),
+      'item_total', jsonb_build_object('value', v_subtotal_eur::TEXT),
+      'item_subtotal', jsonb_build_object('value', v_subtotal_eur::TEXT),
+      'item_tax_total', jsonb_build_object('value', '0'),
+      'shipping_subtotal', jsonb_build_object('value', v_shipping_cost_eur::TEXT),
+      'shipping_tax_total', jsonb_build_object('value', '0'),
+      'tax_total', jsonb_build_object('value', '0'),
+      'discount_total', jsonb_build_object('value', '0'),
+      'discount_subtotal', jsonb_build_object('value', '0'),
+      'item_discount_total', jsonb_build_object('value', '0'),
+      'shipping_discount_total', jsonb_build_object('value', '0'),
+      'refundable_total', jsonb_build_object('value', v_total_eur::TEXT),
+      'original_total', jsonb_build_object('value', v_total_eur::TEXT),
+      'original_tax_total', jsonb_build_object('value', '0'),
+      'original_shipping_tax_total', jsonb_build_object('value', '0'),
+      'original_item_tax_total', jsonb_build_object('value', '0'),
+      'credit_line_total', jsonb_build_object('value', '0')
     ),
     NOW(),
     NOW()

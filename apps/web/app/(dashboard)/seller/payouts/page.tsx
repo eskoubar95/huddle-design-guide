@@ -6,6 +6,7 @@ import { Loader2, TrendingUp, Clock } from "lucide-react";
 import { useApiRequest } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 
 interface Payout {
   id: string;
@@ -56,21 +57,6 @@ function SellerPayoutsPage() {
     fetchPayouts();
   }, [apiRequest, toast]);
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase() || "EUR",
-    }).format(amount / 100);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   if (loading) {
     return (
       <div className="container max-w-4xl py-8">
@@ -98,7 +84,7 @@ function SellerPayoutsPage() {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-green-600">
-            {formatCurrency(totalEarnings, "EUR")}
+            {formatCurrency(totalEarnings, "EUR", { isMinorUnits: true })}
           </div>
           <p className="text-sm text-muted-foreground mt-2">
             Based on {payouts.length} completed payout{payouts.length !== 1 ? "s" : ""}
@@ -134,10 +120,10 @@ function SellerPayoutsPage() {
                 >
                   <div className="space-y-1">
                     <p className="font-medium">
-                      {formatCurrency(payout.amount, payout.currency)}
+                      {formatCurrency(payout.amount, payout.currency, { isMinorUnits: true })}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {formatDate(payout.completed_at)}
+                      {formatDate(payout.completed_at, 'medium')}
                     </p>
                     <p className="text-xs text-muted-foreground font-mono">
                       Transfer ID: {payout.stripe_transfer_id && payout.stripe_transfer_id.length > 16

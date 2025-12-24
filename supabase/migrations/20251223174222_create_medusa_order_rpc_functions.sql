@@ -272,7 +272,7 @@ COMMENT ON FUNCTION public.create_medusa_order IS
   'Creates an order in medusa.order table. Shipping method stored as text in metadata (not shipping option ID, as Medusa shipping is not configured).';
 
 COMMENT ON FUNCTION public.update_medusa_order_status IS 
-  'Updates order status. Valid statuses: pending, paid, shipped, completed, cancelled.';
+  'Updates order status. Valid statuses: pending, paid, shipped, delivered, completed, cancelled.';
 
 COMMENT ON FUNCTION public.update_medusa_order_tracking IS 
   'Updates tracking information in order metadata. Tracking stored in metadata.tracking_number and metadata.shipping_provider.';

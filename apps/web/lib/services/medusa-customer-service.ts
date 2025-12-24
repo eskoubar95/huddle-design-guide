@@ -56,13 +56,13 @@ export async function syncMedusaCustomer(clerkUserId: string): Promise<string | 
       return null;
     }
 
-    // 3. Hent default shipping address
+    // 3. Hent default shipping address (maybeSingle handles no rows gracefully)
     const { data: defaultAddress } = await supabase
       .from("shipping_addresses")
       .select("full_name, street, address_line_2, city, state, postal_code, country, phone")
       .eq("user_id", clerkUserId)
       .eq("is_default", true)
-      .single();
+      .maybeSingle();
 
     // 4. Hvis Medusa customer ID allerede findes, synkroniser data
     if (profile.medusa_customer_id) {
@@ -232,8 +232,10 @@ async function syncMedusaCustomerAddress(
       }>;
     })('sync_medusa_customer_address', {
       p_customer_id: customerId,
-      p_first_name: address.full_name?.split(' ')[0] || null,
-      p_last_name: address.full_name?.split(' ').slice(1).join(' ') || null,
+      // Note: Consider storing first_name/last_name separately in shipping_addresses
+      // to avoid name parsing issues with multi-part names
+      p_first_name: address.full_name?.trim().split(/\s+/)[0] || null,
+      p_last_name: address.full_name?.trim().split(/\s+/).slice(1).join(' ') || null,
       p_address_1: address.street,
       p_address_2: address.address_line_2 || null,
       p_city: address.city,

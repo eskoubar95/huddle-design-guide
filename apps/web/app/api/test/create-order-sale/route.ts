@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { MedusaOrderService } from "@/lib/services/medusa-order-service";
 import { createServiceClient } from "@/lib/supabase/server";
-import { ApiError } from "@/lib/api/errors";
 import * as Sentry from "@sentry/nextjs";
 
 /**
