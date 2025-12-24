@@ -54,6 +54,15 @@ BEGIN
     'shipping_cost', p_shipping_cost
   );
 
+  -- Validate required shipping address fields
+  IF p_shipping_address IS NULL OR
+     p_shipping_address->>'street' IS NULL OR
+     p_shipping_address->>'city' IS NULL OR
+     p_shipping_address->>'country' IS NULL OR
+     p_shipping_address->>'postal_code' IS NULL THEN
+    RAISE EXCEPTION 'Missing required shipping address fields (street, city, country, postal_code)';
+  END IF;
+
   -- Insert shipping address into order_address table
   INSERT INTO medusa.order_address (
     id,
@@ -157,6 +166,15 @@ BEGIN
     NOW(),
     NOW()
   );
+
+  -- Validate product exists and has at least one variant
+  IF NOT EXISTS (SELECT 1 FROM medusa.product WHERE id = p_product_id) THEN
+    RAISE EXCEPTION 'Product with id % does not exist', p_product_id;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM medusa.product_variant WHERE product_id = p_product_id) THEN
+    RAISE EXCEPTION 'Product % has no variants', p_product_id;
+  END IF;
 
   -- Get product variant ID (first variant for the product)
   -- Insert order_line_item (links product to order via order_item)

@@ -222,7 +222,7 @@ function PurchasesPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                      {order.status === "shipped" && (
+                      {(order.status === "shipped" || order.status === "delivered") && (
                         <Button
                           variant="brand"
                           size="sm"
