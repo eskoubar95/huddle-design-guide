@@ -286,6 +286,122 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // Phase 3: Create Medusa order after payment success (idempotent)
+        // Check if order already exists (idempotency)
+        const { data: transactionData, error: txFetchError } = await supabase
+          .from("transactions")
+          .select("medusa_order_id, buyer_id, listing_id, listing_type, shipping_amount, item_amount, total_amount")
+          .eq("id", transactionId)
+          .single();
+
+        if (!txFetchError && transactionData && !transactionData.medusa_order_id) {
+          try {
+            const { MedusaOrderService } = await import("@/lib/services/medusa-order-service");
+            const medusaOrderService = new MedusaOrderService();
+
+            // Get shipping address from shipping_addresses table (buyer's default)
+            const { data: shippingAddress, error: addressError } = await supabase
+              .from("shipping_addresses")
+              .select("street, city, postal_code, country, state, address_line_2, phone, full_name")
+              .eq("user_id", transactionData.buyer_id)
+              .eq("is_default", true)
+              .single();
+
+            if (addressError || !shippingAddress) {
+              // Non-blocking: Log warning but don't fail webhook
+              Sentry.captureMessage("Shipping address not found for order creation", {
+                level: "warning",
+                tags: { component: "stripe_webhook", event_type: event.type },
+                extra: {
+                  transactionIdPrefix: transactionId.slice(0, 8),
+                  buyerIdPrefix: transactionData.buyer_id.slice(0, 8),
+                  addressError: addressError?.message,
+                },
+              });
+            } else {
+              // Parse full_name into first_name and last_name
+              const nameParts = shippingAddress.full_name.split(" ");
+              const firstName = nameParts[0] || "";
+              const lastName = nameParts.slice(1).join(" ") || "";
+
+              // Get shipping method name and cost from transaction or payment intent metadata
+              // Default shipping method if not specified
+              const shippingMethodName = paymentIntent.metadata?.shipping_method_name || "Eurosender Standard";
+              const shippingCost = transactionData.shipping_amount 
+                ? Math.round(Number(transactionData.shipping_amount)) 
+                : 0; // Fallback to 0 if not set
+
+              // Create order based on listing type
+              let order;
+              if (transactionData.listing_type === "sale") {
+                order = await medusaOrderService.createOrderFromSale(
+                  transactionData.listing_id,
+                  transactionData.buyer_id,
+                  {
+                    street: shippingAddress.street,
+                    city: shippingAddress.city,
+                    postal_code: shippingAddress.postal_code,
+                    country: shippingAddress.country,
+                    state: shippingAddress.state || undefined,
+                    address_line2: shippingAddress.address_line_2 || undefined,
+                    phone: shippingAddress.phone || undefined,
+                    first_name: firstName,
+                    last_name: lastName,
+                  },
+                  shippingMethodName,
+                  shippingCost
+                );
+              } else if (transactionData.listing_type === "auction") {
+                order = await medusaOrderService.createOrderFromAuction(
+                  transactionData.listing_id,
+                  transactionData.buyer_id,
+                  {
+                    street: shippingAddress.street,
+                    city: shippingAddress.city,
+                    postal_code: shippingAddress.postal_code,
+                    country: shippingAddress.country,
+                    state: shippingAddress.state || undefined,
+                    address_line2: shippingAddress.address_line_2 || undefined,
+                    phone: shippingAddress.phone || undefined,
+                    first_name: firstName,
+                    last_name: lastName,
+                  },
+                  shippingMethodName,
+                  shippingCost
+                );
+              }
+
+              // Update transaction with Medusa order ID
+              if (order) {
+                const { error: orderUpdateError } = await supabase
+                  .from("transactions")
+                  .update({ medusa_order_id: order.id })
+                  .eq("id", transactionId);
+
+                if (orderUpdateError) {
+                  Sentry.captureException(orderUpdateError, {
+                    tags: { component: "stripe_webhook", event_type: event.type },
+                    extra: {
+                      transactionIdPrefix: transactionId.slice(0, 8),
+                      orderIdPrefix: order.id.slice(0, 8),
+                    },
+                  });
+                }
+              }
+            }
+          } catch (orderError) {
+            // Non-blocking: Log error but don't fail webhook (transaction is already completed)
+            Sentry.captureException(orderError, {
+              tags: { component: "stripe_webhook", event_type: event.type, operation: "create_medusa_order" },
+              extra: {
+                transactionIdPrefix: transactionId.slice(0, 8),
+                listingType: transactionData.listing_type,
+                errorMessage: orderError instanceof Error ? orderError.message : String(orderError),
+              },
+            });
+          }
+        }
+
         // Update listing/auction status (if applicable)
         const listingId = paymentIntent.metadata?.listing_id;
         const listingType = paymentIntent.metadata?.listing_type;
