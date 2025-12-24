@@ -15,6 +15,14 @@ import * as Sentry from "@sentry/nextjs";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Only allow in development/test environments
+    if (process.env.NODE_ENV === "production") {
+      return Response.json(
+        { error: "Test endpoints are not available in production" },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const { transactionId } = body;
 
@@ -76,10 +84,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse full_name
-    const nameParts = shippingAddress.full_name.split(" ");
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
+    // Parse full_name (guard against null/empty)
+    const nameParts = (shippingAddress.full_name || "").trim().split(/\s+/);
+    const firstName = nameParts[0] || "Customer";
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
     // Get shipping method and cost
     const shippingMethodName = "Eurosender Standard"; // Default

@@ -74,12 +74,21 @@ const handler = async (req: NextRequest) => {
       .order("created_at", { ascending: false })
       .limit(queryParams.limit + 1); // Fetch one extra for pagination
 
-    // Apply filters
-    if (queryParams.sellerId) {
+    // Apply filters - ensure user can only see their own orders
+    if (queryParams.sellerId && queryParams.buyerId) {
+      // Both specified - filter by both (AND)
+      transactionsQuery = transactionsQuery
+        .eq("seller_id", sellerId)
+        .eq("buyer_id", buyerId);
+    } else if (queryParams.sellerId) {
       transactionsQuery = transactionsQuery.eq("seller_id", sellerId);
-    }
-    if (queryParams.buyerId) {
+    } else if (queryParams.buyerId) {
       transactionsQuery = transactionsQuery.eq("buyer_id", buyerId);
+    } else {
+      // Default: show orders where user is either buyer or seller
+      transactionsQuery = transactionsQuery.or(
+        `seller_id.eq.${auth.userId},buyer_id.eq.${auth.userId}`
+      );
     }
     if (queryParams.status) {
       // Note: Status filter applies to transaction status, not order status
@@ -145,7 +154,15 @@ const handler = async (req: NextRequest) => {
       .map((t) => t.listing_id)
       .filter((id): id is string => id !== null);
 
-    let jerseysMap = new Map<string, any>();
+    interface JerseyData {
+      id: string;
+      images: string[];
+      club: string;
+      season: string;
+      jersey_type: string;
+      player_name?: string | null;
+    }
+    const jerseysMap = new Map<string, JerseyData>();
     if (listingIds.length > 0) {
       // Get jerseys via sale_listings or auctions
       const { data: saleListings } = await supabase
@@ -159,16 +176,22 @@ const handler = async (req: NextRequest) => {
         .in("id", listingIds);
 
       // Map jerseys by listing ID
-      saleListings?.forEach((listing: any) => {
+      interface ListingWithJersey {
+        id: string;
+        jersey_id: string;
+        jerseys: JerseyData | JerseyData[] | null;
+      }
+
+      (saleListings as ListingWithJersey[] | null)?.forEach((listing) => {
         if (listing.jerseys) {
-          const jersey = Array.isArray(listing.jerseys) ? listing.jerseys[0] : listing.jerseys;
+          const jersey: JerseyData = Array.isArray(listing.jerseys) ? listing.jerseys[0] : listing.jerseys;
           jerseysMap.set(listing.id, jersey);
         }
       });
 
-      auctions?.forEach((auction: any) => {
+      (auctions as ListingWithJersey[] | null)?.forEach((auction) => {
         if (auction.jerseys) {
-          const jersey = Array.isArray(auction.jerseys) ? auction.jerseys[0] : auction.jerseys;
+          const jersey: JerseyData = Array.isArray(auction.jerseys) ? auction.jerseys[0] : auction.jerseys;
           jerseysMap.set(auction.id, jersey);
         }
       });

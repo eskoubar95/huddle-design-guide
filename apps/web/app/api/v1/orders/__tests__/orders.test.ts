@@ -16,13 +16,11 @@
  * Related: HUD-39 Phase 6
  */
 
-// @ts-expect-error - Vitest types may not be installed in non-test environments
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock auth
 vi.mock("@/lib/auth", () => ({
-  withAuth: vi.fn((handler) => handler),
-  getAuthUser: vi.fn(),
+  requireAuth: vi.fn(),
 }));
 
 // Mock Supabase
@@ -60,12 +58,12 @@ describe("Order API Routes", () => {
 
   describe("GET /api/v1/orders", () => {
     it("should require authentication", async () => {
-      const { getAuthUser } = await import("@/lib/auth");
-      vi.mocked(getAuthUser).mockResolvedValue(null);
+      const { requireAuth } = await import("@/lib/auth");
+      vi.mocked(requireAuth).mockRejectedValue(new Error("Unauthorized"));
 
       // Note: In actual test, we would import the route handler and test it
       // For now, this documents the expected behavior
-      expect(getAuthUser).toBeDefined();
+      expect(requireAuth).toBeDefined();
     });
 
     it("should return orders for authenticated user", async () => {
@@ -187,15 +185,15 @@ describe("Order API Routes", () => {
   describe("POST /api/v1/orders/[orderId]/ship", () => {
     it("should require seller or admin role", async () => {
       // Document authorization requirement
-      const { getAuthUser } = await import("@/lib/auth");
+      const { requireAuth } = await import("@/lib/auth");
 
-      vi.mocked(getAuthUser).mockResolvedValue({
+      vi.mocked(requireAuth).mockResolvedValue({
         userId: "user_123",
-        role: "buyer", // Should be rejected
-      } as ReturnType<typeof getAuthUser> extends Promise<infer T> ? T : never);
+        profileId: "profile_123",
+      });
 
-      // Buyer should not be able to ship
-      expect(getAuthUser).toBeDefined();
+      // Buyer should not be able to ship - verified by route authorization
+      expect(requireAuth).toBeDefined();
     });
 
     it("should validate tracking number format", async () => {
@@ -218,14 +216,14 @@ describe("Order API Routes", () => {
 
   describe("POST /api/v1/orders/[orderId]/complete", () => {
     it("should require buyer role", async () => {
-      const { getAuthUser } = await import("@/lib/auth");
+      const { requireAuth } = await import("@/lib/auth");
 
-      vi.mocked(getAuthUser).mockResolvedValue({
+      vi.mocked(requireAuth).mockResolvedValue({
         userId: "user_buyer",
-        role: "buyer",
-      } as ReturnType<typeof getAuthUser> extends Promise<infer T> ? T : never);
+        profileId: "profile_buyer",
+      });
 
-      expect(getAuthUser).toBeDefined();
+      expect(requireAuth).toBeDefined();
     });
 
     it("should update status to completed", async () => {
@@ -286,9 +284,9 @@ describe("Order API Routes", () => {
 
     it("should deny access to unrelated users", async () => {
       // User should not access orders they're not involved in
-      const userId = "user_random";
-      const orderSellerId = "user_seller";
-      const orderBuyerId = "user_buyer";
+      const userId: string = "user_random";
+      const orderSellerId: string = "user_seller";
+      const orderBuyerId: string = "user_buyer";
       
       const hasAccess = userId === orderSellerId || userId === orderBuyerId;
       expect(hasAccess).toBe(false);

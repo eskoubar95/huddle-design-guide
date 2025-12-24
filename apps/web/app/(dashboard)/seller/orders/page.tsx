@@ -24,8 +24,6 @@ import {
 import { Loader2, Package, Truck } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { OrderStatus } from "@/lib/services/medusa-order-service";
-import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
-import { getImageUrls, getImageVariant } from "@/lib/utils/image";
 
 interface Order {
   id: string;
@@ -169,7 +167,7 @@ function SellerOrdersPage() {
           <div>
             <h1 className="text-2xl font-bold">My Orders</h1>
             <p className="text-sm text-muted-foreground">
-              Manage orders for items you've sold
+              Manage orders for items you&apos;ve sold
             </p>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>

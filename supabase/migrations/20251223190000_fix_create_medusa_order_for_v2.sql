@@ -46,6 +46,7 @@ BEGIN
   v_order_address_id := 'addr_' || REPLACE(gen_random_uuid()::TEXT, '-', '');
   v_order_item_id := 'item_' || REPLACE(gen_random_uuid()::TEXT, '-', '');
   v_order_line_item_id := 'line_' || REPLACE(gen_random_uuid()::TEXT, '-', '');
+  v_order_summary_id := 'ordsum_' || REPLACE(gen_random_uuid()::TEXT, '-', '');
 
   -- Build shipping metadata (includes shipping method name and cost)
   v_shipping_metadata := COALESCE(p_metadata, '{}'::JSONB) || jsonb_build_object(

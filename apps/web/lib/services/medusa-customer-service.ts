@@ -247,22 +247,3 @@ async function syncMedusaCustomerAddress(
   }
 }
 
-// Legacy functions for backwards compatibility
-async function createMedusaCustomer(clerkUser: User): Promise<{ id: string }> {
-  return createMedusaCustomerFull(clerkUser, { 
-    medusa_customer_id: null, 
-    first_name: null, 
-    last_name: null, 
-    phone: null 
-  }, null);
-}
-
-async function updateMedusaCustomer(customerId: string, clerkUser: User): Promise<void> {
-  return updateMedusaCustomerFull(customerId, clerkUser, {
-    medusa_customer_id: customerId,
-    first_name: null,
-    last_name: null,
-    phone: null
-  }, null);
-}
-

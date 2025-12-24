@@ -202,7 +202,7 @@ SET search_path = public, medusa
 AS $$
 BEGIN
   -- Validate status
-  IF p_status NOT IN ('pending', 'paid', 'shipped', 'completed', 'cancelled') THEN
+  IF p_status NOT IN ('pending', 'paid', 'shipped', 'delivered', 'completed', 'cancelled') THEN
     RAISE EXCEPTION 'Invalid order status: %', p_status;
   END IF;
 

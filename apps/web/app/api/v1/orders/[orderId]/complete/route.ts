@@ -5,6 +5,7 @@ import { successResponse } from "@/lib/api/responses";
 import { MedusaOrderService } from "@/lib/services/medusa-order-service";
 import { createServiceClient } from "@/lib/supabase/server";
 import { ApiError } from "@/lib/api/errors";
+import { query } from "@/lib/db/postgres-connection";
 
 /**
  * POST /api/v1/orders/[orderId]/complete
@@ -39,6 +40,25 @@ export async function POST(
         "FORBIDDEN",
         "Only buyer can complete order",
         403
+      );
+    }
+
+    // Verify order is in a completable state (shipped or delivered)
+    const orders = await query<{ status: string }>(
+      `SELECT status FROM medusa.order WHERE id = $1`,
+      [orderId]
+    );
+
+    if (!orders || orders.length === 0) {
+      throw new ApiError("NOT_FOUND", "Order not found in Medusa", 404);
+    }
+
+    const currentStatus = orders[0].status;
+    if (currentStatus !== "shipped" && currentStatus !== "delivered") {
+      throw new ApiError(
+        "BAD_REQUEST",
+        `Cannot complete order with status '${currentStatus}'. Order must be shipped or delivered.`,
+        400
       );
     }
 

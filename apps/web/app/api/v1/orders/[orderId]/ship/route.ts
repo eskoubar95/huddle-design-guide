@@ -6,6 +6,7 @@ import { MedusaOrderService } from "@/lib/services/medusa-order-service";
 import { createServiceClient } from "@/lib/supabase/server";
 import { ApiError } from "@/lib/api/errors";
 import { z } from "zod";
+import { query } from "@/lib/db/postgres-connection";
 
 const shipOrderSchema = z.object({
   trackingNumber: z.string().min(1, "Tracking number is required"),
@@ -51,6 +52,25 @@ export async function POST(
         "FORBIDDEN",
         "Only seller can ship order",
         403
+      );
+    }
+
+    // Verify order is in a shippable state (paid)
+    const orders = await query<{ status: string }>(
+      `SELECT status FROM medusa.order WHERE id = $1`,
+      [orderId]
+    );
+
+    if (!orders || orders.length === 0) {
+      throw new ApiError("NOT_FOUND", "Order not found in Medusa", 404);
+    }
+
+    const currentStatus = orders[0].status;
+    if (currentStatus !== "paid") {
+      throw new ApiError(
+        "BAD_REQUEST",
+        `Cannot ship order with status '${currentStatus}'. Order must be paid.`,
+        400
       );
     }
 

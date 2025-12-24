@@ -17,6 +17,14 @@ import * as Sentry from "@sentry/nextjs";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Only allow in development/test environments
+    if (process.env.NODE_ENV === "production") {
+      return Response.json(
+        { error: "Test endpoints are not available in production" },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const { auctionId, buyerId, shippingMethodName = "Eurosender Standard", shippingCost = 1500 } = body;
 
@@ -44,10 +52,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse full_name into first_name and last_name
-    const nameParts = shippingAddress.full_name.split(" ");
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
+    // Parse full_name into first_name and last_name (guard against null/empty)
+    const nameParts = (shippingAddress.full_name || "").trim().split(/\s+/);
+    const firstName = nameParts[0] || "Customer";
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
     // Create order via service
     const medusaOrderService = new MedusaOrderService();

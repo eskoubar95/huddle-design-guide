@@ -52,6 +52,15 @@ export async function POST(
     const isSeller = transaction.seller_id === auth.userId;
     const isAdmin = auth.userId === process.env.ADMIN_USER_ID; // TODO: Implement proper admin check
 
+    // Check if already cancelled
+    if (currentStatus === "cancelled") {
+      throw new ApiError(
+        "BAD_REQUEST",
+        "Order is already cancelled",
+        400
+      );
+    }
+
     // Authorization rules:
     // - Buyer can cancel before shipped
     // - Seller can cancel before completed

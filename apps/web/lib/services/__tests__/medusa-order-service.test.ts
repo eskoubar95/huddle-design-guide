@@ -13,7 +13,6 @@
  * Related: HUD-39 Phase 6
  */
 
-// @ts-expect-error - Vitest types may not be installed in non-test environments
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MedusaOrderService } from "../medusa-order-service";
 import { createServiceClient } from "@/lib/supabase/server";
