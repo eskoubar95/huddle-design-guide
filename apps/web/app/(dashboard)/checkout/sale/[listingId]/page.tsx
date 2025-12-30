@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useListing } from "@/lib/hooks/use-listings";
@@ -11,8 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
 import { PriceBreakdown } from "@/components/checkout/PriceBreakdown";
+import { CheckoutSummary } from "@/components/checkout/CheckoutSummary";
+import {
+  ShippingMethodSelector,
+  type ShippingOption,
+} from "@/components/checkout/ShippingMethodSelector";
+import { ShippingAddressPicker, type CheckoutAddressData } from "@/components/checkout/ShippingAddressPicker";
+import { ServicePointPicker, type ServicePoint } from "@/components/checkout/ServicePointPicker";
 import {
   AlertCircle,
   ArrowLeft,
@@ -20,6 +26,7 @@ import {
   CreditCard,
   Truck,
   ShieldCheck,
+  MapPin,
 } from "lucide-react";
 
 // Default platform fee percentage (matches FeeService)
@@ -34,7 +41,7 @@ const DEFAULT_PLATFORM_FEE_PCT = 5.0;
  *
  * Phases (per HUD-34):
  * - Phase 1: Basic page structure, data loading, guards ✓
- * - Phase 2: Shipping selection (ShippingMethodSelector + ServicePointPicker)
+ * - Phase 2: Shipping selection (ShippingMethodSelector + ServicePointPicker) ✓
  * - Phase 3: Backend checkout endpoint
  * - Phase 4: Payment (Stripe Payment Element)
  * - Phase 5: Confirmation + QA
@@ -47,6 +54,15 @@ export default function SaleCheckoutPage() {
 
   // Redirect reason state for friendly messaging
   const [redirectReason, setRedirectReason] = useState<string | null>(null);
+
+  // Shipping state
+  const [serviceType, setServiceType] = useState<"home_delivery" | "pickup_point">("home_delivery");
+  const [shippingAddress, setShippingAddress] = useState<CheckoutAddressData | null>(null);
+  const [isAddressValid, setIsAddressValid] = useState(false);
+  const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingOption | null>(null);
+  const [selectedServicePoint, setSelectedServicePoint] = useState<ServicePoint | null>(null);
+  const [preferredPickupTime, setPreferredPickupTime] = useState("");
+  const [courierIdForPudo, setCourierIdForPudo] = useState<number | undefined>(undefined);
 
   // Fetch listing data
   const {
@@ -65,6 +81,9 @@ export default function SaleCheckoutPage() {
   // Fetch seller profile for display
   const { data: sellerProfile } = useProfile(listing?.seller_id || "");
 
+  // Fetch buyer profile for country
+  const { data: buyerProfile } = useProfile(user?.id || "");
+
   // Derive loading state
   const isLoading = !userLoaded || listingLoading || (listing && jerseyLoading);
 
@@ -72,7 +91,6 @@ export default function SaleCheckoutPage() {
   useEffect(() => {
     if (userLoaded && listing && user?.id === listing.seller_id) {
       setRedirectReason("own_listing");
-      // Delay redirect to show message
       const timeout = setTimeout(() => {
         router.push(`/wardrobe/${listing.jersey_id}`);
       }, 2000);
@@ -91,25 +109,68 @@ export default function SaleCheckoutPage() {
     }
   }, [listing, router]);
 
-  // Calculate price breakdown (client-side preview)
-  const priceBreakdown = listing
-    ? (() => {
-        const itemCents = Math.round(listing.price * 100);
-        const platformFeeCents = Math.round(
-          (itemCents * DEFAULT_PLATFORM_FEE_PCT) / 100
-        );
-        // Shipping not selected yet - will be added in Phase 2
-        const shippingCents = 0;
-        const totalCents = itemCents + platformFeeCents + shippingCents;
+  // Handle address change from ShippingAddressPicker
+  const handleAddressChange = useCallback(
+    (address: CheckoutAddressData, isValid: boolean) => {
+      setShippingAddress(address);
+      setIsAddressValid(isValid);
+      // Reset shipping option when address changes
+      setSelectedShippingOption(null);
+    },
+    []
+  );
 
-        return {
-          itemPrice: listing.price,
-          platformFee: platformFeeCents / 100,
-          shippingCost: shippingCents / 100,
-          totalAmount: totalCents / 100,
-        };
-      })()
-    : null;
+  // Handle shipping option selection
+  const handleShippingSelect = useCallback((option: ShippingOption) => {
+    setSelectedShippingOption(option);
+  }, []);
+
+  // Handle service type change
+  const handleServiceTypeChange = useCallback(
+    (type: "home_delivery" | "pickup_point") => {
+      setServiceType(type);
+      setSelectedShippingOption(null);
+      setSelectedServicePoint(null);
+      setCourierIdForPudo(undefined);
+    },
+    []
+  );
+
+  // Handle courier ID available for PUDO
+  const handleCourierIdAvailable = useCallback((courierId: number) => {
+    setCourierIdForPudo(courierId);
+  }, []);
+
+  // Handle service point selection
+  const handleServicePointSelect = useCallback((point: ServicePoint) => {
+    setSelectedServicePoint(point);
+  }, []);
+
+  // Calculate price breakdown (client-side preview)
+  const priceBreakdown = useMemo(() => {
+    if (!listing) return null;
+
+    const itemCents = Math.round(listing.price * 100);
+    const platformFeeCents = Math.round((itemCents * DEFAULT_PLATFORM_FEE_PCT) / 100);
+    const shippingCents = selectedShippingOption?.price || 0;
+    const totalCents = itemCents + platformFeeCents + shippingCents;
+
+    return {
+      itemPrice: listing.price,
+      platformFee: platformFeeCents / 100,
+      shippingCost: shippingCents / 100,
+      totalAmount: totalCents / 100,
+    };
+  }, [listing, selectedShippingOption]);
+
+  // Check if checkout is ready
+  const isCheckoutReady = useMemo(() => {
+    if (!listing || !jersey) return false;
+    if (!selectedShippingOption) return false;
+    if (serviceType === "home_delivery" && !isAddressValid) return false;
+    if (serviceType === "pickup_point" && !selectedServicePoint) return false;
+    return true;
+  }, [listing, jersey, selectedShippingOption, serviceType, isAddressValid, selectedServicePoint]);
 
   // Render redirect message
   if (redirectReason === "own_listing") {
@@ -161,26 +222,24 @@ export default function SaleCheckoutPage() {
               className="mb-6"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Tilbage
+              Back
             </Button>
 
             <Alert variant="destructive" className="max-w-md mx-auto">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>
-                {isNotFound
-                  ? "Annonce ikke fundet"
-                  : "Der opstod en fejl"}
+                {isNotFound ? "Listing not found" : "An error occurred"}
               </AlertTitle>
               <AlertDescription>
                 {isNotFound
-                  ? "Denne annonce findes ikke eller er blevet fjernet."
-                  : `Kunne ikke hente annonce: ${errorMessage}`}
+                  ? "This listing does not exist or has been removed."
+                  : `Could not load listing: ${errorMessage}`}
               </AlertDescription>
             </Alert>
 
             <div className="mt-6 text-center">
               <Button onClick={() => router.push("/marketplace")}>
-                Gå til markedspladsen
+                Go to Marketplace
               </Button>
             </div>
           </div>
@@ -201,12 +260,10 @@ export default function SaleCheckoutPage() {
               className="mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Tilbage
+              Back
             </Button>
             <h1 className="text-3xl font-bold">Checkout</h1>
-            <p className="text-muted-foreground">
-              Gennemfør dit køb sikkert
-            </p>
+            <p className="text-muted-foreground">Complete your purchase securely</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -217,7 +274,7 @@ export default function SaleCheckoutPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    Produkt
+                    Product
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -231,57 +288,92 @@ export default function SaleCheckoutPage() {
                       </div>
                     </div>
                   ) : jersey && listing ? (
-                    <div className="flex gap-4">
-                      <div className="relative h-24 w-24 rounded-lg overflow-hidden border">
-                        <JerseyImageWithLoading
-                          src={jersey.images[0] || "/placeholder-jersey.svg"}
-                          alt={`${jersey.club} ${jersey.season}`}
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">
-                          {jersey.club} {jersey.season}
-                        </h3>
-                        <p className="text-muted-foreground">
-                          {jersey.jersey_type}
-                          {jersey.player_name && ` • ${jersey.player_name}`}
-                          {jersey.player_number && ` #${jersey.player_number}`}
-                        </p>
-                        {sellerProfile && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Sælger: @{sellerProfile.username}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                    <CheckoutSummary
+                      jersey={{
+                        id: jersey.id,
+                        club: jersey.club,
+                        season: jersey.season,
+                        jersey_type: jersey.jersey_type,
+                        player_name: jersey.player_name,
+                        player_number: jersey.player_number,
+                        condition_rating: jersey.condition_rating,
+                        images: jersey.images,
+                      }}
+                      seller={
+                        sellerProfile
+                          ? {
+                              id: sellerProfile.id,
+                              username: sellerProfile.username,
+                              avatar_url: sellerProfile.avatar_url,
+                              country: sellerProfile.country,
+                            }
+                          : null
+                      }
+                      listingPrice={listing.price}
+                      currency={listing.currency || "€"}
+                    />
                   ) : null}
                 </CardContent>
               </Card>
 
-              {/* Shipping Section - Phase 2 placeholder */}
+              {/* Shipping Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
-                    Levering
+                    Shipping
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
                   {isLoading ? (
                     <div className="space-y-3">
                       <Skeleton className="h-12 w-full" />
                       <Skeleton className="h-12 w-full" />
                     </div>
                   ) : (
-                    <div className="p-4 bg-muted/50 rounded-lg border border-dashed">
-                      <p className="text-muted-foreground text-center">
-                        Leveringsvalg kommer i næste fase
-                      </p>
-                      <p className="text-xs text-muted-foreground text-center mt-1">
-                        (Phase 2: ShippingMethodSelector + ServicePointPicker)
-                      </p>
-                    </div>
+                    <>
+                      {/* Shipping Address Picker - shown first */}
+                      <ShippingAddressPicker
+                        onAddressChange={handleAddressChange}
+                        selectedAddress={shippingAddress}
+                      />
+
+                      {/* Shipping Method Selector - only shown after address is selected */}
+                      {isAddressValid && shippingAddress && (
+                        <div className="pt-4 border-t">
+                          <ShippingMethodSelector
+                            listingId={listingId}
+                            shippingAddress={shippingAddress}
+                            serviceType={serviceType}
+                            onServiceTypeChange={handleServiceTypeChange}
+                            onSelect={handleShippingSelect}
+                            selectedOptionId={selectedShippingOption?.id}
+                            onCourierIdAvailable={handleCourierIdAvailable}
+                            showTabs={true}
+                          />
+                        </div>
+                      )}
+
+                      {/* Pickup Point: Service Point Picker */}
+                      {serviceType === "pickup_point" && isAddressValid && shippingAddress && (
+                        <div className="pt-4 border-t">
+                          <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            Select Pickup Point
+                          </h4>
+                          <ServicePointPicker
+                            courierId={courierIdForPudo}
+                            country={shippingAddress.country || "DK"}
+                            postalCode={shippingAddress.postal_code}
+                            city={shippingAddress.city}
+                            onSelect={handleServicePointSelect}
+                            selectedPointId={selectedServicePoint?.id}
+                            preferredPickupTime={preferredPickupTime}
+                            onPreferredPickupTimeChange={setPreferredPickupTime}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -291,7 +383,7 @@ export default function SaleCheckoutPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5" />
-                    Betaling
+                    Payment
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -303,7 +395,7 @@ export default function SaleCheckoutPage() {
                   ) : (
                     <div className="p-4 bg-muted/50 rounded-lg border border-dashed">
                       <p className="text-muted-foreground text-center">
-                        Betalingsformular kommer i næste fase
+                        Payment form coming in next phase
                       </p>
                       <p className="text-xs text-muted-foreground text-center mt-1">
                         (Phase 4: Stripe Payment Element)
@@ -318,7 +410,7 @@ export default function SaleCheckoutPage() {
             <div className="lg:col-span-1">
               <Card className="sticky top-4">
                 <CardHeader>
-                  <CardTitle>Ordre oversigt</CardTitle>
+                  <CardTitle>Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {isLoading || !priceBreakdown ? (
@@ -332,35 +424,63 @@ export default function SaleCheckoutPage() {
                     <>
                       <PriceBreakdown
                         itemPrice={priceBreakdown.itemPrice}
+                        shippingCost={
+                          selectedShippingOption ? priceBreakdown.shippingCost : undefined
+                        }
                         platformFee={priceBreakdown.platformFee}
                         totalAmount={priceBreakdown.totalAmount}
                         currency={listing?.currency || "€"}
-                        showShipping={false}
+                        showShipping={true}
+                        buyerCountry={buyerProfile?.country || shippingAddress?.country}
+                        sellerCountry={sellerProfile?.country || undefined}
+                        shippingMethodName={selectedShippingOption?.name}
+                        serviceType={serviceType}
                       />
+
+                      {/* Selected Service Point Info */}
+                      {serviceType === "pickup_point" && selectedServicePoint && (
+                        <div className="pt-4 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Pickup Point
+                          </p>
+                          <p className="text-sm font-medium">
+                            {selectedServicePoint.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {selectedServicePoint.address}
+                          </p>
+                        </div>
+                      )}
 
                       {/* Security badges */}
                       <div className="pt-4 border-t space-y-2">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <ShieldCheck className="h-4 w-4 text-green-600" />
-                          <span>Sikker betaling via Stripe</span>
+                          <span>Secure payment via Stripe</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Package className="h-4 w-4 text-blue-600" />
-                          <span>Køber-beskyttelse inkluderet</span>
+                          <span>Buyer protection included</span>
                         </div>
                       </div>
 
-                      {/* CTA Button - disabled until Phase 4 */}
+                      {/* CTA Button */}
                       <Button
                         className="w-full"
                         size="lg"
-                        disabled
+                        disabled={!isCheckoutReady}
                       >
-                        Betal nu
+                        Pay Now
                       </Button>
-                      <p className="text-xs text-muted-foreground text-center">
-                        Betalingsknappen aktiveres når levering er valgt
-                      </p>
+                      {!isCheckoutReady && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          {!selectedShippingOption
+                            ? "Select a shipping method to continue"
+                            : serviceType === "pickup_point" && !selectedServicePoint
+                            ? "Select a pickup point to continue"
+                            : "Fill in shipping address to continue"}
+                        </p>
+                      )}
                     </>
                   )}
                 </CardContent>
@@ -372,4 +492,3 @@ export default function SaleCheckoutPage() {
     </ProtectedRoute>
   );
 }
-
