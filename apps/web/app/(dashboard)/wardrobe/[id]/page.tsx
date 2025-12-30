@@ -198,6 +198,12 @@ const JerseyDetail = () => {
   };
 
   const handleShowInterest = () => {
+    // If there's an active listing, navigate to checkout
+    if (listing?.id) {
+      router.push(`/checkout/sale/${listing.id}`);
+      return;
+    }
+    // Fallback: Show interest toast (for jerseys without active listings)
     toast({
       title: "Interest Sent",
       description: "The owner has been notified of your interest",
