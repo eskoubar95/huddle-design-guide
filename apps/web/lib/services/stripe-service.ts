@@ -269,7 +269,7 @@ export class StripeService {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           try {
             return await this.stripe.paymentIntents.retrieve(paymentIntentId);
-          } catch (retryError) {
+          } catch {
             throw new ApiError(
               "RATE_LIMIT",
               "Payment service temporarily unavailable. Please try again in a moment.",
@@ -285,7 +285,6 @@ export class StripeService {
           );
         }
       }
-      const errorMessage = error instanceof Error ? error.message : String(error);
       Sentry.captureException(error, {
         tags: { component: "stripe_service", operation: "get_payment_intent" },
         extra: { paymentIntentIdPrefix: paymentIntentId.slice(0, 8) },
@@ -344,7 +343,7 @@ export class StripeService {
                 idempotencyKey, // Same key ensures no duplicate
               }
             );
-          } catch (retryError) {
+          } catch {
             throw new ApiError(
               "RATE_LIMIT",
               "Payout service temporarily unavailable. Please try again in a moment.",
@@ -442,7 +441,6 @@ export class StripeService {
     try {
       return await this.stripe.accounts.retrieve(accountId);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
       Sentry.captureException(error, {
         tags: { component: "stripe_service", operation: "get_connect_account" },
         extra: { accountIdPrefix: accountId.slice(0, 8) },
