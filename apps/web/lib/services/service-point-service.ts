@@ -457,7 +457,7 @@ export class ServicePointService {
         courierId,
         country,
         address: { zip: postalCode }, // Use address.zip for postal code search
-        distanceFromLocation: 15, // 15km radius
+        distanceFromLocation: params.radiusKm ?? 15, // Use param or default to 15km
         parcels: {
           parcels: [
             {

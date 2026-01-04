@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils/format";
 import { AlertTriangle, Truck, Globe, Home } from "lucide-react";
 
 /**
@@ -54,9 +55,18 @@ export function PriceBreakdown({
   const isCrossBorder =
     buyerCountry && sellerCountry && buyerCountry !== sellerCountry;
 
-  // Format currency with symbol
+  // Format currency with symbol (using shared formatCurrency utility for consistency)
   const formatAmount = (amount: number) => {
-    return `${currency} ${amount.toFixed(2)}`;
+    return formatCurrency(amount * 100, currency, { isMinorUnits: false });
+  };
+
+  // Helper to convert country codes to readable names
+  const getCountryName = (code: string): string => {
+    try {
+      return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || code;
+    } catch {
+      return code;
+    }
   };
 
   return (
@@ -151,7 +161,7 @@ export function PriceBreakdown({
                   International Shipping
                 </p>
                 <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                  For deliveries from {sellerCountry} to {buyerCountry}, additional
+                  For deliveries from {getCountryName(sellerCountry)} to {getCountryName(buyerCountry)}, additional
                   customs duties or VAT charges may apply upon receipt and are
                   the buyer&apos;s responsibility.
                 </p>

@@ -19,7 +19,8 @@ import {
   type ShippingOption,
 } from "@/components/checkout/ShippingMethodSelector";
 import { ShippingAddressPicker, type CheckoutAddressData } from "@/components/checkout/ShippingAddressPicker";
-import { ServicePointPicker, type ServicePoint } from "@/components/checkout/ServicePointPicker";
+import { ServicePointPicker } from "@/components/checkout/ServicePointPicker";
+import type { ServicePoint } from "@/lib/services/service-point-service";
 import { PaymentElementForm } from "@/components/checkout/PaymentElementForm";
 import { trackCheckoutEvent } from "@/lib/analytics/checkout-analytics";
 import {

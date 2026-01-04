@@ -11,9 +11,12 @@ import { requireAuth } from "@/lib/auth";
 import { StripeService } from "@/lib/services/stripe-service";
 import { handleApiError, ApiError } from "@/lib/api/errors";
 
-const ADMIN_USER_IDS = [
-  "user_36q2GEsU4OIQe2yXhepsR5twIxz", // Add your admin user IDs here
-];
+// Admin user IDs from environment variable (comma-separated)
+// Falls back to hardcoded list for backward compatibility
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || "user_36q2GEsU4OIQe2yXhepsR5twIxz")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
 
 async function handler(req: NextRequest): Promise<NextResponse> {
   const authResult = await requireAuth(req);

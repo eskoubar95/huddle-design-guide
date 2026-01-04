@@ -497,7 +497,12 @@ export class StripeService {
     try {
       const account = await this.stripe.accounts.retrieve(accountId);
       return account.capabilities?.transfers === "active";
-    } catch {
+    } catch (error) {
+      // Log for debugging but don't throw - callers expect boolean result
+      console.warn("[STRIPE] Failed to check transfers capability:", {
+        accountIdPrefix: accountId.slice(0, 8),
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }

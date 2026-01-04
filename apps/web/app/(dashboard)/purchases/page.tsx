@@ -86,6 +86,7 @@ function PurchasesPage() {
     };
 
     fetchOrders();
+    // Intentionally exclude apiRequest/toast - they are stable references and including them causes unnecessary re-fetches
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, statusFilter]);
 

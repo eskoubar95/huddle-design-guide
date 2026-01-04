@@ -190,6 +190,7 @@ function PaymentForm({
       <Button
         type="submit"
         disabled={!stripe || processing || disabled}
+        aria-busy={processing}
         className={cn(
           "w-full h-12 text-base font-semibold transition-all",
           "bg-green-600 hover:bg-green-500 text-white",
@@ -284,8 +285,8 @@ export function PaymentElementForm({
     },
   };
 
-  // Lazily get Stripe instance
-  const stripe = useMemo(() => getStripe(), []);
+  // Lazily get Stripe instance (Elements accepts Promise<Stripe | null>)
+  const stripePromise = useMemo(() => getStripe(), []);
 
   if (!clientSecret) {
     return (
@@ -315,7 +316,7 @@ export function PaymentElementForm({
 
   return (
     <div className={className}>
-      <Elements stripe={stripe} options={options}>
+      <Elements stripe={stripePromise} options={options}>
         <PaymentForm
           amountCents={amountCents}
           currency={currency}

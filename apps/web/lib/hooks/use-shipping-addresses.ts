@@ -31,13 +31,15 @@ export function useShippingAddresses(userId?: string) {
   return useQuery({
     queryKey: ["shipping-addresses", userId],
     queryFn: async () => {
-      const params = userId ? `?userId=${userId}` : "";
+      const params = new URLSearchParams();
+      if (userId) params.set("userId", userId);
+      const queryString = params.toString();
       const data = await apiRequest<ShippingAddressesResponse>(
-        `/shipping/addresses${params}`
+        `/shipping/addresses${queryString ? `?${queryString}` : ""}`
       );
       return data.addresses;
     },
-    enabled: true, // Always fetch for current user
+    enabled: true, // Fetch addresses (uses auth token to determine user if userId not provided)
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -49,7 +51,7 @@ export function useShippingAddresses(userId?: string) {
 export function useDefaultShippingAddress(userId?: string) {
   const { data: addresses, ...rest } = useShippingAddresses(userId);
   
-  // Find default address (first one since sorted by is_default)
+  // Find default address (backend should sort by is_default first, but we search to be safe)
   const defaultAddress = addresses?.find(a => a.is_default) || addresses?.[0] || null;
   
   return {

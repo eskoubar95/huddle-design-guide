@@ -110,6 +110,7 @@ export function ShippingAddressPicker({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"select" | "new">("select");
   const [currentAddress, setCurrentAddress] = useState<CheckoutAddressData | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Form for new address
@@ -146,6 +147,7 @@ export function ShippingAddressPicker({
         state: defaultAddr.state || "",
       };
       setCurrentAddress(checkoutAddr);
+      setSelectedAddressId(defaultAddr.id);
       onAddressChange(checkoutAddr, true);
       setHasInitialized(true);
     }
@@ -168,6 +170,7 @@ export function ShippingAddressPicker({
       state: address.state || "",
     };
     setCurrentAddress(checkoutAddr);
+    setSelectedAddressId(address.id);
     onAddressChange(checkoutAddr, true);
     setIsDialogOpen(false);
   }, [onAddressChange]);
@@ -321,7 +324,7 @@ export function ShippingAddressPicker({
             <div className="space-y-4">
               {/* Saved Addresses List */}
               <RadioGroup
-                value={currentAddress ? formatAddressDisplay(currentAddress) : ""}
+                value={selectedAddressId || ""}
                 className="space-y-3"
               >
                 {savedAddresses.map((address) => (
@@ -331,13 +334,13 @@ export function ShippingAddressPicker({
                     className={cn(
                       "relative flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors",
                       "hover:bg-muted/50",
-                      currentAddress && formatAddressDisplay(currentAddress) === formatAddressDisplay(address)
+                      selectedAddressId === address.id
                         ? "border-primary bg-primary/5"
                         : ""
                     )}
                   >
                     <RadioGroupItem
-                      value={formatAddressDisplay(address)}
+                      value={address.id}
                       id={address.id}
                       className="mt-1"
                     />

@@ -249,7 +249,8 @@ export class CheckoutService {
     }
 
     // 5. Calculate fees
-    const itemCents = Math.round((listing.price || 0) * 100);
+    // Use toFixed to handle floating-point precision before rounding
+    const itemCents = Math.round(Number(((listing.price || 0) * 100).toFixed(2)));
     const { platformPct } = await this.feeService.getActiveFeePercentages();
     const platformFeeCents = this.feeService.calculatePlatformFeeCents(itemCents, platformPct);
     const totalCents = this.feeService.calculateBuyerTotalCents({
@@ -354,8 +355,8 @@ export class CheckoutService {
         country: shippingAddress.country,
         state: shippingAddress.state,
         phone: shippingAddress.phone,
-        first_name: shippingAddress.full_name?.split(" ")[0] || "",
-        last_name: shippingAddress.full_name?.split(" ").slice(1).join(" ") || "",
+        first_name: shippingAddress.full_name?.split(" ")[0] || "Customer",
+        last_name: shippingAddress.full_name?.split(" ").slice(1).join(" ") || "-",
       };
 
       // Build shipping method name for Medusa
@@ -502,10 +503,22 @@ export class CheckoutService {
       });
 
       // Rollback: Mark transaction as failed
-      await supabase
+      const { error: rollbackError } = await supabase
         .from("transactions")
         .update({ status: "failed" })
         .eq("id", transaction.id);
+
+      if (rollbackError) {
+        Sentry.captureException(rollbackError, {
+          tags: {
+            component: "checkout_service",
+            operation: "rollback_transaction",
+          },
+          extra: {
+            transactionIdPrefix: transaction.id.slice(0, 8),
+          },
+        });
+      }
 
       // Re-throw the error
       throw error;

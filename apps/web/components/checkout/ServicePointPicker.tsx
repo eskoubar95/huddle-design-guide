@@ -17,28 +17,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-export interface ServicePoint {
-  id: string;
-  provider: string;
-  provider_id: string;
-  name: string;
-  address: string;
-  city: string;
-  postal_code: string;
-  country: string;
-  latitude: number;
-  longitude: number;
-  type: "service_point" | "locker" | "store";
-  opening_hours: {
-    openingHours?: Array<{
-      dayNameLong: string;
-      dayNameShort: string;
-      times: Array<{ from: string; to: string }>;
-    }>;
-  } | null;
-  distance_km: number | null;
-}
+import type { ServicePoint } from "@/lib/services/service-point-service";
 
 interface ServicePointPickerProps {
   /** Courier ID from shipping quote (required for Eurosender PUDO) */
@@ -148,7 +127,6 @@ export function ServicePointPicker({
       postalCode &&
       hasAutoFetched.current
     ) {
-      prevCourierIdRef.current = courierId;
       // Clear hasFetched to allow re-fetch with courierId
       lastFetchParams.current = "";
       fetchPoints(postalCode);
