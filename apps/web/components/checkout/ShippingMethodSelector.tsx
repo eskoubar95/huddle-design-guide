@@ -228,8 +228,9 @@ export function ShippingMethodSelector({
             size="sm"
             onClick={handleRetry}
             className="mt-3"
+            aria-label="Retry loading shipping options"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
             Try again
           </Button>
         </div>
@@ -287,6 +288,7 @@ export function ShippingMethodSelector({
         }
       }}
       className="space-y-2"
+      aria-label="Shipping options"
     >
       {options.map((option, index) => {
         // Create unique key using index to handle potential duplicate IDs from API
@@ -343,13 +345,21 @@ export function ShippingMethodSelector({
           onValueChange={handleServiceTypeChange}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="home_delivery" className="flex items-center gap-2">
-              <Home className="h-4 w-4" />
+          <TabsList className="grid w-full grid-cols-2" aria-label="Shipping method selection">
+            <TabsTrigger 
+              value="home_delivery" 
+              className="flex items-center gap-2"
+              aria-label="Home delivery - deliver to your address"
+            >
+              <Home className="h-4 w-4" aria-hidden="true" />
               Home Delivery
             </TabsTrigger>
-            <TabsTrigger value="pickup_point" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
+            <TabsTrigger 
+              value="pickup_point" 
+              className="flex items-center gap-2"
+              aria-label="Pickup point - collect from a nearby location"
+            >
+              <MapPin className="h-4 w-4" aria-hidden="true" />
               Pickup Point
             </TabsTrigger>
           </TabsList>

@@ -290,6 +290,7 @@ export function ServicePointPicker({
                 onChange={(e) => setCustomPostalCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearchDifferentArea()}
                 className="flex-1"
+                aria-label="Postal code for pickup point search"
               />
               <Button 
                 variant="secondary" 
@@ -310,6 +311,8 @@ export function ServicePointPicker({
               }
             }}
             className="space-y-2"
+            aria-label="Pickup point selection"
+            role="radiogroup"
           >
             {points.map((point) => {
               const todayHours = getTodayHours(point);

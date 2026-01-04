@@ -28,6 +28,10 @@ const pageTitles: Record<string, string> = {
   '/messages': 'Messages',
   '/notifications': 'Notifications',
   '/settings': 'Settings',
+  '/purchases': 'My Purchases',
+  '/seller/orders': 'Seller Orders',
+  '/seller/payouts': 'Payouts',
+  '/seller/connect-stripe': 'Connect Stripe',
 };
 
 export const TopNav = () => {
@@ -94,12 +98,22 @@ export const TopNav = () => {
     router.push("/auth");
   };
 
-  // Check if we're on a jersey detail page or edit page
+  // Check if we're on a jersey detail page, edit page, or order detail page
   const isJerseyDetailPage = pathname?.startsWith('/wardrobe/') && pathname !== '/wardrobe' && !pathname?.endsWith('/edit');
   const isEditPage = pathname?.endsWith('/edit');
+  const isOrderDetailPage = pathname?.startsWith('/orders/') && pathname !== '/orders';
+  const isCheckoutPage = pathname?.startsWith('/checkout/');
   
   // Get page title from pathname, default to "Dashboard"
-  const pageTitle = pageTitles[pathname] || (isJerseyDetailPage ? 'Jersey Details' : isEditPage ? 'Edit Jersey' : 'Dashboard');
+  const getPageTitle = () => {
+    if (pageTitles[pathname]) return pageTitles[pathname];
+    if (isJerseyDetailPage) return 'Jersey Details';
+    if (isEditPage) return 'Edit Jersey';
+    if (isOrderDetailPage) return 'Order Details';
+    if (isCheckoutPage) return 'Checkout';
+    return 'Dashboard';
+  };
+  const pageTitle = getPageTitle();
 
   // Handle back button with unsaved changes check for edit page
   const handleBack = () => {
@@ -136,9 +150,9 @@ export const TopNav = () => {
     <header className="sticky top-0 z-40 w-full border-b border-white/5 bg-background/80 backdrop-blur-md">
       <div className="max-w-full px-6 h-16 flex items-center justify-between gap-4">
         
-        {/* Left: Back Button (if jersey detail or edit) + Page Title */}
+        {/* Left: Back Button (if detail/edit/checkout page) + Page Title */}
         <div className="flex items-center gap-2">
-          {(isJerseyDetailPage || isEditPage) ? (
+          {(isJerseyDetailPage || isEditPage || isOrderDetailPage || isCheckoutPage) ? (
             <>
               <Button 
                 variant="ghost" 
