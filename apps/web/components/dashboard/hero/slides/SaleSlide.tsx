@@ -130,7 +130,7 @@ export const SaleSlide = ({
             />
         </div>
           <Button
-            onClick={() => router.push(`/listing/${jersey.listing.id}`)}
+            onClick={() => router.push(`/checkout/sale/${jersey.listing.id}`)}
             variant="default" 
             className="font-semibold bg-white text-black hover:bg-white/90 border-none shadow-lg w-full md:w-auto"
           >

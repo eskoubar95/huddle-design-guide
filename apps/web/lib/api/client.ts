@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
+import { useCallback } from "react";
 
 /**
  * API Client Error
@@ -92,57 +93,62 @@ export async function apiRequest<T>(
 /**
  * Hook to get API request function with Clerk token
  * Use this in React components
- * 
+ *
  * Automatically handles token refresh and redirects on 401 errors
+ *
+ * IMPORTANT: Returns a stable function reference via useCallback to prevent
+ * infinite loops when used in useEffect dependencies
  */
 export function useApiRequest() {
   const { getToken, isLoaded, userId } = useAuth();
 
-  return async <T,>(
-    endpoint: string,
-    options?: RequestInit
-  ): Promise<T> => {
-    // Wait for auth to be loaded
-    if (!isLoaded) {
-      throw new ApiClientError(
-        "AUTH_NOT_LOADED",
-        "Authentication is still loading. Please wait.",
-        0
-      );
-    }
+  const makeRequest = useCallback(
+    async <T,>(endpoint: string, options?: RequestInit): Promise<T> => {
+      // Wait for auth to be loaded
+      if (!isLoaded) {
+        throw new ApiClientError(
+          "AUTH_NOT_LOADED",
+          "Authentication is still loading. Please wait.",
+          0
+        );
+      }
 
-    // Check if user is signed in
-    if (!userId) {
-      redirectToAuth();
-      throw new ApiClientError(
-        "UNAUTHORIZED",
-        "You must be signed in to perform this action.",
-        401
-      );
-    }
+      // Check if user is signed in
+      if (!userId) {
+        redirectToAuth();
+        throw new ApiClientError(
+          "UNAUTHORIZED",
+          "You must be signed in to perform this action.",
+          401
+        );
+      }
 
-    // Get token with skipCache to ensure fresh token
-    // This helps catch expired tokens early
-    const token = await getToken({ skipCache: true });
-    if (!token) {
-      redirectToAuth();
-      throw new ApiClientError(
-        "TOKEN_ERROR",
-        "Failed to get authentication token. Please sign in again.",
-        401
-      );
-    }
+      // Get token with skipCache to ensure fresh token
+      // This helps catch expired tokens early
+      const token = await getToken({ skipCache: true });
+      if (!token) {
+        redirectToAuth();
+        throw new ApiClientError(
+          "TOKEN_ERROR",
+          "Failed to get authentication token. Please sign in again.",
+          401
+        );
+      }
 
-    try {
-      return await apiRequest<T>(endpoint, { ...options, token });
-    } catch (error) {
-      // Re-throw 401 errors (already handled redirect in apiRequest)
-      if (error instanceof ApiClientError && error.statusCode === 401) {
+      try {
+        return await apiRequest<T>(endpoint, { ...options, token });
+      } catch (error) {
+        // Re-throw 401 errors (already handled redirect in apiRequest)
+        if (error instanceof ApiClientError && error.statusCode === 401) {
+          throw error;
+        }
+        // Re-throw all other errors
         throw error;
       }
-      // Re-throw all other errors
-      throw error;
-    }
-  };
+    },
+    [getToken, isLoaded, userId]
+  );
+
+  return makeRequest;
 }
 

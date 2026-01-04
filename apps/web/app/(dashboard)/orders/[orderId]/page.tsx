@@ -39,11 +39,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Loader2,
-  ArrowLeft,
   Truck,
   CheckCircle2,
   XCircle,
   ExternalLink,
+  PartyPopper,
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoading";
@@ -67,6 +67,16 @@ interface OrderDetailResponse {
     };
     shipping_method?: string;
     shipping_cost?: number;
+    service_point?: {
+      id: string;
+      name: string;
+      address: string;
+      city: string;
+      postal_code: string;
+      country: string;
+      provider: string;
+    };
+    preferred_time_window?: string;
     totals: {
       subtotal: number;
       shipping: number;
@@ -146,7 +156,8 @@ function OrderDetailPage() {
     if (orderId) {
       fetchOrder();
     }
-  }, [orderId, apiRequest, toast, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   const handleShip = async () => {
     if (!trackingNumber.trim() || !shippingProvider.trim()) {
@@ -250,25 +261,37 @@ function OrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="container max-w-4xl py-8">
-        <Card>
-          <CardContent className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </CardContent>
-        </Card>
-      </div>
+      <ProtectedRoute>
+        <div className="min-h-screen pb-20">
+          <div className="px-4 lg:px-8 pt-6">
+            <div className="max-w-5xl mx-auto">
+              <Card>
+                <CardContent className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
     );
   }
 
   if (!orderData || !orderData.order || !orderData.transaction) {
     return (
-      <div className="container max-w-4xl py-8">
-        <Card>
-          <CardContent className="py-8">
-            <p className="text-center text-muted-foreground">Order not found</p>
-          </CardContent>
-        </Card>
-      </div>
+      <ProtectedRoute>
+        <div className="min-h-screen pb-20">
+          <div className="px-4 lg:px-8 pt-6">
+            <div className="max-w-5xl mx-auto">
+              <Card>
+                <CardContent className="py-8">
+                  <p className="text-center text-muted-foreground">Order not found</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
     );
   }
 
@@ -289,25 +312,35 @@ function OrderDetailPage() {
 
   return (
     <ProtectedRoute>
-      <div className="container max-w-4xl py-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Order Details</h1>
+      <div className="min-h-screen pb-20">
+        {/* Page Header */}
+        <header className="sticky top-16 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
+          <div className="max-w-5xl mx-auto px-4 lg:px-8 py-4">
             <p className="text-sm text-muted-foreground">
-              Order ID: {order.id.slice(0, 8)}...
+              Order #{order.id.slice(0, 8)}
             </p>
           </div>
-        </div>
+        </header>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        {/* Content */}
+        <div className="px-4 lg:px-8 pt-6">
+          <div className="max-w-5xl mx-auto space-y-6">
+            {/* Success Banner for confirmed orders */}
+            {order.status === "paid" && isBuyer && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-start gap-3">
+                <PartyPopper className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h2 className="font-semibold text-green-500">
+                    Payment Successful!
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Your payment has been confirmed. The seller will ship your item soon.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-6 md:grid-cols-3">
           {/* Main Content */}
           <div className="md:col-span-2 space-y-6">
             {/* Order Summary */}
@@ -445,7 +478,32 @@ function OrderDetailPage() {
                       { isMinorUnits: true }
                     )}
                   </p>
+                  {order.preferred_time_window && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Preferred time: {order.preferred_time_window}
+                    </p>
+                  )}
                 </div>
+
+                {/* Service Point (Pickup Point) */}
+                {order.service_point && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Pickup Point</h4>
+                    <p className="text-sm font-medium">{order.service_point.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.service_point.address}
+                      <br />
+                      {order.service_point.postal_code} {order.service_point.city}
+                      <br />
+                      {order.service_point.country}
+                    </p>
+                    {order.service_point.provider && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Provider: {order.service_point.provider}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {tracking.number && (
                   <div>
@@ -484,9 +542,9 @@ function OrderDetailPage() {
                   <span className="font-mono text-xs">{transaction.id.slice(0, 8)}...</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Payment Intent</span>
+                  <span className="text-muted-foreground">Order ID</span>
                   <span className="font-mono text-xs">
-                    {transaction.stripe_payment_intent_id.slice(0, 8)}...
+                    {order.id.slice(0, 8)}...
                   </span>
                 </div>
                 {transaction.completed_at && (
@@ -650,6 +708,8 @@ function OrderDetailPage() {
                 </CardContent>
               </Card>
             )}
+          </div>
+            </div>
           </div>
         </div>
       </div>

@@ -148,6 +148,7 @@ export class ServicePointService {
 
   /**
    * Search service points by postal code
+   * Uses Eurosender PUDO API with address.zip if courierId provided
    */
   async searchByPostalCode(
     params: ServicePointSearchParams
@@ -159,22 +160,16 @@ export class ServicePointService {
         throw new ApiError("BAD_REQUEST", "Postal code is required.", 400);
       }
 
-      // 1. If courierId provided, we need coordinates for Eurosender PUDO
-      // TODO: Geocode postal code to get coordinates, then call searchEurosenderPudoPoints
-      // For now, return cached points only when courierId is provided with postal code
+      // 1. If courierId provided, use Eurosender PUDO API with address.zip
       if (courierId) {
-        this.logger.info(
-          this.logger.fmt`[SERVICE_POINTS] Postal code search with courierId requires geocoding (not yet implemented). Returning cached points only.`
-        );
-        // Could throw error here, but for now return cached points as fallback
-        // throw new ApiError(
-        //   "BAD_REQUEST",
-        //   "Postal code search with courierId requires coordinates. Please provide lat/lng or use coordinate search.",
-        //   400
-        // );
+        return this.searchEurosenderPudoPointsByAddress({
+          ...params,
+          postalCode,
+          courierId,
+        });
       }
 
-      // 2. Return cached points for postal code
+      // 2. Return cached points for postal code (no courierId)
       const points = await query<ServicePoint>(
         `
         SELECT 
@@ -422,6 +417,124 @@ export class ServicePointService {
           country: params.country,
           latitude: params.latitude,
           longitude: params.longitude,
+        },
+      });
+
+      throw new ApiError(
+        "EXTERNAL_SERVICE_ERROR",
+        "Failed to search Eurosender PUDO points. Please try again later.",
+        502
+      );
+    }
+  }
+
+  /**
+   * Search Eurosender PUDO points by address (postal code)
+   * Uses address.zip instead of geolocation for searching
+   * Per Eurosender API: https://integrators.eurosender.com/apis/pudo-list-endpoint/api_v1pudolist_post
+   */
+  private async searchEurosenderPudoPointsByAddress(
+    params: ServicePointSearchParams & { courierId: number; postalCode: string }
+  ): Promise<ServicePoint[]> {
+    try {
+      const {
+        courierId,
+        country,
+        postalCode,
+        limit = 20,
+        parcelWeight = 0.5, // Default jersey weight (kg)
+        parcelLength = 30, // Default jersey dimensions (cm)
+        parcelWidth = 20,
+        parcelHeight = 5,
+      } = params;
+
+      this.logger.debug(
+        this.logger.fmt`[SERVICE_POINTS] Searching Eurosender PUDO points by address: courierId=${courierId}, country=${country}, postalCode=${postalCode}, limit=${limit}`
+      );
+
+      // Call Eurosender PUDO API with address instead of geolocation
+      const pudoResponse = await this.eurosenderService.searchPudoPoints({
+        courierId,
+        country,
+        address: { zip: postalCode }, // Use address.zip for postal code search
+        distanceFromLocation: params.radiusKm ?? 15, // Use param or default to 15km
+        parcels: {
+          parcels: [
+            {
+              parcelId: "HuddleJersey",
+              weight: parcelWeight,
+              length: parcelLength,
+              width: parcelWidth,
+              height: parcelHeight,
+            },
+          ],
+        },
+        filterBySide: "deliverySide", // For buyer pickup points
+        resultsLimit: limit,
+      });
+
+      this.logger.debug(
+        this.logger.fmt`[SERVICE_POINTS] Eurosender PUDO (address) response: pointsCount=${pudoResponse.points.length}`
+      );
+
+      // Map to ServicePoint format
+      const points: ServicePoint[] = pudoResponse.points.map((pudo) => {
+        // Build opening hours object
+        const openingHours = pudo.openingHours
+          ? {
+              openingHours: pudo.openingHours,
+              shippingCutOffTime: pudo.shippingCutOffTime,
+              features: pudo.features,
+              pointEmail: pudo.pointEmail,
+              pointPhone: pudo.pointPhone,
+              holidayDates: pudo.holidayDates,
+            }
+          : null;
+
+        return {
+          id: pudo.pudoPointCode,
+          provider: "eurosender" as const,
+          provider_id: pudo.pudoPointCode,
+          name: pudo.locationName,
+          address: `${pudo.street}, ${pudo.zip} ${pudo.city}`,
+          city: pudo.city,
+          postal_code: pudo.zip,
+          country,
+          latitude: pudo.geolocation.latitude,
+          longitude: pudo.geolocation.longitude,
+          type: "service_point" as const,
+          opening_hours: openingHours,
+          distance_km: null, // Distance not meaningful for postal code search
+        };
+      });
+
+      // Return points (sorted by name since no distance available)
+      return points.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        this.logger.fmt`[SERVICE_POINTS] Eurosender PUDO (address) search failed: ${errorMessage}`,
+        {
+          courierId: params.courierId,
+          country: params.country,
+          postalCode: params.postalCode,
+        }
+      );
+
+      Sentry.captureException(error, {
+        tags: {
+          component: "service_point_service",
+          operation: "search_eurosender_pudo_points_by_address",
+        },
+        extra: {
+          errorMessage,
+          courierId: params.courierId,
+          country: params.country,
+          postalCode: params.postalCode,
         },
       });
 
