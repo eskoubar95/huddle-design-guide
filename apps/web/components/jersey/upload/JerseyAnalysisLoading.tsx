@@ -150,16 +150,16 @@ export const JerseyAnalysisLoading = () => {
             className="flex flex-col items-center space-y-2"
           >
             <h3 className="text-xl font-semibold tracking-tight">
-              {stage === 0 && "Uploader og scanner..."}
-              {stage === 1 && "AI Vision analyserer detaljer..."}
-              {stage === 2 && "Matcher mod database & Transfermarkt..."}
-              {stage === 3 && "Færdiggør resultater..."}
+              {stage === 0 && "Uploading and scanning..."}
+              {stage === 1 && "AI Vision analyzing details..."}
+              {stage === 2 && "Matching against database..."}
+              {stage === 3 && "Finalizing results..."}
             </h3>
             <p className="text-muted-foreground text-sm">
-              {stage === 0 && "Vi forbereder dine billeder til analyse"}
-              {stage === 1 && "Finder sponsorer, badges og trøjetype"}
-              {stage === 2 && "Identificerer sæson, klub og spillere"}
-              {stage === 3 && "Næsten færdig, samler det hele"}
+              {stage === 0 && "Preparing your images for analysis"}
+              {stage === 1 && "Finding sponsors, badges and jersey type"}
+              {stage === 2 && "Identifying season, club and players"}
+              {stage === 3 && "Almost done, finalizing everything"}
             </p>
           </motion.div>
         </AnimatePresence>
