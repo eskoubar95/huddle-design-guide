@@ -4,6 +4,7 @@ import { JerseyImageWithLoading } from "@/components/jersey/JerseyImageWithLoadi
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getConditionLabel } from "@/lib/utils/jersey-helpers";
 
 interface JerseyData {
   id: string;
@@ -38,16 +39,7 @@ export function CheckoutSummary({
   currency = "€",
   className,
 }: CheckoutSummaryProps) {
-  // Get condition label
-  const getConditionLabel = (rating: number | null | undefined): string => {
-    if (!rating) return "";
-    if (rating >= 9) return "Mint";
-    if (rating >= 7) return "Excellent";
-    if (rating >= 5) return "Good";
-    if (rating >= 3) return "Fair";
-    return "Poor";
-  };
-
+  // Get condition label using shared utility
   const conditionLabel = getConditionLabel(jersey.condition_rating);
 
   return (

@@ -56,8 +56,9 @@ export function PriceBreakdown({
     buyerCountry && sellerCountry && buyerCountry !== sellerCountry;
 
   // Format currency with symbol (using shared formatCurrency utility for consistency)
+  // PriceBreakdown receives amounts in major units (EUR), so we convert to minor units for formatCurrency
   const formatAmount = (amount: number) => {
-    return formatCurrency(amount * 100, currency, { isMinorUnits: false });
+    return formatCurrency(amount * 100, currency, { isMinorUnits: true, locale: 'en-US' });
   };
 
   // Helper to convert country codes to readable names
