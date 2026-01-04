@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
+import * as Sentry from "@sentry/nextjs";
 import { useListing } from "@/lib/hooks/use-listings";
 import { useJersey } from "@/lib/hooks/use-jerseys";
 import { useProfile } from "@/lib/hooks/use-profiles";
@@ -19,6 +20,8 @@ import {
 } from "@/components/checkout/ShippingMethodSelector";
 import { ShippingAddressPicker, type CheckoutAddressData } from "@/components/checkout/ShippingAddressPicker";
 import { ServicePointPicker, type ServicePoint } from "@/components/checkout/ServicePointPicker";
+import { PaymentElementForm } from "@/components/checkout/PaymentElementForm";
+import { trackCheckoutEvent } from "@/lib/analytics/checkout-analytics";
 import {
   AlertCircle,
   ArrowLeft,
@@ -27,6 +30,7 @@ import {
   Truck,
   ShieldCheck,
   MapPin,
+  Loader2,
 } from "lucide-react";
 
 // Default platform fee percentage (matches FeeService)
@@ -50,6 +54,7 @@ export default function SaleCheckoutPage() {
   const params = useParams<{ listingId: string }>();
   const router = useRouter();
   const { user, isLoaded: userLoaded } = useUser();
+  const { getToken } = useAuth();
   const listingId = params.listingId || "";
 
   // Redirect reason state for friendly messaging
@@ -63,6 +68,17 @@ export default function SaleCheckoutPage() {
   const [selectedServicePoint, setSelectedServicePoint] = useState<ServicePoint | null>(null);
   const [preferredPickupTime, setPreferredPickupTime] = useState("");
   const [courierIdForPudo, setCourierIdForPudo] = useState<number | undefined>(undefined);
+
+  // Payment state
+  const [checkoutData, setCheckoutData] = useState<{
+    transactionId: string;
+    orderId: string;
+    clientSecret: string;
+    totalAmountCents: number;
+    currency: string;
+  } | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   // Fetch listing data
   const {
@@ -116,8 +132,20 @@ export default function SaleCheckoutPage() {
       setIsAddressValid(isValid);
       // Reset shipping option when address changes
       setSelectedShippingOption(null);
+      
+      // Add breadcrumb for address change (no PII)
+      Sentry.addBreadcrumb({
+        category: "checkout.ui",
+        message: "Shipping address updated",
+        level: "info",
+        data: {
+          listingIdPrefix: listingId.slice(0, 8),
+          country: address.country, // Country code only, no street/name
+          isValid,
+        },
+      });
     },
-    []
+    [listingId]
   );
 
   // Handle shipping option selection
@@ -132,8 +160,25 @@ export default function SaleCheckoutPage() {
       setSelectedShippingOption(null);
       setSelectedServicePoint(null);
       setCourierIdForPudo(undefined);
+      
+      // Add breadcrumb for shipping method change
+      Sentry.addBreadcrumb({
+        category: "checkout.ui",
+        message: "Shipping method changed",
+        level: "info",
+        data: {
+          listingIdPrefix: listingId.slice(0, 8),
+          shippingMethod: type,
+        },
+      });
+
+      // Track analytics event
+      trackCheckoutEvent("checkout_shipping_method_selected", {
+        listingIdPrefix: listingId.slice(0, 8),
+        shippingMethod: type,
+      });
     },
-    []
+    [listingId]
   );
 
   // Handle courier ID available for PUDO
@@ -144,7 +189,26 @@ export default function SaleCheckoutPage() {
   // Handle service point selection
   const handleServicePointSelect = useCallback((point: ServicePoint) => {
     setSelectedServicePoint(point);
-  }, []);
+    
+      // Add breadcrumb for service point selection (no PII)
+      Sentry.addBreadcrumb({
+        category: "checkout.ui",
+        message: "Service point selected",
+        level: "info",
+        data: {
+          listingIdPrefix: listingId.slice(0, 8),
+          servicePointIdPrefix: point.id.slice(0, 8),
+          provider: point.provider,
+          country: point.country, // Country code only
+        },
+      });
+
+      // Track analytics event
+      trackCheckoutEvent("checkout_service_point_selected", {
+        listingIdPrefix: listingId.slice(0, 8),
+        servicePointProvider: point.provider,
+      });
+  }, [listingId]);
 
   // Calculate price breakdown (client-side preview)
   const priceBreakdown = useMemo(() => {
@@ -171,6 +235,187 @@ export default function SaleCheckoutPage() {
     if (serviceType === "pickup_point" && !selectedServicePoint) return false;
     return true;
   }, [listing, jersey, selectedShippingOption, serviceType, isAddressValid, selectedServicePoint]);
+
+  // Initiate checkout - calls backend to create transaction and payment intent
+  const initiateCheckout = useCallback(async () => {
+    if (!isCheckoutReady || !listing || !shippingAddress || !selectedShippingOption) {
+      return;
+    }
+
+    setIsProcessingCheckout(true);
+    setPaymentError(null);
+
+    // Add breadcrumb: Checkout initiated
+    Sentry.addBreadcrumb({
+      category: "checkout.ui",
+      message: "Checkout initiated",
+      level: "info",
+      data: {
+        listingIdPrefix: listingId.slice(0, 8),
+        shippingMethod: serviceType,
+        shippingCents: selectedShippingOption.price,
+        totalCents: Math.round((priceBreakdown?.totalAmount || 0) * 100),
+        currency: "EUR",
+      },
+    });
+
+    try {
+      const requestBody = {
+        shippingMethod: serviceType,
+        shippingAddress: {
+          street: shippingAddress.street,
+          city: shippingAddress.city,
+          postal_code: shippingAddress.postal_code,
+          country: shippingAddress.country,
+          state: shippingAddress.state || undefined,
+          // Use buyer profile name if available
+          full_name: buyerProfile?.first_name && buyerProfile?.last_name 
+            ? `${buyerProfile.first_name} ${buyerProfile.last_name}`
+            : user?.fullName || undefined,
+          phone: undefined, // Phone collected during checkout if needed
+        },
+        servicePoint: serviceType === "pickup_point" && selectedServicePoint ? {
+          id: selectedServicePoint.id,
+          name: selectedServicePoint.name,
+          address: selectedServicePoint.address,
+          city: selectedServicePoint.city,
+          postal_code: selectedServicePoint.postal_code,
+          country: selectedServicePoint.country,
+          provider: selectedServicePoint.provider,
+        } : undefined,
+        preferredTimeWindow: preferredPickupTime || undefined,
+        shippingCostCents: selectedShippingOption.price,
+        quoteTimestamp: new Date().toISOString(),
+      };
+
+      // Get auth token for API call
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Authentication required. Please sign in and try again.");
+      }
+
+      const response = await fetch(`/api/v1/checkout/sale/${listingId}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Check for service unavailable (feature flag disabled)
+        if (response.status === 503 || data.error?.code === "SERVICE_UNAVAILABLE") {
+          throw new Error("Checkout is temporarily unavailable. Please try again later.");
+        }
+        throw new Error(data.error?.message || "Checkout failed. Please try again.");
+      }
+
+      setCheckoutData({
+        transactionId: data.transactionId,
+        orderId: data.orderId,
+        clientSecret: data.clientSecret,
+        totalAmountCents: data.breakdown?.totalCents || (priceBreakdown?.totalAmount || 0) * 100,
+        currency: data.currency || "EUR",
+      });
+
+      // Add breadcrumb: Checkout API success
+      Sentry.addBreadcrumb({
+        category: "checkout.ui",
+        message: "Checkout API call successful",
+        level: "info",
+        data: {
+          listingIdPrefix: listingId.slice(0, 8),
+          transactionIdPrefix: data.transactionId?.slice(0, 8),
+          orderIdPrefix: data.orderId?.slice(0, 8),
+        },
+      });
+
+      // Track analytics event
+      trackCheckoutEvent("checkout_initiated", {
+        listingIdPrefix: listingId.slice(0, 8),
+        shippingMethod: serviceType,
+        amountCents: data.breakdown?.totalCents || Math.round((priceBreakdown?.totalAmount || 0) * 100),
+        currency: data.currency || "EUR",
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An error occurred. Please try again.";
+      setPaymentError(errorMessage);
+
+      // Add breadcrumb: Checkout API error (no PII)
+      Sentry.addBreadcrumb({
+        category: "checkout.ui",
+        message: "Checkout API call failed",
+        level: "error",
+        data: {
+          listingIdPrefix: listingId.slice(0, 8),
+          errorType: error instanceof Error ? error.constructor.name : "UnknownError",
+          // No PII - error message sanitized by setPaymentError
+        },
+      });
+
+      // Capture exception with context
+      Sentry.captureException(error, {
+        tags: {
+          component: "checkout_page",
+          operation: "initiate_checkout",
+        },
+        extra: {
+          listingIdPrefix: listingId.slice(0, 8),
+          shippingMethod: serviceType,
+          // No PII
+        },
+      });
+    } finally {
+      setIsProcessingCheckout(false);
+    }
+  }, [
+    isCheckoutReady,
+    listing,
+    listingId,
+    shippingAddress,
+    selectedShippingOption,
+    serviceType,
+    selectedServicePoint,
+    preferredPickupTime,
+    priceBreakdown,
+    buyerProfile,
+    user,
+    getToken,
+  ]);
+
+  // Handle payment success
+  const handlePaymentSuccess = useCallback(() => {
+    // Track analytics event
+    trackCheckoutEvent("checkout_payment_success", {
+      listingIdPrefix: listingId.slice(0, 8),
+      amountCents: checkoutData?.totalAmountCents,
+      currency: checkoutData?.currency || "EUR",
+    });
+
+    // Track completion event
+    if (checkoutData?.orderId) {
+      trackCheckoutEvent("checkout_completed", {
+        listingIdPrefix: listingId.slice(0, 8),
+        amountCents: checkoutData.totalAmountCents,
+        currency: checkoutData.currency || "EUR",
+      });
+      router.push(`/orders/${checkoutData.orderId}`);
+    }
+  }, [checkoutData?.orderId, checkoutData?.totalAmountCents, checkoutData?.currency, listingId, router]);
+
+  // Handle payment error
+  const handlePaymentError = useCallback((error: string) => {
+    setPaymentError(error);
+    
+    // Track analytics event
+    trackCheckoutEvent("checkout_payment_failed", {
+      listingIdPrefix: listingId.slice(0, 8),
+      errorType: "payment_error",
+    });
+  }, [listingId]);
 
   // Render redirect message
   if (redirectReason === "own_listing") {
@@ -378,7 +623,7 @@ export default function SaleCheckoutPage() {
                 </CardContent>
               </Card>
 
-              {/* Payment Section - Phase 4 placeholder */}
+              {/* Payment Section */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -392,14 +637,49 @@ export default function SaleCheckoutPage() {
                       <Skeleton className="h-12 w-full" />
                       <Skeleton className="h-12 w-full" />
                     </div>
+                  ) : checkoutData?.clientSecret ? (
+                    // Show Stripe Payment Element when we have clientSecret
+                    <PaymentElementForm
+                      clientSecret={checkoutData.clientSecret}
+                      amountCents={checkoutData.totalAmountCents}
+                      currency={checkoutData.currency}
+                      onSuccess={handlePaymentSuccess}
+                      onError={handlePaymentError}
+                      returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/orders/${checkoutData.orderId}`}
+                    />
                   ) : (
-                    <div className="p-4 bg-muted/50 rounded-lg border border-dashed">
-                      <p className="text-muted-foreground text-center">
-                        Payment form coming in next phase
-                      </p>
-                      <p className="text-xs text-muted-foreground text-center mt-1">
-                        (Phase 4: Stripe Payment Element)
-                      </p>
+                    // Show initiate checkout prompt
+                    <div className="space-y-4">
+                      {paymentError && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{paymentError}</AlertDescription>
+                        </Alert>
+                      )}
+                      <div className="p-4 bg-muted/50 rounded-lg border border-dashed">
+                        <p className="text-muted-foreground text-center text-sm">
+                          {isCheckoutReady
+                            ? "Click \"Proceed to Payment\" to continue"
+                            : "Complete shipping selection to proceed"}
+                        </p>
+                      </div>
+                      {isCheckoutReady && (
+                        <Button
+                          onClick={initiateCheckout}
+                          disabled={isProcessingCheckout}
+                          className="w-full"
+                          size="lg"
+                        >
+                          {isProcessingCheckout ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            "Proceed to Payment"
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -465,21 +745,39 @@ export default function SaleCheckoutPage() {
                       </div>
 
                       {/* CTA Button */}
-                      <Button
-                        className="w-full"
-                        size="lg"
-                        disabled={!isCheckoutReady}
-                      >
-                        Pay Now
-                      </Button>
-                      {!isCheckoutReady && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          {!selectedShippingOption
-                            ? "Select a shipping method to continue"
-                            : serviceType === "pickup_point" && !selectedServicePoint
-                            ? "Select a pickup point to continue"
-                            : "Fill in shipping address to continue"}
-                        </p>
+                      {checkoutData?.clientSecret ? (
+                        // Already have payment intent - show info
+                        <div className="text-center text-sm text-muted-foreground">
+                          <ShieldCheck className="h-5 w-5 mx-auto mb-2 text-green-500" />
+                          Complete payment in the form above
+                        </div>
+                      ) : (
+                        <>
+                          <Button
+                            className="w-full"
+                            size="lg"
+                            disabled={!isCheckoutReady || isProcessingCheckout}
+                            onClick={initiateCheckout}
+                          >
+                            {isProcessingCheckout ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              "Pay Now"
+                            )}
+                          </Button>
+                          {!isCheckoutReady && (
+                            <p className="text-xs text-muted-foreground text-center">
+                              {!selectedShippingOption
+                                ? "Select a shipping method to continue"
+                                : serviceType === "pickup_point" && !selectedServicePoint
+                                ? "Select a pickup point to continue"
+                                : "Fill in shipping address to continue"}
+                            </p>
+                          )}
+                        </>
                       )}
                     </>
                   )}

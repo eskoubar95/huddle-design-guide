@@ -140,20 +140,88 @@ export class CheckoutService {
     }
 
     // 3. Check for existing pending/completed transaction (double purchase prevention)
-    const { data: existingTransaction } = await supabase
+    // Strategy:
+    // - Completed/processing transactions: always block (item sold)
+    // - Pending from same buyer: always reuse (user retrying checkout)
+    // - Pending from different buyer < 15 min old: block (someone else is checking out)
+    // - Pending from different buyer >= 15 min old: cancel and allow (abandoned checkout)
+    const { data: existingTransactions } = await supabase
       .from("transactions")
-      .select("id, status")
+      .select("id, status, buyer_id, created_at")
       .eq("listing_id", listingId)
-      .in("status", ["pending", "completed", "processing"])
-      .single();
+      .in("status", ["pending", "completed", "processing"]);
 
-    if (existingTransaction) {
-      throw new ApiError(
-        "CONFLICT",
-        "This item is already being purchased or has been sold.",
-        409
+    let existingPendingTransactionId: string | null = null;
+
+    if (existingTransactions && existingTransactions.length > 0) {
+      // Check for completed/processing transactions (always block)
+      const completedOrProcessing = existingTransactions.find(
+        (t) => t.status === "completed" || t.status === "processing"
       );
+      if (completedOrProcessing) {
+        throw new ApiError(
+          "CONFLICT",
+          "This item has already been sold.",
+          409
+        );
+      }
+
+      // Check for pending transactions
+      const pendingTransaction = existingTransactions.find(
+        (t) => t.status === "pending"
+      );
+      if (pendingTransaction && pendingTransaction.created_at) {
+        const transactionAge = Date.now() - new Date(pendingTransaction.created_at).getTime();
+        const fifteenMinutes = 15 * 60 * 1000;
+
+        if (pendingTransaction.buyer_id === buyerId) {
+          // Same buyer retrying checkout - always reuse
+          existingPendingTransactionId = pendingTransaction.id;
+          Sentry.addBreadcrumb({
+            category: "checkout",
+            message: "Reusing existing pending transaction",
+            level: "info",
+            data: { transactionId: pendingTransaction.id.slice(0, 8) },
+          });
+        } else if (transactionAge < fifteenMinutes) {
+          // Different buyer with recent pending transaction - block
+          throw new ApiError(
+            "CONFLICT",
+            "This item is currently being purchased by another user. Please try again in a few minutes.",
+            409
+          );
+        } else {
+          // Different buyer with stale pending transaction - cancel it and proceed
+          await supabase
+            .from("transactions")
+            .update({ status: "cancelled" })
+            .eq("id", pendingTransaction.id);
+
+          Sentry.addBreadcrumb({
+            category: "checkout",
+            message: "Cancelled stale pending transaction from another buyer",
+            level: "info",
+            data: { 
+              cancelledTransactionId: pendingTransaction.id.slice(0, 8),
+              ageMinutes: Math.round(transactionAge / 60000),
+            },
+          });
+        }
+      }
     }
+
+    // Add breadcrumb: Listing validated
+    Sentry.addBreadcrumb({
+      category: "checkout.validation",
+      message: "Listing validated successfully",
+      level: "info",
+      data: {
+        listingIdPrefix: listingId.slice(0, 8),
+        sellerIdPrefix: listing.seller_id.slice(0, 8),
+        buyerIdPrefix: buyerId.slice(0, 8),
+        listingStatus: listing.status,
+      },
+    });
 
     // 4. Verify seller has active Stripe account
     const { data: sellerStripe } = await supabase
@@ -163,6 +231,16 @@ export class CheckoutService {
       .single();
 
     if (!sellerStripe || sellerStripe.status !== "active" || !sellerStripe.charges_enabled) {
+      Sentry.addBreadcrumb({
+        category: "checkout.validation",
+        message: "Seller Stripe account not ready",
+        level: "warning",
+        data: {
+          sellerIdPrefix: listing.seller_id.slice(0, 8),
+          stripeStatus: sellerStripe?.status || "missing",
+          chargesEnabled: sellerStripe?.charges_enabled || false,
+        },
+      });
       throw new ApiError(
         "BAD_REQUEST",
         "Seller's payment account is not ready to receive payments.",
@@ -180,38 +258,94 @@ export class CheckoutService {
       platformFeeCents,
     });
 
-    // 6. Create transaction record (pending)
-    const { data: transaction, error: transactionError } = await supabase
-      .from("transactions")
-      .insert({
-        listing_id: listingId,
-        listing_type: "sale",
-        buyer_id: buyerId,
-        seller_id: listing.seller_id,
-        amount: listing.price, // Legacy field - item price in major units
-        item_amount: itemCents,
-        shipping_amount: shippingCostCents,
-        platform_fee_amount: platformFeeCents,
-        total_amount: totalCents,
+    // Add breadcrumb: Fees calculated
+    Sentry.addBreadcrumb({
+      category: "checkout.calculation",
+      message: "Fees and total calculated",
+      level: "info",
+      data: {
+        itemCents,
+        shippingCents: shippingCostCents,
+        platformFeeCents,
+        platformFeePercent: platformPct,
+        totalCents,
         currency: "EUR",
-        status: "pending",
-      })
-      .select("id")
-      .single();
+      },
+    });
 
-    if (transactionError || !transaction) {
-      Sentry.captureException(transactionError, {
-        tags: { component: "checkout_service", operation: "create_transaction" },
-        extra: { listingId, buyerId },
-      });
-      throw new ApiError(
-        "INTERNAL_ERROR",
-        "Failed to create transaction. Please try again.",
-        500
-      );
+    // 6. Create or reuse transaction record (pending)
+    let transaction: { id: string };
+
+    if (existingPendingTransactionId) {
+      // Reuse existing pending transaction
+      const { data: existingTransaction, error: fetchError } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("id", existingPendingTransactionId)
+        .single();
+
+      if (fetchError || !existingTransaction) {
+        Sentry.captureException(fetchError, {
+          tags: { component: "checkout_service", operation: "fetch_existing_transaction" },
+          extra: { listingId, buyerId, existingPendingTransactionId },
+        });
+        throw new ApiError(
+          "INTERNAL_ERROR",
+          "Failed to fetch existing transaction. Please try again.",
+          500
+        );
+      }
+
+      transaction = existingTransaction;
+    } else {
+      // Create new transaction
+      const { data: newTransaction, error: transactionError } = await supabase
+        .from("transactions")
+        .insert({
+          listing_id: listingId,
+          listing_type: "sale",
+          buyer_id: buyerId,
+          seller_id: listing.seller_id,
+          amount: listing.price, // Legacy field - item price in major units
+          item_amount: itemCents,
+          shipping_amount: shippingCostCents,
+          platform_fee_amount: platformFeeCents,
+          total_amount: totalCents,
+          currency: "EUR",
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (transactionError || !newTransaction) {
+        Sentry.captureException(transactionError, {
+          tags: { component: "checkout_service", operation: "create_transaction" },
+          extra: { listingId, buyerId },
+        });
+        throw new ApiError(
+          "INTERNAL_ERROR",
+          "Failed to create transaction. Please try again.",
+          500
+        );
+      }
+
+      transaction = newTransaction;
     }
 
     try {
+      // Add breadcrumb: Starting Medusa order creation
+      Sentry.addBreadcrumb({
+        category: "checkout.medusa",
+        message: "Creating Medusa order",
+        level: "info",
+        data: {
+          transactionIdPrefix: transaction.id.slice(0, 8),
+          listingIdPrefix: listingId.slice(0, 8),
+          shippingMethod,
+          shippingCountry: shippingAddress.country, // Country code only, no PII
+        },
+      });
+
       // 7. Create Medusa order
       const medusaShippingAddress: ShippingAddress = {
         street: shippingAddress.street,
@@ -238,11 +372,36 @@ export class CheckoutService {
         shippingCostCents
       );
 
+      // Add breadcrumb: Medusa order created
+      Sentry.addBreadcrumb({
+        category: "checkout.medusa",
+        message: "Medusa order created successfully",
+        level: "info",
+        data: {
+          orderIdPrefix: medusaOrder.id.slice(0, 8),
+          transactionIdPrefix: transaction.id.slice(0, 8),
+        },
+      });
+
       // Update transaction with Medusa order ID
       await supabase
         .from("transactions")
         .update({ medusa_order_id: medusaOrder.id })
         .eq("id", transaction.id);
+
+      // Add breadcrumb: Starting Stripe Payment Intent creation
+      Sentry.addBreadcrumb({
+        category: "checkout.stripe",
+        message: "Creating Stripe Payment Intent",
+        level: "info",
+        data: {
+          transactionIdPrefix: transaction.id.slice(0, 8),
+          orderIdPrefix: medusaOrder.id.slice(0, 8),
+          amountCents: totalCents,
+          currency: "EUR",
+          sellerIdPrefix: listing.seller_id.slice(0, 8),
+        },
+      });
 
       // 8. Create Stripe Payment Intent
       const paymentIntentParams: CreatePaymentIntentParams = {
@@ -267,6 +426,17 @@ export class CheckoutService {
       };
 
       const paymentIntent = await this.stripeService.createPaymentIntent(paymentIntentParams);
+
+      // Add breadcrumb: Payment Intent created
+      Sentry.addBreadcrumb({
+        category: "checkout.stripe",
+        message: "Stripe Payment Intent created successfully",
+        level: "info",
+        data: {
+          paymentIntentIdPrefix: paymentIntent.id.slice(0, 8),
+          transactionIdPrefix: transaction.id.slice(0, 8),
+        },
+      });
 
       // Update transaction with Stripe Payment Intent ID
       await supabase
@@ -303,6 +473,34 @@ export class CheckoutService {
         servicePoint,
       };
     } catch (error) {
+      // Add breadcrumb: Error during checkout
+      Sentry.addBreadcrumb({
+        category: "checkout.error",
+        message: "Error during checkout process",
+        level: "error",
+        data: {
+          transactionIdPrefix: transaction.id.slice(0, 8),
+          listingIdPrefix: listingId.slice(0, 8),
+          errorType: error instanceof ApiError ? error.code : "UNKNOWN_ERROR",
+          // No PII in error data
+        },
+      });
+
+      // Capture exception (Sentry will automatically include breadcrumbs)
+      Sentry.captureException(error, {
+        tags: {
+          component: "checkout_service",
+          operation: "init_checkout",
+        },
+        extra: {
+          listingIdPrefix: listingId.slice(0, 8),
+          buyerIdPrefix: buyerId.slice(0, 8),
+          transactionIdPrefix: transaction.id.slice(0, 8),
+          shippingMethod,
+          // No PII - only prefixes and metadata
+        },
+      });
+
       // Rollback: Mark transaction as failed
       await supabase
         .from("transactions")

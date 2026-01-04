@@ -133,22 +133,67 @@ export class StripeService {
       // Buyer pays: item + shipping + platform fee (total)
       // MVP: All payments in EUR (hardcoded)
       // Future: Use params.currency from listing
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: params.amount, // Total amount buyer pays (item + shipping + platform fee)
-        currency: "eur", // MVP: Hardcoded EUR, Future: params.currency
-        application_fee_amount: platformFeeCents, // Platform fee (5% all-in)
-        transfer_data: {
-          destination: sellerAccount.stripe_account_id,
-        },
-        metadata: {
-          buyer_id: params.buyerId,
-          seller_id: params.sellerId,
-          ...params.metadata,
-        },
-        automatic_payment_methods: {
-          enabled: true,
-        },
-      });
+      
+      // Check if seller's account has transfers capability (required for Connect)
+      // In development, we may need to skip Connect if test account doesn't support transfers
+      const isDevelopment = process.env.NODE_ENV === "development";
+      let paymentIntent: Stripe.PaymentIntent;
+      
+      try {
+        // Try with Connect (production flow)
+        paymentIntent = await this.stripe.paymentIntents.create({
+          amount: params.amount, // Total amount buyer pays (item + shipping + platform fee)
+          currency: "eur", // MVP: Hardcoded EUR, Future: params.currency
+          application_fee_amount: platformFeeCents, // Platform fee (5% all-in)
+          transfer_data: {
+            destination: sellerAccount.stripe_account_id,
+          },
+          metadata: {
+            buyer_id: params.buyerId,
+            seller_id: params.sellerId,
+            ...params.metadata,
+          },
+          automatic_payment_methods: {
+            enabled: true,
+          },
+        });
+      } catch (connectError) {
+        // If Connect fails due to missing capabilities, fall back in development
+        if (
+          isDevelopment &&
+          connectError instanceof Stripe.errors.StripeError &&
+          connectError.message?.includes("capabilities")
+        ) {
+          console.warn(
+            "[STRIPE] Connect not available for seller, using direct payment (dev only):",
+            connectError.message
+          );
+          Sentry.addBreadcrumb({
+            message: "Using direct payment fallback (Connect not available)",
+            level: "warning",
+            data: { sellerIdPrefix: params.sellerId.slice(0, 8) },
+          });
+          
+          // Create payment without Connect (development fallback)
+          // WARNING: This means seller won't receive payment automatically!
+          paymentIntent = await this.stripe.paymentIntents.create({
+            amount: params.amount,
+            currency: "eur",
+            metadata: {
+              buyer_id: params.buyerId,
+              seller_id: params.sellerId,
+              dev_fallback: "true", // Mark as dev fallback
+              ...params.metadata,
+            },
+            automatic_payment_methods: {
+              enabled: true,
+            },
+          });
+        } else {
+          // Re-throw in production or for other errors
+          throw connectError;
+        }
+      }
 
       return paymentIntent;
     } catch (error) {
@@ -162,13 +207,25 @@ export class StripeService {
           );
         }
         if (error.type === "StripeInvalidRequestError") {
+          console.error("[STRIPE] StripeInvalidRequestError:", {
+            message: error.message,
+            code: error.code,
+            param: error.param,
+            sellerIdPrefix: params.sellerId.slice(0, 8),
+            amount: params.amount,
+          });
           Sentry.captureException(error, {
             tags: { component: "stripe_service", operation: "create_payment_intent" },
-            extra: { sellerIdPrefix: params.sellerId.slice(0, 8) },
+            extra: { 
+              sellerIdPrefix: params.sellerId.slice(0, 8),
+              stripeErrorMessage: error.message,
+              stripeErrorCode: error.code,
+              stripeErrorParam: error.param,
+            },
           });
           throw new ApiError(
             "BAD_REQUEST",
-            "Invalid payment request. Please check your payment details.",
+            `Invalid payment request: ${error.message}`,
             400
           );
         }
@@ -395,6 +452,55 @@ export class StripeService {
         "Failed to retrieve Stripe account information",
         502
       );
+    }
+  }
+
+  /**
+   * Request transfers capability for a Connect account
+   * This is required for destination charges to work
+   */
+  async requestTransfersCapability(accountId: string): Promise<{
+    success: boolean;
+    capabilities: Record<string, string>;
+  }> {
+    try {
+      const account = await this.stripe.accounts.update(accountId, {
+        capabilities: {
+          transfers: { requested: true },
+        },
+      });
+
+      return {
+        success: true,
+        capabilities: {
+          transfers: account.capabilities?.transfers || "inactive",
+          card_payments: account.capabilities?.card_payments || "inactive",
+        },
+      };
+    } catch (error) {
+      console.error("[STRIPE] Failed to request transfers capability:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Sentry.captureException(error, {
+        tags: { component: "stripe_service", operation: "request_transfers_capability" },
+        extra: { accountIdPrefix: accountId.slice(0, 8), errorMessage },
+      });
+      throw new ApiError(
+        "EXTERNAL_SERVICE_ERROR",
+        `Failed to request transfers capability: ${errorMessage}`,
+        502
+      );
+    }
+  }
+
+  /**
+   * Check if a Connect account has transfers capability active
+   */
+  async hasTransfersCapability(accountId: string): Promise<boolean> {
+    try {
+      const account = await this.stripe.accounts.retrieve(accountId);
+      return account.capabilities?.transfers === "active";
+    } catch {
+      return false;
     }
   }
 }
